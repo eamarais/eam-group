@@ -1,0 +1,413 @@
+Python Self-taught Review Notes:
+
+Resources used to generate review notes:
+https://diveintopython3.problemsolving.io/
+https://docs.python.org/3/tutorial/index.html
+
+Summary is for interpreter interface on Unix.
+
+Leicester HPC:
+Aliases created include “load_python” to set up interactive mode and launch Python, “py” to launch Python.
+[ ]$ conda deactivate # to deactivate the virtual environment.
+
+General:
+•	Use # to comment (added emacs shortcut key: \).
+•	Declare function as “def function (arguments)”
+•	No subroutines in Python
+•	It’s possible to define/create functions in the shell
+•	No need to declare data types. Python figures this out.
+•	Docstring: Include at start of module or function starting and ending with ‘’’. 
+•	To modify list of files in sys.path, use sys.path.append to add or sys.path.insert to replace
+•	Indentations must be consistent.
+•	Everything in Python is case sensitive.
+•	Indices start at 0 and count forwards; reserve call to indices start at -1 and count backward.
+•	If reading long file, type “q” to return to interactive Python shell.
+•	Default encoding in Python 3 is UTF-8
+•	Last printed expression (even if named) is assigned the variable ‘_’
+•	Can use strings and numbers in print statements:
+>>> i = 256
+>>> print(“The value of i is”, i)
+•	Syntax: obj.methodname (e.g. result.append), where obj is the expression and methodname is the method.
+•	Operator priority: “not” is highest priority; “or” is lowest (use parentheses to set priority is unsure).
+•	*.pyc are cached versions of compiled Python modules. These load faster than *.py files.
+•	builtins is a module of the builtin functions and variables.
+
+Useful Commands:
+>>> exit() # to exit Python
+>>> quit() # also to exit Python
+Or type CTRL+d.
+
+>>> help(module) for information on any module
+
+To use command line prompts like “ls”, “ls -la”, “pwd” etc.:
+>>> import os
+>>> os.system(“cmd”) # where cmd is the command line prompt
+
+>>> type(value) # determine the data type
+>>> isinstance(value, int) # check what value type. If integer, return value it True.
+
+“\” used to escape quotes, as in ‘doesn\’t’, equivalent to “doesn’t”
+
+print() produces more readable output with special characters than if not used 
+
+>>> x=int(input(“Please enter as integer: “)) # input used to request user input
+
+>>> break # use to terminate loop
+
+>>> continue # to continue with next iteration
+
+... return result # returns value of function
+Use result.append to add an element to the end (equivalent to “+” for a list)
+
+Annotations are stored in the .__annotations__ attribute
+
+Use enumerate function to retrieve position index and corresponding value simultaneously:
+>>> for i, v in enumerate([‘tic’, ’tac’ ,’toe’]):
+...      print(i, v)
+
+Use reversed() to loop over a sequence in reverse:
+>>> for i in reversed(range(1, 10, 2)):
+...      print(i)
+
+Use sorted() to  loop over list in sorted (alphanumeric) order. Only works if list is either sequence of strings or numbers.
+
+>>> new_array = [ ] # to initialize new empty array
+
+>>> dir(module) # use to list names (variables, modules, functions etc.) a module defines
+
+>>> print(data.shape) # to display shape of numpy data array. len() only works for 1-D.
+
+>>> cldfrac[cldfrac==fillval]=np.nan.  # replace fill value with nan 
+
+>>> testarr=np.empty([cols,rows],dtype=float) # to create numpy array
+
+>>> print(totno2[np.where( totno2 < 1e+36 )]) # Find and print values < 1e36.
+
+>>> totno2[ttotno2.mask[0,:,:]]=float("nan") # Replace data array indices with NAN if corresponding mask indices are FALSE
+
+>>> cnt=np.count_nonzero(~np.isnan(totno2)) # Find and count locations with NAN
+
+>>> cols=len(cldfrac[:,0]) # Get no. of cols (rows=len(cldfrac[0,:]) for no. of rows).
+
+>>> test=np.asarray(test) # convert data from tuple to numpy array
+
+>>> np.set_printoptions(threshold=sys.maxsize) # to output everything (default is to output segment of numpy array).
+
+>>> b=test[~np.isnan(test)] # indices in test that are not nan
+
+>>> x=np.linspace(0.0, 5.0) # numpy array; entries include (start,stop). Number is optional. Default is 50.
+
+>>> outgrid = {'lon': np.linspace(-179, 179, 144), 'lat': np.linspace(-90, 90, 91)} # to declare output grid as dictionary (called as outgrid[‘lon’].
+
+>>> os.path.exists(path) # true if file exists; false if not.
+
+>>> os.path.isfile(path) # true if path is a regular file or symlink to a file.
+>>> os.path.isdir(path) # true if path is a directory or symlink to a directory.
+
+>>> np.amax(nparray) # get max value in numpy array.
+
+>>> random.sample(a_list,50) # Randomly select 50 items from a_list
+
+Range:
+Use range(start, stop, step) to iterate over specific sequence:
+>>> for i in range(5): # will loop over numbers 0 to 5.
+
+Use range to create list (range itself isn’t a list):
+>>> list(range(10))
+
+Conditional statements:
+Syntax:
+>>> while a < 10:
+Multiline operations (if, for, while) end with a blank line.
+If statements use “if”, “elif”, and “else”. “else” is optional. 
+Conditional statement always ends with “:”.
+
+For statement simplified to:
+>>> for w in list:   # w is the entry not the index
+“else” can be used in for loop (indentation aligned with for).
+
+Use the “in” keyword to test whether sequence has a specific value:
+>>> if ok in (‘y’, ‘yes’, ‘yeah’, ‘ye’):
+
+Math:
+>>> int(value) # truncate, not round off
+>>> round(value) # round off
+>>> round(value, 1) # Can also specify to which decimal point
+>>> Import math # to use math functions like math.isnan etc.
+>>> math.ceil(value) 
+>>> math.floor(value) # many more: pi etc.
+>>> import fractions # to deal with fractions
+>>> import decimal # to deal with decimals
+“j” used to indicate imaginary part of complex numbers, as in “3 + 5j”.
+
+>>> list(zip(*matrix)) # to transpose matrix (* used to unpack arguments out of a list or tuple).
+
+Use “if not math.isnan(value):” to loop over NAN (requires math module).
+
+Errors:
+>>> raise ValueError(‘Error message’) # to create value error message
+>>> raise ValueType(‘Error message’) # to create value type error message
+A traceback error is generated if no “raise” statement is written to catch it. 
+
+Lists:
+>>> a_list[1:4] # prints 2nd, 3rd, and 4th entry in a list called a_list (i.e. excludes the 5th).
+>>> a_list[1:] # prints from 2nd to last entry
+Use “+”, append, insert to modify list
+>>> len(a_list) # length of list (number of list entries)
+>>> a_list.count(value) # number of occurrences of a specific entry
+>>> a_list.index(value) # index location of entry (gives first if multiple of the same value)
+>>> ind=[i for i in range(len(a_list)) if a_list[i]==’val’] # find indices if value multiple entries.
+>>> del a_list[2] # remove 3rd list item
+>>> del a_list # deletes whole list (no longer exists)
+>>> del a_list[:] # empties list, but still exists.
+>>> a_list.remove[‘value’] # remove 1st entry of specific value
+>>> pop(index) # removes and returns a value from a list
+
+It’s possible to nest lists.
+
+Tuples:
+>>> a_tuple=(“a”,”b”,”c”,True) # Tuple defined with “()” and can’t be changed (immutable).
+>>> tuple(a_list) # convert list to tuple
+>>> list(a_tuple) # convert tuple to list
+
+Sets:
+Bags of unique values
+Created with curly brackets. Unordered
+>>> a_set=set(a_list) # convert list to set
+Use add(), update(), discard(), and remove() to modify the set.
+>>> a_set.clear() # delete all values in a set
+
+Strings:
+Define with single or double quotes.
+Use len(), indexing, concatenating (with “+”), and cutting (with [ ]) as with lists.
+Use format() to print to screen in specific format.
+Within formatting declaration ‘{0}{1:.1f}’, the “:” marks the start of the format specifier, “.1” means round to nearest tenth, “f” is fixed-point precision.
+>>> string.splitlines() # split a string (named string) into one element for each line
+>>> strong.lower() # change all to lower case
+>>> string.upper() # change all to upper case
+>>> string.count(‘f’) # number of occurrences of ‘f’ in string
+>>> a_list = string.split(‘&’) # splits string at ‘&’ and create new list
+
+Strings can be repeated with “*”, e.g. 3*”un” prints ununun.
+
+Two or more strings next to each other are automatically concatenated
+
+>>> strip(a_list) # to remove training or leading blank spaces of characters
+
+Use repr() or str() for quick output of string
+
+Use str.rjust(), str.ljust(), str.center() to format location of string.
+
+Use str.zfill() to pad numeric string on left with zeros (understands “+” and “-“ signs).
+
+Format specification resource: https://docs.python.org/3.1/library/string.html#format-specification-mini-language
+
+Nomenclature:
+“=” for assignment; “==” for comparison.
+“/” for floating point divide
+“//” for floating point divide followed by truncation if positive, rounding down if negative.
+“**” for raised to the power of
+“%” to return the remainder after division
+“!=” is not equal to
+“==” is equal to
+“<=” is less than and equal to
+
+Directory and file manipulation:
+>>> import os # to use operating system commands
+>>> print(os.getcwd()) # like pwd
+>>> os.path.realpath(‘humansize.py’) # outputs pathname all the way back to the route
+>>> os.chdir(‘/data/uptrop/em440/Projects/’) # to change directories
+>>> print(os.path.join(‘String1’, ‘String2’) # concatenate strings
+>>> print(os.path.expanduser(‘~’)) # home directory
+Python adds ‘/’ between directories joined together with os.path.join
+>>> os.path.split(path) # splits directory and filename of tuple
+>>> os.path.splitext(file) # splits name and extension (i.e. .py)
+>>> (name, extension) = os.path.splitext(file) # gives names to elements of tuple
+
+>>> import glob
+>>> glob.glob(‘/data/uptrop/em440/Projects/*.nc’) # find relevant files using wildcard
+Can handle multiple wildcards, like (‘*test*.py’)
+
+Metadata:
+>>> metadata = os.state(‘file.xml’) # to extract metadata info
+
+Time:
+>>> import time # time manipulation module
+>>> time.localtim()
+
+Modules:
+Import statements appear at beginning of module file.
+
+>>> pydoc module  # list all loaded modules
+>>> import sys # makes all system attributes and function available
+
+>>> import module # import whole module
+>>> from module import function # import named function in module
+>>> from module import * # import all functions in module
+>>> import module as new_name # to rename module
+>>> function = module.function # similar to the above command
+>>> del module # to unload module
+
+Import multiple modules on one line by separating each with a comma:
+>>> import math, fractions, decimal
+
+Reload module:
+>>> import importlib
+>>> importlib.reload(module)
+
+Global Variables:
+>>> module.__doc__ # print the docstring of the module 
+>>> module.function.__doc__ # print docstring of function
+>>> module.__name__ # name of module (module.function.__doc__ for name of function)
+
+Run script from command line 
+[ ]$ python module.py <arguments>
+Executes module as specified under the portion of the code marked “__main__”, for e.g.:
+if __name__ == “__main__”:
+    import sys
+    fib(int(sys.arg[1]))
+
+Packages:
+E.g., xesmf, matlibplot etc.
+
+__init.py__ is the file that ensures Python treats directories containing the file as a package.
+
+>>> import matplotlib.tri.triangulation # call after period can’t be class/function; can be module/package.
+
+“__path__” attribute is the name of the directory holding the package’s __init__.py file.
+
+Read/Write files:
+>>> open(filename, mode) # open file and return file object; mode is optional
+Mode can be ‘w’, ‘r’, ‘a’, ‘r+’ for write, read, append, read and write, ‘rb’ is read binary file. Default is text.
+
+Use “with” to read file and contents and end with close:
+>>> with open(‘filename’, ’rb’) as f:
+...   contents = f.read() # only returns strings.
+
+>>> f.closed
+
+If not using “with”, then us f.close() (frees up system resources).
+
+f.readline reads a single line.
+
+Loop over file object to read in lines of code:
+>>> for line in f:
+...   print(line, end=’’)
+
+Read lines of file in a list using list(f) or f.readlines().
+
+>>> r.write(‘Write this to the file\n’) # to write contents to the file.
+
+Virtual environment (VE) and Miniconda:
+VE or isolated running environment used to handle the need for different versions of Python/libraries etc. for different packages.
+
+Set up unique VE for each application.
+
+To create the VE venv_name at command line:
+[ ]$ conda create -n venv_name python=3.7 # folder for this is ./miniconda/envs/
+
+To activate VE:
+[ ]$ conda activate venv_name # shell prompt changes from “[ ]$” to “(venv_name)[ ]$”
+
+To deactivate VE:
+( )[ ]$ conda deactivate
+
+Special install instructions for xesmf (obtained from this thread: https://github.com/JiaweiZhuang/xESMF/issues/55#issuecomment-514298498):
+( )[ ]$ conda install -c conda-forge esmpy
+( )[ ]$ pip install xesmf
+( )[ ]$ conda install -c conda-forge dask netCDF4
+( )[ ]$ conda install -c conda-forge matplotlib cartopy jupyterlab
+
+Update xESMF to latest version:
+( )[ ]$ pip install --upgrade git+https://github.com/JiaweiZhuang/xESMF.git
+
+Delete conda VE:
+[ ]$ conda env remove --name bio-env
+
+Clone conda VE:
+[ ]$ conda create --clone venv_name --name venv_name-2
+
+Conda cheat sheet: https://docs.conda.io/projects/conda/en/4.6.0/_downloads/52a95608c49671267e40c689e0bc00ca/conda-cheatsheet.pdf
+
+pip:
+Install packages using pip from the Python Package Index (https://pypi.org/)
+
+Go to https://pypi.org/ to find available packages or use pip limited search feature:
+( )[ ]$ pip search gridding
+
+Install packages at the command line:
+( )[ ]$ pip install package # located in subdirectory ./miniconda/envs/venv_name/lib/python3.7/site-packages/
+
+Install package:
+( )[ ]$ pip install spacegrids
+
+Install specific version:
+( )[ ]$ pip install requests==2.6.0
+
+Upgrade to latest version:
+( )[ ]$ pip install --upgrade requests
+
+Remove package (will be prompted for “y” or “n” to confirm uninstall):
+( )[ ]$ pip uninstall requests
+
+Display all packages installed on the VE:
+( )[ ]$ pip list
+
+Save list of packages installed on the VE to file
+( )[ ]$ pip freeze > requirements.txt
+
+File can ship with version control and use to quickly install all necessary packages (but better to use conda to clone virtual environment):
+( )[ ]$ pip install -r requirements.txt
+
+Use pytest testing framework to test codes written in Python (can test other codes):
+( )[ ]$ pip install pytest # install
+( )[ ]$ pytest -v –pyargs package # run test of package
+
+Install basecamp:
+Followed installation instructions from this link (pip and conda install didn’t work: https://www.reddit.com/r/learnpython/comments/2b4p71/trouble_installing_basemap/)
+In VE and home directory (standard install doesn’t work):
+( )[ ]$ conda install -c conda-forge/label/broken basemap 
+
+Regridding:
+Attempted routines that either didn’t work or that lead to odd results:
+scipy.interpolate.ndgriddata.griddata
+basemap.interp
+pyinterp.Grid2D
+pyinterp.bivariate
+xesmf.Regridder
+
+Working with shapefiles:
+Package and documentation link: https://pypi.org/project/pyshp/#reading-shapefiles
+
+
+Discussion of how to plot a shapefile (couldn’t get first shorthand option to work): https://gis.stackexchange.com/questions/131716/plot-shapefile-with-matplotlib
+
+Reading GEOS-Chem bpch files:
+If get pandas error “KeyError: 'name'”, then it’s likely that the variable is missing from tracerinfo.dat
+
+Additional Resources:
+Documentation:
+Built in types: https://docs.python.org/2/library/stdtypes.html
+Save file as postscript: https://www.seehuhn.de/pages/psfile.html#sec:3.2.1
+Regular expressions: https://docs.python.org/dev/library/re.html#module-contents
+Glossary: https://docs.python.org/3/glossary.html#glossary
+String formatting: https://docs.python.org/3/library/stdtypes.html#old-string-formatting
+Writing NetCDF-4 files: https://iescoders.com/writing-netcdf4-data-in-python/
+Color maps references: https://matplotlib.org/examples/color/colormaps_reference.html
+
+Python code on github:
+GEOS-Chem routines: https://github.com/JiaweiZhuang/GCHP_python
+
+Unresolved Issues:
+Can I use a startup script to import certain modules and set directories when startup Python?
+Can’t figure out neat way to run and rerun script in interactive mode. Currently running in command line using “python script_name.py” after changing to executable using “chmod +x script_name.py”.
+
+Need to create python startup file (startup_python.py) to set environmental variables.
+Some helpful links:
+https://bic-berkeley.github.io/psych-214-fall-2016/using_pythonpath.html
+https://gist.github.com/jpadilla/6022163
+https://www.assertnotmagic.com/2018/06/30/python-startup-file/
+https://github.com/jezdez/python-startup/blob/master/startup.py
+http://pythonprogramminglanguage.info/doc/FAQ.html (for autocomplete setting)
+
+Still need to set environment variable for miniconda. Instructions here: https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/applications/python
