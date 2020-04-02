@@ -1,0 +1,32 @@
+#!/bin/bash
+#
+#PBS -N ut_no2_01
+#PBS -l nodes=1:ppn=1
+#PBS -l walltime=6:00:00
+#PBS -l vmem=8gb
+#PBS -M username@domain
+#PBS -m bea
+
+# Load environment modules
+export OMP_NUM_THREADS=1
+
+# Move to relevant working directory that has the Python script:
+cd /data/uptrop/Projects/UpTrop/python/
+
+# Check that in the correct folder:
+# pwd
+
+# Activate your virtual environment:
+source /home/e/em440/miniconda/envs/gc_uptrop/bin/activate
+
+# Check that virtual environment is loaded:
+# pip -V
+
+# Run the code:
+python tropomi_ut_no2.py
+
+# Deactivate the virtual environment:
+conda deactivate
+
+# Exit normally
+exit 0
