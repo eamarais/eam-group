@@ -148,11 +148,8 @@ for f,files in enumerate(files):
 
     print('Processing:',files[-86:],flush=True)
 
-    # Count valid data for each orbit:
-    #NOrb=0.
-
+    # Define data structure:
     fh=Dataset(files,mode='r')
-    #print(fh.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA'].variables['cloud_fraction_crb'])
 
     # These actually only need to be defined once (consider changing in 
     # the future).
