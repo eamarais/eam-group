@@ -238,8 +238,8 @@ for f in range(nfiles):
                     (tftop<=45000)&(tfsnow==0))[0]
     nobs_fresco=nobs_fresco+len(fr_ind)
 
-    #m=md
-    #n=nd
+    m=md
+    n=nd
     # Skip files if the number of indices are not equal:
     if mf!=md:
         print('Indices ne for ', tdfile[f])
