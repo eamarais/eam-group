@@ -1,4 +1,4 @@
-Resources for students and postdocs starting in the Marais Research Group at University of Leicester. 
+Resources for students and postdocs starting in the Marais Research Group at University of Leicester (UoL). 
 
 This document is preliminary and still under development. 
 
@@ -16,14 +16,36 @@ GEOS-Chem model website: http://acmg.seas.harvard.edu/geos/index.html
 =======================
 EOS Group Resources:
 =======================
+There is an email list. Check with Bev Robinson that you have been added to this
+
 EOS wiki (internal) with EOS group seminar series schedule: https://wiki.lamp.le.ac.uk/eos/index.php/Seminars
 
-
+EOS group meetings occur monthly or biweekly depending on the time of year. These can also occur with the Centre for Landscape and Climate Research (CLCR; https://www2.le.ac.uk/colleges/scieng/research/centres/clcr). EOS only and EOS-CLCR seminars are on Fridays at 10-11:30am and typically include 2 speakers. Kamil Mroz, postdoc in EOS, organizes these and sends calendar invites of upcoming talks to the EOS mailing list. 
 
 
 ====================================
 University of Leicester Resources:
 ====================================
+Leicester HPC general introduction page: https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc
 
+IT isssues (internal only): Submit ticket via https://ithelp.le.ac.uk/
+HPC-related issues: email Research Computing with your query (rcs [dot] support [at] le [dot] ac [dot] uk
 
+Online IT, HPC, and programming training slides (replacing in-person training options during covid-19 lockdown):
+https://www2.le.ac.uk/offices/staff-development/events/courses/it/copy_of_it-training-temporary-help
 
+Recommended training: 
+    High Performance Computing at Leicester
+    Introduction to Version Control
+    Linux Introduction (if new to Unix/Linux systems)
+    Python Programming at various levels
+
+HPC service days: https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/service-days
+
+Weekly software surgery Thursdays at 4-5pm (via Microsoft Teams during lockdown). Delivered by python expert. Either join to get help with coding or to help others learning to code. Email reminder and Teams link sent weekly by a Research Software Engineering Specialist to HPC email list (that you are added to once registered to access the UoL servers)
+
+NoMachine virtual desktop to access Leicester services:
+https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/spectre/access/nx5
+https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/spectre/access/nx-basic-usage
+
+ZendTo file share tool for sharing large files: https://filedrop.le.ac.uk/
