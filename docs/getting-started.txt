@@ -28,6 +28,8 @@ University of Leicester Resources:
 ====================================
 Leicester HPC general introduction page: https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc
 
+HPC FAQs: https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/faq
+
 IT isssues (internal only): Submit ticket via https://ithelp.le.ac.uk/
 HPC-related issues: email Research Computing with your query (rcs [dot] support [at] le [dot] ac [dot] uk
 
