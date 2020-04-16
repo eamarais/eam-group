@@ -1,1 +1,29 @@
+Resources for students and postdocs starting in the Marais Research Group at University of Leicester. 
+
+This document is preliminary and still under development. 
+
+The Marais Research group is part of the Earth Observations Sciences (EOS) research group in Physics and Astronomy at University of Leicester. Group activities include presenting and attending exclusive research group meetings and EOS group meetings.
+
+=========================
+Marais Group Resources:
+=========================
+Group website: http://maraisresearchgroup.co.uk/
+
+Group meeting schedule: http://maraisresearchgroup.co.uk/meetings.html
+
+GEOS-Chem model website: http://acmg.seas.harvard.edu/geos/index.html
+
+=======================
+EOS Group Resources:
+=======================
+EOS wiki (internal) with EOS group seminar series schedule: https://wiki.lamp.le.ac.uk/eos/index.php/Seminars
+
+
+
+
+====================================
+University of Leicester Resources:
+====================================
+
+
 
