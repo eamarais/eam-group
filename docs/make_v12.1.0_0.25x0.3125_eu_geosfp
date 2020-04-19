@@ -1,0 +1,58 @@
+#!/bin/bash
+#************************************************************************
+# Script to compile GEOS-Chem v11-02
+#************************************************************************
+# Settings for batch job on Leicester HPC:
+#
+#PBS -l nodes=1:ppn=4
+#PBS -N gc_v12.1.1_2x25_geosfp
+#PBS -l walltime=00:10:00
+#PBS -l vmem=1gb
+#PBS -m bea        # mail alert at beginning, end and abortion of execution.
+#PBS -M uol-uname@le.ac.uk
+#PBS -q devel
+
+# Set the proper # of threads for OpenMP
+# This must match the number you set with 'ppn=' above!
+export OMP_NUM_THREADS=$PBS_NUM_PPN
+
+# Move to code directory:
+# CHANGE THIS TO YOUR RELEVANT CODE DIRECTORY ON THE SYSTEM:
+cd /home/e/em440/Models/GEOS-Chem/Codes/Code.12.1.0
+
+# Load relevant libraries:
+module load gcc/6.3.0 openmpi/gcc/3.0.0 netcdf/gcc-mpi/4.4.1
+
+# Get netcdf and other library paths:
+export NETCDF_HOME=`nc-config --prefix`                   # nc dir
+export NETCDF_F_HOME=`nf-config --prefix 2>/dev/null`     # nc-fortran dir
+if [[ $NETCDF_F_HOME == "" ]] ; then                      # If not found,
+    NETCDF_F_HOME=$NETCDF_HOME                        #  set nc-fortran
+fi
+export GC_BIN=$NETCDF_HOME/bin                          # netcdf bin dir
+export GC_INCLUDE=$NETCDF_HOME/include                  # netcdf include dir
+export GC_LIB=$NETCDF_HOME/lib                          # netcdf library dir
+
+# The COMPILER value doesn't always get used correctly in these Makefiles. So use this instead.
+# Maybe should be a bug report to GEOS-Chem.
+export FC=gfortran
+export CC=gcc
+export CXX=g++
+
+ulimit -s unlimited
+export OMP_STACKSIZE=500m
+
+# Define make arguments:
+# NetCDF output:
+MAKE_ARGS="MET=geosfp GRID=025x03125 NEST=eu CHEM=tropchem KPPSOLVER=rosenbrock NC_DIAG=y COMPILER=gfort OMP=y TRACEBACK=n NO_REDUCED=no"
+
+# Clean:
+rm -f log
+make realclean > log
+
+# Compile code:
+# GEOS-5, global 2x2.5 degrees, tropospheric chemistry,
+# ifort compiler, parallelization.
+make -j4 $MAKE_ARGS > log 
+
+exit
