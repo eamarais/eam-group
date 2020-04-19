@@ -15,7 +15,14 @@ Group meeting schedule: http://maraisresearchgroup.co.uk/meetings.html
 
 GEOS-Chem model website: http://acmg.seas.harvard.edu/geos/index.html
 
-GitHub page with relevant resources: includes... (bash scripts). 
+The GitHub /eam-group/doc/ directory also inclues .bashrc and .my_personal_settings files that you can use to customize
+your ALICE/SPECTRE environment and set up aliases of commonly used commands. 
+
+The GitHub /eam-group/doc/ directory also includes samples of GEOS-Chem submit and run scripts for the Leicester HPC.
+These are specific to version 12.1.0 of the model. Consult the GEOS-Chem user manual to update compile switches to the
+version you're using. The version of the model you're using may also require more resources than are specified in the submit
+script. To determine this, conduct test simulations on the development queue before submitting the job.
+(More on queue options here: https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/alice/job-queues/job-queues) 
 
 ======================================
 EOS Group Resources and Information:
