@@ -15,7 +15,7 @@ Postdocs:
 Alok Pandey (University of Leicester)
 
 PhD Students: 
-Alfred Bockarie (University of Birmingham)
-Karn Vohra (University of Birmingham)
-Gongda Lu (University of Birmingham)
+Alfred Bockarie (University of Birmingham),
+Karn Vohra (University of Birmingham),
+Gongda Lu (University of Birmingham),
 Nana Wei (University of Leicester)
