@@ -1,0 +1,54 @@
+# %%%%% Add your settings and aliases here %%%%
+
+# --- Change em440 to your University of Leicester username --- 
+
+# Directory and subdirectory quotas printed out in MB:
+alias  quota="du -x --block-size=1MB --max-depth=1"
+
+# Open emacs in separate window while keeping command line free to use:
+emacs () { /usr/bin/emacs "$@" & }
+
+# %%%%%%% Alias for tropomi data in Uptrop Project directory %%%%%
+alias cd_tomi="cd /data/uptrop/nobackup/tropomi/"
+
+# %%%%%%% Alias for uptrop Project %%%%%
+alias cd_uptrop="cd /data/uptrop/"
+
+# %%%%%%% Alias for Projects directory %%%%%
+alias cd_prj="cd /data/uptrop/Projects/"
+
+# %%%%%%% Alias for GEOS-Chem output data in scratch directory %%%%%
+alias cd_data="cd /data/uptrop/Data/"
+
+# %%%%%%% Alias for IDL scripts directory %%%%%
+alias cd_idl="cd /home/e/em440/IDL/"
+
+# %%%%%%% Alias for GEOS-Chem run directory %%%%%
+alias cd_run="cd /home/e/em440/GEOS-Chem/"
+
+# %%%%%%% Alias for GEOS-Chem ctm files in /data/ctm/ directory %%%%%
+#alias cd_ctm="cd /data/ctm/em440/legcfs01/"
+
+# %%%%%%% Alias for GEOS-Chem HEMCO directory %%%%%
+alias cd_hemco="cd /data/uptrop/nobackup/legcfs01/gcgrid/gcdata/ExtData/HEMCO/"
+
+# %%%%%%% Alias to load IDL 8.2 %%%%%
+alias load_idl="module load idl/idl82"
+
+# %%%%%%% Alias to load Python 3.5.5 in virtual environment %%%%%
+alias load_python='module load python/gcc/35; cd /home/e/em440/Python/; virtualenv --system-site-packages --prompt=$USER-my_python my_python; source $HOME/Python/my_python/bin/activate; python'
+
+# Interactive sessions on ALICE:
+# Low memory:
+alias  int_2h="qsub -I -X -l walltime=02:00:00 -l pvmem=1gb -l nodes=1:ppn=1"
+alias  int_5h="qsub -I -X -l walltime=05:00:00 -l pvmem=1gb -l nodes=1:ppn=1"
+alias  int_8h="qsub -I -X -l walltime=08:00:00 -l pvmem=1gb -l nodes=1:ppn=1"
+alias  int_16h="qsub -I -X -l walltime=16:00:00 -l pvmem=1gb -l nodes=1:ppn=1"
+# High memory:
+alias  hi_int_1h="qsub -I -X -l walltime=01:00:00 -l pvmem=6gb -l nodes=1:ppn=1"
+alias  hi_int_2h="qsub -I -X -l walltime=02:00:00 -l pvmem=6gb -l nodes=1:ppn=1"
+alias  hi_int_5h="qsub -I -X -l walltime=05:00:00 -l pvmem=6gb -l nodes=1:ppn=1"
+alias  hi_int_8h="qsub -I -X -l walltime=08:00:00 -l pvmem=6gb -l nodes=1:ppn=1"
+alias  hi_int_12h="qsub -I -X -l walltime=12:00:00 -l pvmem=6gb -l nodes=1:ppn=1"
+
+#EOC
