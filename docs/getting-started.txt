@@ -24,6 +24,18 @@ version you're using. The version of the model you're using may also require mor
 script. To determine this, conduct test simulations on the development queue before submitting the job.
 (More on queue options here: https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/alice/job-queues/job-queues) 
 
+The sample submit script is for a nested grid simulation over Europe 
+(http://wiki.seas.harvard.edu/geos-chem/index.php/GEOS-Chem_horizontal_grids#0.25_x_0.3125_EU_nested_grid). 
+This predates the new flexible nested grid feature in GEOS-Chem.
+
+For other simulations request the following resources for a one-month simulation as a starting point and run the model 
+in the development queue (see above) to determine whether these are sufficient:
+Global 4x5: 8 cpus, 20 GB, 6 hour walltime
+Global 2x2.5: 8 cpus, 60 GB, 40 hour walltime
+Nested Europe 0.25x0.3125: 16 cpus, 40 GB, 70 hour walltime
+Nested China 0.25x0.3125: 16 cpus, 70 GB, 110 hour walltime
+Nested North America 0.25x0.3125: 16 cpus, 70 GB, 145 hour walltime
+
 ======================================
 EOS Group Resources and Information:
 ======================================
