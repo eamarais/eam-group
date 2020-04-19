@@ -57,6 +57,9 @@ HPC FAQs: https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/faq
 IT isssues (internal only): Submit ticket via https://ithelp.le.ac.uk/
 HPC-related issues: email Research Computing with your query (rcs [dot] support [at] le [dot] ac [dot] uk).
 
+More on how to get IT help (although, some information may not be valid during the lockdown):
+https://uniofleicester.sharepoint.com/sites/staff/get-it-help/SitePages/how-get-it-help.aspx
+
 Online IT, HPC, and programming training slides (replacing in-person training options during covid-19 lockdown):
 https://www2.le.ac.uk/offices/staff-development/events/courses/it/copy_of_it-training-temporary-help
 
