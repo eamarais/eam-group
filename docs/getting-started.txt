@@ -15,6 +15,8 @@ Group meeting schedule: http://maraisresearchgroup.co.uk/meetings.html
 
 GEOS-Chem model website: http://acmg.seas.harvard.edu/geos/index.html
 
+GEOS-Chem Youtube channel with helpful tutorials: https://www.youtube.com/channel/UCyh8HWxxxiBCy30xXU8_UDQ
+
 The GitHub /eam-group/doc/ directory also inclues .bashrc and .my_personal_settings files that you can use to customize
 your ALICE/SPECTRE environment and set up aliases of commonly used commands. 
 
@@ -45,7 +47,8 @@ any details on group activities.
 EOS wiki (internal) with EOS group seminar series schedule: https://wiki.lamp.le.ac.uk/eos/index.php/Seminars
 If you can't access the wiki with your UoL login, ask Robert Parker to give you access.
 
-The wiki also includes ... https://wiki.lamp.le.ac.uk/eos/index.php/IT
+The wiki also includes IT and Research Computing guidelines: 
+https://wiki.lamp.le.ac.uk/eos/index.php/IT
 https://wiki.lamp.le.ac.uk/eos/index.php/Computing
 
 The EOS seminar organizer is Neil Humpage. If you'd like to invite someone to present at the seminar series (virtually
