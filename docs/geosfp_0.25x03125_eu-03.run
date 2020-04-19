@@ -1,0 +1,68 @@
+#!/bin/bash
+#
+#PBS -N geosfp_eu-03
+#PBS -l nodes=1:ppn=16
+#PBS -l walltime=70:00:00
+#PBS -l vmem=40gb
+#PBS -M uol-uname@le.ac.uk
+#PBS -m bea
+
+# Load environment modules
+module load gcc/6.3.0 openmpi/gcc/3.0.0 netcdf/gcc-mpi/4.4.1
+
+# Relevant libraries and other resource information:
+export NETCDF_HOME=`nc-config --prefix`
+export GC_BIN=$NETCDF_HOME/bin 
+export GC_INCLUDE=$NETCDF_HOME/include 
+export GC_LIB=$NETCDF_HOME/lib 
+export FC=gfortran
+export CC=gcc
+export CXX=g++
+ulimit -s unlimited
+export OMP_STACKSIZE=500m
+export OMP_NUM_THREADS=16
+
+# Move to run directory:
+cd $PBS_O_WORKDIR
+
+#-------------------------------------------------
+# Initialize
+#-------------------------------------------------
+
+# Define GEOS-Chem log file
+run=03
+log=log_$run
+
+# Delete any existing log file with the same name:
+rm -f $log
+
+#-------------------------------------------------
+# Start the simulation
+#-------------------------------------------------
+
+# Run GEOS-Chem and pipe output to log
+ln -sf ./input.geos_$run input.geos
+./geos >> $log
+
+# Echo end time
+echo '===> Run ended at' `date` >> $log
+
+#-------------------------------------------------
+# Clean up
+#-------------------------------------------------
+# Echo info from computational cores to log file for displaying results
+nodeName=`uname -n`
+echo "# of CPUs: $OMP_NUM_THREADS"
+echo "NodeName : $nodeName"
+grep "vendor_id"  /proc/cpuinfo
+grep "model name" /proc/cpuinfo
+grep "cpu MHz"    /proc/cpuinfo
+
+# Clear variable
+unset id
+unset log
+unset nodename
+
+# Exit normally
+exit 0
+#EOC
