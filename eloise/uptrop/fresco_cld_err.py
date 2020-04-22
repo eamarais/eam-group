@@ -33,6 +33,12 @@ from gcpy.gcpy.plot.colormap import WhGrYlRd
 # Turn off warnings:
 # np.warnings.filterwarnings('ignore')
 
+class FileMismatchException(Exception):
+    """
+    Raised when there are an unequal number of cloud and N02 files
+    """
+    pass
+
 def write_to_netcdf(outdir = '/data/uptrop/Projects/UpTrop/python/Data/' ):
     # Write data to file:
     outfile = os.path.join(outdir,'fresco-dlr-cloud-products-' + MMName + '-' + StrYY + '-2x25-v2.nc')
@@ -165,24 +171,24 @@ if __name__ == "__main__":
 
     # dir structure specific to HPC, filename from TROPOMI
     # Get DLR data file names:
-    tdfile=glob.glob(s5pdir+'CLOUD_OFFL/'+StrYY+'/'+StrMM+'/S5P_OFFL_L2__CLOUD__'+\
+    tdfile_list=glob.glob(s5pdir+'CLOUD_OFFL/'+StrYY+'/'+StrMM+'/S5P_OFFL_L2__CLOUD__'+\
                      StrYY+StrMM+'*')
-    tdfile=sorted(tdfile)
+    tdfile_list=sorted(tdfile_list)
 
     # Get FRESCO file names:
-    tffile=glob.glob(s5pdir+'NO2_OFFL/'+StrYY+'/'+StrMM+'/S5P_OFFL_L2__NO2____'+\
+    tffile_list=glob.glob(s5pdir+'NO2_OFFL/'+StrYY+'/'+StrMM+'/S5P_OFFL_L2__NO2____'+\
                      StrYY+StrMM+'*')
-    tffile=sorted(tffile)
+    tffile_list=sorted(tffile_list)
 
     # Check that number of files are equal. If not, exit the programme:
-    if len(tdfile) != len(tffile):
-        print('DLR files = ',len(tdfile))
-        print('FRESCO files = ',len(tffile))
+    if len(tdfile_list) != len(tffile_list):
+        print('DLR files = ',len(tdfile_list))
+        print('FRESCO files = ',len(tffile_list))
         print('unequal number of files')
-        sys.exit()  #TODO: Replace with raise exception
+        raise FileMismatchException("Unequal number of DLR and FRESCO files, check archive.")
 
     # Get number of files:
-    nfiles=len(tdfile)
+    nfiles=len(tdfile_list)
 
     # Define fill value:
     fillval=9.96921e+36
@@ -190,22 +196,20 @@ if __name__ == "__main__":
     # NOTE: Cloud pressure is given in Pa!!!
 
     # Loop over files:
-    for f in range(nfiles):   # TODO: Replace with zipped iterator instead of file[f]
+    for tffile, tdfile in zip(tffile_list, tdfile_list):   # TODO: Replace with zipped iterator instead of file[f]
 
         # Track progress:
-        print('===> Processing: ', tdfile[f])
+        print('===> Processing: ', tdfile)
 
         # Get orbit/swath number:
-        file0=tffile[f]
-        forb=file0[104:109]
-        file1=tdfile[f]
-        dorb=file1[106:111]
+        forb=tffile[104:109]
+        dorb=tdfile[106:111]
 
         # Check orbit/swath is the same. If not, skip this iteration:
         if ( forb!=dorb ): continue
 
         # Read DLR cloud data:
-        dlr_cloud_data=Dataset(tdfile[f], mode='r')
+        dlr_cloud_data=Dataset(tdfile, mode='r')
 
         # Extract data of interest:
         tdlons= dlr_cloud_data.groups['PRODUCT'].variables['longitude'][:][0, :, :]
@@ -277,7 +281,7 @@ if __name__ == "__main__":
         dlr_cloud_data.close()
 
         # Read in FRESCO cloud data:
-        dlr_cloud_data=Dataset(tffile[f], mode='r')
+        dlr_cloud_data=Dataset(tffile, mode='r')
 
         # Extract data of interest:
         tflons= dlr_cloud_data.groups['PRODUCT'].variables['longitude'][:][0, :, :]
@@ -314,7 +318,7 @@ if __name__ == "__main__":
         n=nd
         # Skip files if the number of indices are not equal:
         if mf!=md:
-            print('Indices ne for ', tdfile[f])
+            print('Indices ne for ', tdfile)
             continue
             #m=min(md,mf)
             #n=min(nd,nf)
