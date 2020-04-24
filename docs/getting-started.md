@@ -7,6 +7,7 @@ University of Leicester. Group activities include presenting and attending exclu
 group meetings with the other EOS research groups.
 
 Marais Group Resources:
+=======================
 Group website: http://maraisresearchgroup.co.uk/
 
 Group meeting schedule: http://maraisresearchgroup.co.uk/meetings.html
@@ -36,7 +37,6 @@ Nested Europe 0.25x0.3125: 16 cpus, 40 GB, 70 hour walltime
 Nested China 0.25x0.3125: 16 cpus, 70 GB, 110 hour walltime
 Nested North America 0.25x0.3125: 16 cpus, 70 GB, 145 hour walltime
 
-======================================
 EOS Group Resources and Information:
 ======================================
 There is an EOS email list. Check with Bev Robinson that you have been added to this to get updates on group meetings and
