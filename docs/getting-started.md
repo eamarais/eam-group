@@ -6,9 +6,7 @@ The Marais Research group is part of the Earth Observations Sciences (EOS) resea
 University of Leicester. Group activities include presenting and attending exclusive research group meetings and 
 group meetings with the other EOS research groups.
 
-=========================
 Marais Group Resources:
-=========================
 Group website: http://maraisresearchgroup.co.uk/
 
 Group meeting schedule: http://maraisresearchgroup.co.uk/meetings.html
@@ -62,7 +60,6 @@ these and sends calendar invites of upcoming talks to the EOS mailing list.
 Duncan Ross is Health and Safetly Officer. After the lockdown, when we're permitted to be back on campus, schedule a 
 health and safety training session with him. This includes rules to follow when accessing the building after hours. 
 
-====================================
 University of Leicester Resources:
 ====================================
 Leicester HPC general introduction page: https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc
