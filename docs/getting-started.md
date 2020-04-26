@@ -16,9 +16,7 @@ GEOS-Chem model website: http://acmg.seas.harvard.edu/geos/index.html
 
 GEOS-Chem Youtube channel with helpful tutorials: https://www.youtube.com/channel/UCyh8HWxxxiBCy30xXU8_UDQ
 
-
-
-The GitHub /eam-group/doc/ directory also includes samples of GEOS-Chem submit and run scripts for the Leicester HPC.
+The GitHub /eam-group/doc/ directory includes samples of GEOS-Chem submit and run scripts for the Leicester HPC.
 These are specific to version 12.1.0 of the model. Consult the GEOS-Chem user manual to update compile switches to the
 version you're using. The version of the model you're using may also require more resources than are specified in the submit
 script. To determine this, conduct test simulations on the development queue before submitting the job.
@@ -35,29 +33,6 @@ Global 2x2.5: 8 cpus, 60 GB, 40 hour walltime
 Nested Europe 0.25x0.3125: 16 cpus, 40 GB, 70 hour walltime
 Nested China 0.25x0.3125: 16 cpus, 70 GB, 110 hour walltime
 Nested North America 0.25x0.3125: 16 cpus, 70 GB, 145 hour walltime
-
-EOS Group Resources and Information:
-======================================
-There is an EOS email list. Check with Bev Robinson that you have been added to this to get updates on group meetings and
-any details on group activities.
-
-EOS wiki (internal) with EOS group seminar series schedule: https://wiki.lamp.le.ac.uk/eos/index.php/Seminars
-If you can't access the wiki with your UoL login, ask Robert Parker to give you access.
-
-The wiki also includes IT and Research Computing guidelines: 
-https://wiki.lamp.le.ac.uk/eos/index.php/IT
-https://wiki.lamp.le.ac.uk/eos/index.php/Computing
-
-The EOS seminar organizer is Neil Humpage. If you'd like to invite someone to present at the seminar series (virtually
-during the lockdown), contact Neil with details of the person you'd like to invite.
-
-EOS group meetings occur monthly or biweekly depending on the time of year. These can also occur with the Centre 
-for Landscape and Climate Research (CLCR; https://www2.le.ac.uk/colleges/scieng/research/centres/clcr). EOS only and 
-EOS-CLCR seminars are on Fridays at 10-11:30am and typically include 2 speakers. Kamil Mroz, postdoc in EOS, organizes 
-these and sends calendar invites of upcoming talks to the EOS mailing list. 
-
-Duncan Ross is Health and Safetly Officer. After the lockdown, when we're permitted to be back on campus, schedule a 
-health and safety training session with him. This includes rules to follow when accessing the building after hours. 
 
 University of Leicester IT-Related Resources:
 ==============================================
@@ -99,3 +74,25 @@ https://www2.le.ac.uk/colleges/scieng/internal/college-research-seminar-series-2
 You can also keep pace with college news in the college newsletter, E-ZINE: 
 https://www2.le.ac.uk/colleges/scieng/internal/e-zine-folder
 
+EOS Group Resources and Information:
+======================================
+There is an EOS email list. Check with Bev Robinson that you have been added to this to get updates on group meetings and
+any details on group activities.
+
+EOS wiki (internal) with EOS group seminar series schedule: https://wiki.lamp.le.ac.uk/eos/index.php/Seminars
+If you can't access the wiki with your UoL login, ask Robert Parker to give you access.
+
+The wiki also includes IT and Research Computing guidelines: 
+https://wiki.lamp.le.ac.uk/eos/index.php/IT
+https://wiki.lamp.le.ac.uk/eos/index.php/Computing
+
+The EOS seminar organizer is Neil Humpage. If you'd like to invite someone to present at the seminar series (virtually
+during the lockdown), contact Neil with details of the person you'd like to invite.
+
+EOS group meetings occur monthly or biweekly depending on the time of year. These can also occur with the Centre 
+for Landscape and Climate Research (CLCR; https://www2.le.ac.uk/colleges/scieng/research/centres/clcr). EOS only and 
+EOS-CLCR seminars are on Fridays at 10-11:30am and typically include 2 speakers. Kamil Mroz, postdoc in EOS, organizes 
+these and sends calendar invites of upcoming talks to the EOS mailing list. 
+
+Duncan Ross is Health and Safetly Officer. After the lockdown, when we're permitted to be back on campus, schedule a 
+health and safety training session with him. This includes rules to follow when accessing the building after hours. 
