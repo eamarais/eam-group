@@ -1,5 +1,7 @@
 Python Self-taught Review Notes:
 
+These are introductory notes I compiled when I first learned the basics of how to code in Python as someone with a programming background in Fortran and IDL.
+
 Resources used to generate review notes:
 https://diveintopython3.problemsolving.io/
 https://docs.python.org/3/tutorial/index.html
