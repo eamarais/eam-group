@@ -66,8 +66,8 @@ https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/spectre/access/nx-b
 
 ZendTo file share tool for sharing large files with people at and outside UoL: https://filedrop.le.ac.uk/
 
-University of Leicester Other Resources:
-========================================
+Other UoL Resources:
+=====================
 College external and inaugural seminar series are posted here: 
 https://www2.le.ac.uk/colleges/scieng/internal/college-research-seminar-series-2014-15/college-research-seminar-series-2016-17 (link is correct; ignore the dates)
 
