@@ -18,21 +18,28 @@ GEOS-Chem Youtube channel with helpful tutorials: https://www.youtube.com/channe
 
 The GitHub /eam-group/doc/ directory includes samples of GEOS-Chem submit and run scripts for the Leicester HPC.
 These are specific to version 12.1.0 of the model. Consult the GEOS-Chem user manual to update compile switches to the
-version you're using. The version of the model you're using may also require more resources than are specified in the submit
-script. To determine this, conduct test simulations on the development queue before submitting the job.
-(More on queue options here: https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/alice/job-queues/job-queues) 
+version you're using. 
+
+To compile the module, enter "bash script_name" at the command line, where script_name is self-explanatory (name of the compile script). First initiate an interactie nodes (options to do this with an alias in the .my_personal_settings file). 
 
 The sample submit script is for a nested grid simulation over Europe 
 (http://wiki.seas.harvard.edu/geos-chem/index.php/GEOS-Chem_horizontal_grids#0.25_x_0.3125_EU_nested_grid). 
 This predates the new flexible nested grid feature in GEOS-Chem.
 
-For other simulations request the following resources for a one-month simulation as a starting point and run the model 
-in the development queue (see above) to determine whether these are sufficient:
+The version of the model you're using may also require more resources than are specified in the submit
+script. To determine this, conduct test simulations on the development queue before submitting the job.
+(More on queue options here: https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/alice/job-queues/job-queues) 
+
+For simulations other than the nested European grid request the following resources for a one-month simulation as a starting point and run the model in the development queue (see above) to determine whether these are sufficient:
 Global 4x5: 8 cpus, 20 GB, 6 hour walltime
 Global 2x2.5: 8 cpus, 60 GB, 40 hour walltime
 Nested Europe 0.25x0.3125: 16 cpus, 40 GB, 70 hour walltime
 Nested China 0.25x0.3125: 16 cpus, 70 GB, 110 hour walltime
 Nested North America 0.25x0.3125: 16 cpus, 70 GB, 145 hour walltime
+
+The GEOS-Chem input files are located on the server at /data/uptrop/nobackup/legcfs01/gcgrid/gcdata/ExtData/. These are up-to-date for v12.1.0, so for the version you use may be missing input files (in particular for the HEMCO package). GEOS-Chem now has a neat feature to run the model and print out the files that are needed (YouTube video link: https://www.youtube.com/watch?v=L7T5QtWehLs)
+
+GEOS-Chem input files are centrally located on the Compute Canada servers (http://geoschemdata.computecanada.ca/ExtData/). Send me a list of additional files that need to be added to the server.
 
 University of Leicester IT-Related Resources:
 ==============================================
