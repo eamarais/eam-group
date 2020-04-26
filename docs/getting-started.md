@@ -1,23 +1,22 @@
-Resources for students and postdocs starting in the Marais Research Group at University of Leicester (UoL). 
+Resources for students and postdocs using the Marais Research Group resources on the University of Leicester (UoL) servers. 
 
-This document is preliminary and still under development. 
-
-The Marais Research group is part of the Earth Observations Sciences (EOS) research group in Physics and Astronomy at
-University of Leicester. Group activities include presenting and attending exclusive research group meetings and 
-group meetings with the other EOS research groups.
-
-Marais Group Resources:
-=======================
+General Marais Group Resources:
+================================
 Group website: http://maraisresearchgroup.co.uk/
 
 Group meeting schedule: http://maraisresearchgroup.co.uk/meetings.html
+
+The GitHub /eam-group/doc/ directory inclues .bashrc and .my_personal_settings files for custom settings and aliases for the UoL servers.  
+
+GEOS-Chem Model Resources:
+============================
+The GEOS-Chem 3D atmospheric chemistry transport model is used extensively in the research group for a range of purposes. Helpful links and resources for beginner, intermediate and advanced used of the model are detailed below.
 
 GEOS-Chem model website: http://acmg.seas.harvard.edu/geos/index.html
 
 GEOS-Chem Youtube channel with helpful tutorials: https://www.youtube.com/channel/UCyh8HWxxxiBCy30xXU8_UDQ
 
-The GitHub /eam-group/doc/ directory also inclues .bashrc and .my_personal_settings files that you can use to customize
-your ALICE/SPECTRE environment and set up aliases of commonly used commands. 
+
 
 The GitHub /eam-group/doc/ directory also includes samples of GEOS-Chem submit and run scripts for the Leicester HPC.
 These are specific to version 12.1.0 of the model. Consult the GEOS-Chem user manual to update compile switches to the
@@ -60,8 +59,8 @@ these and sends calendar invites of upcoming talks to the EOS mailing list.
 Duncan Ross is Health and Safetly Officer. After the lockdown, when we're permitted to be back on campus, schedule a 
 health and safety training session with him. This includes rules to follow when accessing the building after hours. 
 
-University of Leicester Resources:
-====================================
+University of Leicester IT-Related Resources:
+==============================================
 Leicester HPC general introduction page: https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc
 
 HPC FAQs: https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/faq
@@ -81,11 +80,10 @@ Recommended training:
     Linux Introduction (if new to Unix/Linux systems)
     Python Programming at various levels
 
-HPC service days: https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/service-days
+HPC service days (mark your calendar with these so you're not caught unawares): https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/service-days
 
-Weekly software surgery Thursdays at 4-5pm (via Microsoft Teams during lockdown). Delivered by python expert. 
-Either join to get help with coding or to help others learning to code. Email reminder and Teams link sent weekly by a
-Research Software Engineering Specialist to HPC email list (that you are added to once registered to access the UoL servers)
+Weekly software surgery is on Thursdays at 4-5pm (via Microsoft Teams during lockdown). Delivered by a UoL python expert. 
+Either join to get help with coding or to help others learning to code. Email reminder and Teams link sent weekly to the HPC email list by a Research Software Engineering Specialist. You should be added to the HPC email list once you register to access the UoL servers.
 
 NoMachine virtual desktop to access Leicester services:
 https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/spectre/access/nx5
@@ -93,16 +91,11 @@ https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/spectre/access/nx-b
 
 ZendTo file share tool for sharing large files with people at and outside UoL: https://filedrop.le.ac.uk/
 
+University of Leicester Other Resources:
+========================================
 College external and inaugural seminar series are posted here: 
-https://www2.le.ac.uk/colleges/scieng/internal/college-research-seminar-series-2014-15/college-research-seminar-series-2016-17 
-(link is correct; ignore the dates)
+https://www2.le.ac.uk/colleges/scieng/internal/college-research-seminar-series-2014-15/college-research-seminar-series-2016-17 (link is correct; ignore the dates)
 
 You can also keep pace with college news in the college newsletter, E-ZINE: 
 https://www2.le.ac.uk/colleges/scieng/internal/e-zine-folder
-
-Send any content you'd like to add to E-ZINE (publications, research talk invites and the like), to Sophie Bricknell who
-will pass this on to the newsletter editor.
-
-For reimbursements (including completing expense claims), administrative and other issues, Sophie Bricknell is the best
-person to contact with your queries.
 
