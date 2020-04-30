@@ -30,12 +30,12 @@ The version of the model you're using may also require more resources than are s
 script. To determine this, conduct test simulations on the development queue before submitting the job.
 (More on queue options here: https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/alice/job-queues/job-queues) 
 
-For simulations other than the nested European grid request the following resources for a one-month simulation as a starting point and run the model in the development queue (see above) to determine whether these are sufficient:
-Global 4x5: 8 cpus, 20 GB, 6 hour walltime
-Global 2x2.5: 8 cpus, 60 GB, 40 hour walltime
-Nested Europe 0.25x0.3125: 16 cpus, 40 GB, 70 hour walltime
-Nested China 0.25x0.3125: 16 cpus, 70 GB, 110 hour walltime
-Nested North America 0.25x0.3125: 16 cpus, 70 GB, 145 hour walltime
+For simulations other than the nested European grid request the following resources for a one-month simulation as a starting point and run the model in the development queue (see above) to determine whether these are sufficient:<br/>
+Global 4x5: 8 cpus, 20 GB, 6 hour walltime<br/>
+Global 2x2.5: 8 cpus, 60 GB, 40 hour walltime<br/>
+Nested Europe 0.25x0.3125: 16 cpus, 40 GB, 70 hour walltime<br/>
+Nested China 0.25x0.3125: 16 cpus, 70 GB, 110 hour walltime<br/>
+Nested North America 0.25x0.3125: 16 cpus, 70 GB, 145 hour walltime<br/>
 
 The GEOS-Chem input files are located on the server at /data/uptrop/nobackup/legcfs01/gcgrid/gcdata/ExtData/. These are up-to-date for v12.1.0, so for the version you use may be missing input files (in particular for the HEMCO package). GEOS-Chem now has a neat feature to run the model and print out the files that are needed (YouTube video link: https://www.youtube.com/watch?v=L7T5QtWehLs)
 
