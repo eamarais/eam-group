@@ -57,10 +57,10 @@ Online IT, HPC, and programming training slides (replacing in-person training op
 https://www2.le.ac.uk/offices/staff-development/events/courses/it/copy_of_it-training-temporary-help
 
 Recommended training:<br/> 
-&nbsp;&nbsp;&nbsp;High Performance Computing at Leicester (go through this before starting to use the system)<br/>
-&nbsp;&nbsp;&nbsp;Introduction to Version Control<br/>
-&nbsp;&nbsp;&nbsp;Linux Introduction (if new to Unix/Linux systems)<br/>
-&nbsp;&nbsp;&nbsp;Python Programming at various levels<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;High Performance Computing at Leicester (go through this before starting to use the system)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Introduction to Version Control<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Linux Introduction (if new to Unix/Linux systems)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Python Programming at various levels<br/>
 
 HPC service days (mark your calendar with these so you're not caught unawares):<br/> https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/service-days
 
