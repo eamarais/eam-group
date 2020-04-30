@@ -47,29 +47,29 @@ Leicester HPC general introduction page: https://www2.le.ac.uk/offices/itservice
 
 HPC FAQs: https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/faq
 
-IT isssues (internal only): Submit ticket via https://ithelp.le.ac.uk/
+IT isssues (internal only): Submit ticket via https://ithelp.le.ac.uk/<br/>
 HPC-related issues: email Research Computing with your query (rcs [dot] support [at] le [dot] ac [dot] uk).
 
-More on how to get IT help (although, some information may not be valid during the lockdown):
+More on how to get IT help (although, some information may not be valid during the lockdown):<br/>
 https://uniofleicester.sharepoint.com/sites/staff/get-it-help/SitePages/how-get-it-help.aspx
 
-Online IT, HPC, and programming training slides (replacing in-person training options during covid-19 lockdown):
+Online IT, HPC, and programming training slides (replacing in-person training options during covid-19 lockdown):<br/>
 https://www2.le.ac.uk/offices/staff-development/events/courses/it/copy_of_it-training-temporary-help
 
-Recommended training: 
-    High Performance Computing at Leicester (go through this before starting to use the system)
-    Introduction to Version Control
-    Linux Introduction (if new to Unix/Linux systems)
-    Python Programming at various levels
+Recommended training:<br/> 
+    High Performance Computing at Leicester (go through this before starting to use the system)<br/>
+    Introduction to Version Control<br/>
+    Linux Introduction (if new to Unix/Linux systems)<br/>
+    Python Programming at various levels<br/>
 
-HPC service days (mark your calendar with these so you're not caught unawares): https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/service-days
+HPC service days (mark your calendar with these so you're not caught unawares):<br/> https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/service-days
 
-Weekly software surgery is on Thursdays at 4-5pm (via Microsoft Teams during lockdown). Delivered by a UoL python expert. 
+Weekly software surgery is on Thursdays at 4-5pm (via Microsoft Teams during lockdown). Delivered by a UoL python expert.<br/> 
 Either join to get help with coding or to help others learning to code. Email reminder and Teams link sent weekly to the HPC email list by a Research Software Engineering Specialist. You should be added to the HPC email list once you register to access the UoL servers.
 
-NoMachine virtual desktop to access Leicester services:
-https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/spectre/access/nx5
-https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/spectre/access/nx-basic-usage
+NoMachine virtual desktop to access Leicester services:<br/>
+https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/spectre/access/nx5<br/>
+https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/spectre/access/nx-basic-usage<br/>
 
 ZendTo file share tool for sharing large files with people at and outside UoL: https://filedrop.le.ac.uk/
 
@@ -86,12 +86,12 @@ EOS Group Resources and Information:
 There is an EOS email list. Check with Bev Robinson that you have been added to this to get updates on group meetings and
 any details on group activities.
 
-EOS wiki (internal) with EOS group seminar series schedule: https://wiki.lamp.le.ac.uk/eos/index.php/Seminars
+EOS wiki (internal) with EOS group seminar series schedule: https://wiki.lamp.le.ac.uk/eos/index.php/Seminars<br/>
 If you can't access the wiki with your UoL login, ask Robert Parker to give you access.
 
-The wiki also includes IT and Research Computing guidelines: 
-https://wiki.lamp.le.ac.uk/eos/index.php/IT
-https://wiki.lamp.le.ac.uk/eos/index.php/Computing
+The wiki also includes IT and Research Computing guidelines: <br/>
+https://wiki.lamp.le.ac.uk/eos/index.php/IT<br/>
+https://wiki.lamp.le.ac.uk/eos/index.php/Computing<br/>
 
 The EOS seminar organizer is Neil Humpage. If you'd like to invite someone to present at the seminar series (virtually
 during the lockdown), contact Neil with details of the person you'd like to invite.
