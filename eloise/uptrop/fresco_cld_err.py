@@ -31,23 +31,31 @@ from gcpy.gcpy.plot.colormap import WhGrYlRd
 # Turn off warnings:
 np.warnings.filterwarnings('ignore')
 
+# Define output resolution:
+outres='1x1'
+
+# Define month of interest as string 2 characters in length:
+StrMM='01'
+
 #DEFINE GRID:
 # Define model grid:
 minlat=-88.
 maxlat=88.
 minlon=-178.
 maxlon=178.
-dellat=2#4#0.5#4#0.5
-dellon=2.5#5#0.5#5#0.5
+if (outres=='1x1'): dellat,dellon=1,1
+if (outres=='2x25'): dellat,dellon=2,2.5
+if (outres=='4x5'): dellat,dellon=4,5
 out_lon=np.arange(minlon,maxlon,dellon)#(-180,181,dellon)
 out_lat=np.arange(minlat,maxlat,dellat)#(-90.,91.,dellat)
-# Convert output lats and long to 2D:
+# Convert output lats and longs to 2D:
 X, Y = np.meshgrid(out_lon, out_lat,indexing='ij') 
 # Dimensions of output data:
 xdim=len(out_lon)
 ydim=len(out_lat)
 
-# DEFINE DATA ARRAYS:
+# DEFINE DATA ARRAYS for comparing the two datasets where KNMI cloud
+# fraction exceeds 0.7 and cloud top height is between 180 and 450 hPa:
 # Define output arrays:
 gknmi_cf=np.zeros(X.shape)
 gknmi_ct=np.zeros(X.shape)
@@ -60,13 +68,19 @@ gdlr_od=np.zeros(X.shape)
 gdlr_cnt=np.zeros(X.shape)
 #gdiff_cf=np.zeros(X.shape)
 
+# Define data arrays to output cloud fraction binned into 0.05 
+# increments from 0.7 to 1.0 centred at 0.725, 0.775 etc.:
+# Consider also splitting this into latitude bands.
+cldbin=np.arange(0.7,1.0,0.05)
+latbin=np.arange(-90,90,15)
+knmi_cf_freq=np.zeros((len(latbin),len(cldbin)))
+dlr_cf_freq=np.zeros((len(latbin),len(cldbin)))
+
 # Coverage count:
 nobs_fresco=0
 nobs_dlr=0
 
 # Input parameter (to selet month of interest):
-# Define month of interest as string 2 characters in length:
-StrMM='10'
 # Define string of year and first 3 letters of month name based on above entry:
 if StrMM=='01': StrYY,MMName='2020','jan'
 if StrMM=='02': StrYY,MMName='2020','feb'
@@ -153,7 +167,10 @@ for f in range(nfiles):
           variables['snow_ice_flag_nise'][:]
     tdsnow=tsnow.data[0,:,:]    
     # Convert all valid snow/ice free flag values (0,255) to 0.
+    # Ocean:
     tdsnow=np.where(tdsnow==255, 0, tdsnow)
+    # Coastlines (listed as potentially "suspect" in the ATBD document p. 67):
+    tdsnow=np.where(tdsnow==252, 0, tdsnow)
     # Get data indices:
     md,nd = tdlons.shape
 
@@ -226,7 +243,10 @@ for f in range(nfiles):
           variables['snow_ice_flag'][:]
     tfsnow=tsnow.data[0,:,:]
     # Convert all valid snow/ice free flag values (0,255) to 0.
+    # Ocean:
     tfsnow=np.where(tfsnow==255, 0, tfsnow)
+    # Coastlines (listed as potential "suspect" in the ATBD document p. 67):
+    tfsnow=np.where(tfsnow==252, 0, tfsnow)
     # Get data indices:
     mf,nf=tflons.shape
 
@@ -270,16 +290,37 @@ for f in range(nfiles):
     # Apply filter to remaining data:
     tftop=np.where(np.isnan(tffrc), np.nan, tftop)
 
+    # Gather data on frequency of cloud fraction > 0.7:
+    # This is done before filtering for scenes with knmi cloud frac
+    # > 0.7 to also include all relevant DLR scenes:
+    # loop over cloud and latitude band bins:
+    for w in range(len(cldbin)):
+        for n in range(len(latbin)):
+             
+            # (1) KNMI:
+            # Get indices for relevant data:
+            fbin=np.where((tffrc>=(cldbin[w]-0.025))&\
+                          (tffrc<(cldbin[w]+0.025))&\
+                          (tflats>=(latbin[n]-7.5))&(tflats<(latbin[n]+7.5))&\
+                          (tftop>=18000)&(tftop<=45000)&(~np.isnan(tffrc)))[0]
+            if len(fbin)>0:
+                knmi_cf_freq[n,w]=knmi_cf_freq[n,w]+len(fbin)
+
+            # (2) DLR-OCRA:
+            # Get indices for relevant data:
+            dbin=np.where((tdfrc>=(cldbin[w]-0.025))&\
+                          (tdfrc<(cldbin[w]+0.025))&\
+                          (tdlats>=(latbin[n]-7.5))&(tdlats<(latbin[n]+7.5))&\
+                          (tdtop>=18000)&(tdtop<=45000)&(~np.isnan(tdfrc)))[0]
+            if len(dbin)>0:
+                dlr_cf_freq[n,w]=dlr_cf_freq[n,w]+len(dbin)
+
     # REGRID THE DATA:
     for i in range(m):
         for j in range(n):
 
             # Skip where FRESCO cloud product is NAN:
-            if np.isnan(tffrc[i,j]): continue
-
-            # Skip if there is also no valid DLR data due to 
-            # poor data quality or missing values:
-            if np.isnan(tdfrc[i,j]): continue
+            if (np.isnan(tffrc[i,j]) or np.isnan(tdfrc[i,j])): continue
 
             # Error checks:
             # Check that lat and lon values are the same (except for
@@ -295,18 +336,18 @@ for f in range(nfiles):
                 sys.exit()
             if tdlats[i,j] != tflats[i,j]:
                 print('Latitudes not the same')
-                sys.exit()
+                sys.exit()           
 
             # Find corresponding gridsquare:
             p,q = np.argmin(abs(out_lon-tdlons[i,j])),\
-                  np.argmin(abs(out_lat-tdlats[i,j]))
+                  np.argmin(abs(out_lat-tdlats[i,j]))            
 
             # Add data to output arrays:
-            if np.isnan(tffrc[i,j]): continue
+            #if np.isnan(tffrc[i,j]): continue
             gknmi_cf[p,q]=gknmi_cf[p,q]+tffrc[i,j]
             gknmi_ct[p,q]=gknmi_ct[p,q]+np.divide(tftop[i,j],100)
             gknmi_cnt[p,q]=gknmi_cnt[p,q]+1.0
-            if np.isnan(tdfrc[i,j]): continue
+            #if np.isnan(tdfrc[i,j]): continue
             gdlr_cf[p,q]=gdlr_cf[p,q]+tdfrc[i,j]
             gdlr_ct[p,q]=gdlr_ct[p,q]+np.divide(tdtop[i,j],100)
             gdlr_cb[p,q]=gdlr_cb[p,q]+np.divide(tdbase[i,j],100)
@@ -337,10 +378,13 @@ print('No. of DLR obs for '+MMName+' = ',nobs_dlr)
 
 # Write data to file:
 outdir='/data/uptrop/Projects/UpTrop/python/Data/'
-outfile=outdir+'fresco-dlr-cloud-products-'+MMName+'-'+StrYY+'-2x25-v2.nc'
+outfile=outdir+'fresco-dlr-cloud-products-'+MMName+'-'+StrYY+'-'+\
+        outres+'-v1.nc'
 ncfile=Dataset(outfile, 'w', format='NETCDF4_CLASSIC' )
 ncfile.createDimension('xdim',len(out_lon))
 ncfile.createDimension('ydim',len(out_lat))
+ncfile.createDimension('frdim',len(cldbin))
+ncfile.createDimension('lbdim',len(latbin))
 
 # Global attributes:
 ncfile.title='FRESCO and DLR TROPOMI monthly mean cloud properties for '+\
@@ -359,6 +403,18 @@ lat = ncfile.createVariable('lat',np.dtype('float'),('ydim',))
 lat.units='degrees_north'
 lat.long_name='latitude'
 lat[:] = out_lat
+
+# Cloud fraction bins:
+cbin = ncfile.createVariable('cld_fr_bin',np.dtype('float'),('frdim',))
+cbin.units='unitless'
+cbin.long_name='Cloud fraction bin centre'
+cbin[:] = cldbin
+
+# Latitude bands bins:
+lbbin = ncfile.createVariable('lat_band_bin',np.dtype('float'),('lbdim',))
+lbbin.units='unitless'
+lbbin.long_name='Latitude band bin centre'
+lbbin[:] = latbin
 
 # DLR cloud fraction:
 data1 = ncfile.createVariable('dlr_cld_frac',np.dtype('float'),('xdim','ydim'))
@@ -390,23 +446,36 @@ data5.units='unitless'
 data5.long_name='FRESCO cloud fraction'
 data5[:] = gknmi_cf
 
+# Frequency of FRESCO cloud fractions > 0.7:
+data6 = ncfile.createVariable('knmi_cf_freq',np.dtype('float'),\
+                              ('lbdim','frdim',))
+data6.units='unitless'
+data6.long_name='Freqeuncy distribution of FRESCO cloud fractions > 0.7'
+data6[:] = knmi_cf_freq
+
 # FRESCO cloud top pressure:
-data6 = ncfile.createVariable('knmi_cld_top_pres',np.dtype('float'),('xdim','ydim'))
-data6.units='hPa'
-data6.long_name='FRESCO cloud top pressure'
-data6[:] = gknmi_ct
+data7 = ncfile.createVariable('knmi_cld_top_pres',np.dtype('float'),('xdim','ydim'))
+data7.units='hPa'
+data7.long_name='FRESCO cloud top pressure'
+data7[:] = gknmi_ct
 
 # FRESCO data points in each gridsquare:
-data7 = ncfile.createVariable('knmi_points',np.dtype('float'),('xdim','ydim'))
-data7.units='unitless'
-data7.long_name='Number of FRESCO data points'
-data7[:] = gknmi_cnt
+data8 = ncfile.createVariable('knmi_points',np.dtype('float'),('xdim','ydim'))
+data8.units='unitless'
+data8.long_name='Number of FRESCO data points'
+data8[:] = gknmi_cnt
 
 # DLR data points in each gridsquare:
-data8 = ncfile.createVariable('dlr_points',np.dtype('float'),('xdim','ydim'))
-data8.units='unitless'
-data8.long_name='Number of DLR data points'
-data8[:] = gdlr_cnt
+data9 = ncfile.createVariable('dlr_points',np.dtype('float'),('xdim','ydim'))
+data9.units='unitless'
+data9.long_name='Number of DLR data points'
+data9[:] = gdlr_cnt
+
+# Frequency of DRL-OCRA cloud fractions > 0.7:
+data10 = ncfile.createVariable('dlr_cf_freq',np.dtype('float'),('lbdim','frdim'))
+data10.units='unitless'
+data10.long_name='Freqeuncy distribution of DLR cloud fractions > 0.7'
+data10[:] = dlr_cf_freq
 
 # close the file.
 ncfile.close()
@@ -475,7 +544,7 @@ plt.savefig('./Images/dlr-cloud-optical-depth-'+MMName+'-'+StrYY+'-v1.ps', \
 
 # (4) Cloud base pressure (DLR only):
 plt.figure(4)
-cs=m.pcolor(xi,yi,np.squeeze(gdlr_cb), vmin=150, vmax=900, cmap='jet')
+cs=m.pcolor(xi,yi,np.squeeze(gdlr_cb), vmin=150, vmax=500, cmap='jet')
 m.drawcoastlines()
 cbar = m.colorbar(cs, location='bottom', pad="10%")
 plt.title('DLR base pressure [hPa]')
@@ -486,13 +555,13 @@ plt.savefig('./Images/dlr-cloud-base-press-'+MMName+'-'+StrYY+'-v1.ps', \
 # (5) Number of points (both):
 plt.figure(4)
 plt.subplot(2, 1, 1)
-cs=m.pcolor(xi,yi,np.squeeze(gknmi_cnt), vmin=0, vmax=5000, cmap=WhGrYlRd)
+cs=m.pcolor(xi,yi,np.squeeze(gknmi_cnt), vmin=0, vmax=500, cmap=WhGrYlRd)
 m.drawcoastlines()
 cbar = m.colorbar(cs, location='bottom', pad="10%")
 plt.title('FRESCO No. of obs')
 
 plt.subplot(2, 1, 2)
-cs=m.pcolor(xi,yi,np.squeeze(gdlr_cnt), vmin=0, vmax=5000, cmap=WhGrYlRd)
+cs=m.pcolor(xi,yi,np.squeeze(gdlr_cnt), vmin=0, vmax=500, cmap=WhGrYlRd)
 m.drawcoastlines()
 cbar = m.colorbar(cs, location='bottom', pad="10%")
 plt.title('DLR No. of obs')
@@ -501,3 +570,4 @@ plt.savefig('./Images/fresco-dlr-number-of-obs-'+MMName+'-'+StrYY+'-v1.ps', \
             format='ps')
 
 plt.show()
+
