@@ -190,9 +190,184 @@ def plot_clouds():
     plt.show()
 
 
+def process_file(tdfile, tffile):
+    global nobs_dlr, nobs_fresco  # TODO: Make these parameters
+    # Track progress:
+    print('===> Processing: ', tdfile)
+    # Get orbit/swath number:
+    forb = tffile[104:109]
+    dorb = tdfile[106:111]
+    # Check orbit/swath is the same. If not, skip this iteration:
+    if (forb != dorb):
+        pass  # REPLACE WITH RETURN
+    # Read DLR cloud data:
+    dlr_cloud_data = Dataset(tdfile, mode='r')
+    # Extract data of interest:
+    tdlons = dlr_cloud_data.groups['PRODUCT'].variables['longitude'][:][0, :, :]
+    tdlats = dlr_cloud_data.groups['PRODUCT'].variables['latitude'][:][0, :, :]
+    tfrc = dlr_cloud_data.groups['PRODUCT'].variables['cloud_fraction'][:]
+    tdfrc = tfrc.data[0, :, :]
+    ttop = dlr_cloud_data.groups['PRODUCT'].variables['cloud_top_pressure'][:]
+    tdtop = ttop.data[0, :, :]
+    tbase = dlr_cloud_data.groups['PRODUCT'].variables['cloud_base_pressure'][:]
+    tdbase = tbase.data[0, :, :]
+    tqval = dlr_cloud_data.groups['PRODUCT'].variables['qa_value'][:]
+    tdqval = tqval.data[0, :, :]  # for more accurate CAL product
+    toptd = dlr_cloud_data.groups['PRODUCT'].variables['cloud_optical_thickness'][:]
+    tdoptd = toptd.data[0, :, :]
+    tsnow = dlr_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA']. \
+                variables['snow_ice_flag_nise'][:]
+    tdsnow = tsnow.data[0, :, :]
+    # Convert all valid snow/ice free flag values (0,255) to 0.
+    tdsnow = np.where(tdsnow == 255, 0, tdsnow)
+    # Get data indices:
+    product_x, product_y = tdlons.shape
+    # Count data:
+    dlr_ind = np.where((tdqval < 0.5) & (tdfrc >= 0.7) & (tdtop >= 18000) & \
+                       (tdtop <= 45000) & (tdsnow == 0))[0]
+    nobs_dlr = nobs_dlr + len(dlr_ind)
+    # Set missing/poor quality/irrelevant data to NAN:
+    # Apply cloud fraction filter, but set it to 0.7 rather
+    #     than 0.9 to account for variability around this threshold
+    #     in the two cloud products.
+    # inicnt=np.count_nonzero(~np.isnan(tdfrc))
+    # print(inicnt)
+    # tdfrc=np.where(tdfrc<0.7, np.nan, tdfrc)
+    # Fill values (do for cloud fraction and cloud top pressure, as missing
+    # values for cloud fraction may not be the same as missing values for
+    # other data, as these are obtained with different algorithms):
+    # necessarily the same as the fill values for the other data):
+    tdfrc = np.where(tdfrc == fillval, np.nan, tdfrc)
+    tdtop = np.where(tdtop == fillval, np.nan, tdtop)
+    # Set cloud fraciton to nan for scenes with missing cloud top
+    # pressure data:
+    tdfrc = np.where(np.isnan(tdtop), np.nan, tdfrc)
+    # Poor data quality:
+    tdfrc = np.where(tdqval < 0.5, np.nan, tdfrc)
+    # Snow/ice cover:
+    tdfrc = np.where(tdsnow != 0, np.nan, tdfrc)
+    # Apply filter to remaining data:
+    tdtop = np.where(np.isnan(tdfrc), np.nan, tdtop)
+    tdbase = np.where(np.isnan(tdfrc), np.nan, tdbase)
+    tdoptd = np.where(np.isnan(tdfrc), np.nan, tdoptd)
+    # Error check:
+    if (np.nanmax(tdtop) == fillval):
+        raise Exception('Not all missing values converted to NANs')
+    if (np.nanmax(tdbase) == fillval):
+        raise Exception('Not all missing values converted to NANs')
+    if (np.nanmax(tdoptd) == fillval):
+        raise Exception('Not all missing values converted to NANs')
+    # close DLR file:
+    dlr_cloud_data.close()
+    # Read in FRESCO cloud data:
+    dlr_cloud_data = Dataset(tffile, mode='r')
+    # Extract data of interest:
+    tflons = dlr_cloud_data.groups['PRODUCT'].variables['longitude'][:][0, :, :]
+    tflats = dlr_cloud_data.groups['PRODUCT'].variables['latitude'][:][0, :, :]
+    tfrc = dlr_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA']. \
+               variables['cloud_fraction_crb'][:]
+    tffrc = tfrc.data[0, :, :]
+    talb = dlr_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA']. \
+               variables['cloud_albedo_crb'][:]
+    tfalb = talb.data[0, :, :]
+    ttop = dlr_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA']. \
+               variables['cloud_pressure_crb'][:]
+    tftop = ttop.data[0, :, :]
+    tqval = dlr_cloud_data.groups['PRODUCT'].variables['qa_value'][:]
+    tfqval = tqval.data[0, :, :]
+    tsnow = dlr_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA']. \
+                variables['snow_ice_flag'][:]
+    tfsnow = tsnow.data[0, :, :]
+    # Convert all valid snow/ice free flag values (0,255) to 0.
+    tfsnow = np.where(tfsnow == 255, 0, tfsnow)
+    # Get data indices:
+    mf, nf = tflons.shape
+    # close FRESCO file:
+    dlr_cloud_data.close()
+    # Count data:
+    # TODO: Find where these values come from. Are they the same as the later ones?
+    fr_ind = np.where((tfqval < 0.45) & (tffrc >= 0.7) & (tftop >= 18000) & \
+                      (tftop <= 45000) & (tfsnow == 0))[0]
+    nobs_fresco = nobs_fresco + len(fr_ind)
+    m = product_x
+    n = product_y
+    # Skip files if the number of indices are not equal:
+    if mf != product_x:
+        print('Indices ne for ', tdfile)
+        pass  # CONTINUE
+        # m=min(md,mf)
+        # n=min(nd,nf)
+    # Set missing/poor quality/irrelevant data to NAN:
+    # Apply cloud fraction filter, but set it to 0.7 rather
+    #     than 0.9 to account for variability around this threshold
+    #     in the two cloud products.
+    # inicnt=np.count_nonzero(~np.isnan(tffrc))
+    # print(inicnt)
+    tffrc = np.where(tffrc < 0.7, np.nan, tffrc)
+    tffrc = np.where(tffrc == fillval, np.nan, tffrc)
+    # QA Flags. Threshold of 0.45 suggested by Henk Eskes in email
+    # exchange on 18 Jan 2020:
+    tffrc = np.where(tfqval < 0.45, np.nan, tffrc)
+    # Apply cloud top pressure filter to only consider clouds above
+    #   500 hPa and below 150 hPa (more generous than the 450-200 hPa
+    #   range to account for variability around this threshold in the
+    #   two cloud products:
+    tffrc = np.where(tftop > 450 * 1e2, np.nan, tffrc)
+    tffrc = np.where(tftop < 180 * 1e2, np.nan, tffrc)
+    # Snow/ice cover:
+    tffrc = np.where(tfsnow != 0, np.nan, tffrc)
+    # Apply filter to remaining data:
+    tftop = np.where(np.isnan(tffrc), np.nan, tftop)
+    # TODO: Make this vectorised
+    # REGRID THE DATA:
+    for i in range(m):
+        for j in range(n):
+
+            # Skip where FRESCO cloud product is NAN:
+            if np.isnan(tffrc[i, j]): continue
+
+            # Skip if there is also no valid DLR data due to
+            # poor data quality or missing values:
+            if np.isnan(tdfrc[i, j]): continue
+
+            # Error checks:
+            # Check that lat and lon values are the same (except for
+            # those at 180/-180 that can have different signs):
+            if (tdlons[i, j] != tflons[i, j]) and \
+                    (abs(tdlons[i, j]) != 180.0):
+                print('Longitudes not the same')
+                print(tdlons[i, j], tflons[i, j])
+                p, q = np.argmin(abs(out_lon - tdlons[i, j])), \
+                       np.argmin(abs(out_lat - tdlats[i, j]))
+                print(p)
+                print(out_lon[p])
+                raise Exception("Longitudes not the same")
+            if tdlats[i, j] != tflats[i, j]:
+                print('Latitudes not the same')
+                raise Exception("Latitudes not the same")
+
+            # Find corresponding gridsquare:
+            p, q = np.argmin(abs(out_lon - tdlons[i, j])), \
+                   np.argmin(abs(out_lat - tdlats[i, j]))
+
+            # Add data to output arrays:
+            if np.isnan(tffrc[i, j]): continue
+            gknmi_cf[p, q] = gknmi_cf[p, q] + tffrc[i, j]
+            gknmi_ct[p, q] = gknmi_ct[p, q] + np.divide(tftop[i, j], 100)
+            gknmi_cnt[p, q] = gknmi_cnt[p, q] + 1.0
+            if np.isnan(tdfrc[i, j]): continue
+            gdlr_cf[p, q] = gdlr_cf[p, q] + tdfrc[i, j]
+            gdlr_ct[p, q] = gdlr_ct[p, q] + np.divide(tdtop[i, j], 100)
+            gdlr_cb[p, q] = gdlr_cb[p, q] + np.divide(tdbase[i, j], 100)
+            gdlr_od[p, q] = gdlr_od[p, q] + tdoptd[i, j]
+            gdlr_cnt[p, q] = gdlr_cnt[p, q] + 1.0
+
+
 if __name__ == "__main__":
 
     # TODO: Check these magic numbers
+    # Define constants/maybe parameters?
+    fillval=9.96921e+36
     #DEFINE GRID:
     # Define model grid:
     minlat=-88.
@@ -276,206 +451,12 @@ if __name__ == "__main__":
     # Get number of files:
     nfiles=len(tdfile_list)
 
-    # Define fill value:
-    fillval=9.96921e+36
-
     # NOTE: Cloud pressure is given in Pa!!!
 
     # Loop over files:
     for tffile, tdfile in zip(tffile_list, tdfile_list):
 
-        # Track progress:
-        print('===> Processing: ', tdfile)
-
-        # Get orbit/swath number:
-        forb=tffile[104:109]
-        dorb=tdfile[106:111]
-
-        # Check orbit/swath is the same. If not, skip this iteration:
-        if ( forb!=dorb ): continue
-
-        # Read DLR cloud data:
-        dlr_cloud_data=Dataset(tdfile, mode='r')
-
-        # Extract data of interest:
-        tdlons= dlr_cloud_data.groups['PRODUCT'].variables['longitude'][:][0, :, :]
-        tdlats= dlr_cloud_data.groups['PRODUCT'].variables['latitude'][:][0, :, :]
-        tfrc= dlr_cloud_data.groups['PRODUCT'].variables['cloud_fraction'][:]
-        tdfrc=tfrc.data[0,:,:]
-        ttop= dlr_cloud_data.groups['PRODUCT'].variables['cloud_top_pressure'][:]
-        tdtop=ttop.data[0,:,:]
-        tbase= dlr_cloud_data.groups['PRODUCT'].variables['cloud_base_pressure'][:]
-        tdbase=tbase.data[0,:,:]
-        tqval= dlr_cloud_data.groups['PRODUCT'].variables['qa_value'][:]
-        tdqval=tqval.data[0,:,:]  # for more accurate CAL product
-        toptd= dlr_cloud_data.groups['PRODUCT'].variables['cloud_optical_thickness'][:]
-        tdoptd=toptd.data[0,:,:]
-        tsnow= dlr_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA'].\
-              variables['snow_ice_flag_nise'][:]
-        tdsnow=tsnow.data[0,:,:]
-        # Convert all valid snow/ice free flag values (0,255) to 0.
-        tdsnow=np.where(tdsnow==255, 0, tdsnow)
-        # Get data indices:
-        product_x, product_y = tdlons.shape
-
-        # Count data:
-        dlr_ind=np.where((tdqval<0.5)&(tdfrc>=0.7)&(tdtop>=18000)&\
-                         (tdtop<=45000)&(tdsnow==0))[0]
-        nobs_dlr=nobs_dlr+len(dlr_ind)
-
-        # Set missing/poor quality/irrelevant data to NAN:
-        # Apply cloud fraction filter, but set it to 0.7 rather
-        #     than 0.9 to account for variability around this threshold
-        #     in the two cloud products.
-        #inicnt=np.count_nonzero(~np.isnan(tdfrc))
-        #print(inicnt)
-        #tdfrc=np.where(tdfrc<0.7, np.nan, tdfrc)
-        # Fill values (do for cloud fraction and cloud top pressure, as missing
-        # values for cloud fraction may not be the same as missing values for
-        # other data, as these are obtained with different algorithms):
-        # necessarily the same as the fill values for the other data):
-        tdfrc=np.where(tdfrc==fillval, np.nan, tdfrc)
-        tdtop=np.where(tdtop==fillval, np.nan, tdtop)
-
-        # Set cloud fraciton to nan for scenes with missing cloud top
-        # pressure data:
-        tdfrc=np.where(np.isnan(tdtop), np.nan, tdfrc)
-
-        # Poor data quality:
-        tdfrc=np.where(tdqval<0.5, np.nan, tdfrc)
-
-        # Snow/ice cover:
-        tdfrc=np.where(tdsnow!=0, np.nan, tdfrc)
-
-        # Apply filter to remaining data:
-        tdtop=np.where(np.isnan(tdfrc), np.nan, tdtop)
-        tdbase=np.where(np.isnan(tdfrc), np.nan, tdbase)
-        tdoptd=np.where(np.isnan(tdfrc), np.nan, tdoptd)
-
-        # Error check:
-        if ( np.nanmax(tdtop)==fillval ):
-            print('Not all missing values converted to NANs')
-            sys.exit()
-        if ( np.nanmax(tdbase)==fillval ):
-            print('Not all missing values converted to NANs')
-            sys.exit()
-        if ( np.nanmax(tdoptd)==fillval ):
-            print('Not all missing values converted to NANs')
-            sys.exit()
-
-        # close DLR file:
-        dlr_cloud_data.close()
-
-        # Read in FRESCO cloud data:
-        dlr_cloud_data=Dataset(tffile, mode='r')
-
-        # Extract data of interest:
-        tflons= dlr_cloud_data.groups['PRODUCT'].variables['longitude'][:][0, :, :]
-        tflats= dlr_cloud_data.groups['PRODUCT'].variables['latitude'][:][0, :, :]
-        tfrc= dlr_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA'].\
-              variables['cloud_fraction_crb'][:]
-        tffrc=tfrc.data[0,:,:]
-        talb= dlr_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA'].\
-              variables['cloud_albedo_crb'][:]
-        tfalb=talb.data[0,:,:]
-        ttop= dlr_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA'].\
-              variables['cloud_pressure_crb'][:]
-        tftop=ttop.data[0,:,:]
-        tqval= dlr_cloud_data.groups['PRODUCT'].variables['qa_value'][:]
-        tfqval=tqval.data[0,:,:]
-        tsnow= dlr_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA'].\
-              variables['snow_ice_flag'][:]
-        tfsnow=tsnow.data[0,:,:]
-        # Convert all valid snow/ice free flag values (0,255) to 0.
-        tfsnow=np.where(tfsnow==255, 0, tfsnow)
-        # Get data indices:
-        mf,nf=tflons.shape
-
-        # close FRESCO file:
-        dlr_cloud_data.close()
-
-        # Count data:
-        # TODO: Find where these values come from. Are they the same as the later ones?
-        fr_ind=np.where((tfqval<0.45)&(tffrc>=0.7)&(tftop>=18000)&\
-                        (tftop<=45000)&(tfsnow==0))[0]
-        nobs_fresco=nobs_fresco+len(fr_ind)
-
-        m=product_x
-        n=product_y
-        # Skip files if the number of indices are not equal:
-        if mf!=product_x:
-            print('Indices ne for ', tdfile)
-            continue
-            #m=min(md,mf)
-            #n=min(nd,nf)
-
-        # Set missing/poor quality/irrelevant data to NAN:
-        # Apply cloud fraction filter, but set it to 0.7 rather
-        #     than 0.9 to account for variability around this threshold
-        #     in the two cloud products.
-        #inicnt=np.count_nonzero(~np.isnan(tffrc))
-        #print(inicnt)
-        tffrc=np.where(tffrc<0.7, np.nan, tffrc)
-        tffrc=np.where(tffrc==fillval, np.nan, tffrc)
-        # QA Flags. Threshold of 0.45 suggested by Henk Eskes in email
-        # exchange on 18 Jan 2020:
-        tffrc=np.where(tfqval<0.45, np.nan, tffrc)
-        # Apply cloud top pressure filter to only consider clouds above
-        #   500 hPa and below 150 hPa (more generous than the 450-200 hPa
-        #   range to account for variability around this threshold in the
-        #   two cloud products:
-        tffrc=np.where(tftop>450*1e2, np.nan, tffrc)
-        tffrc=np.where(tftop<180*1e2, np.nan, tffrc)
-        # Snow/ice cover:
-        tffrc=np.where(tfsnow!=0, np.nan, tffrc)
-
-        # Apply filter to remaining data:
-        tftop=np.where(np.isnan(tffrc), np.nan, tftop)
-
-        # TODO: Make this vectorised
-        # REGRID THE DATA:
-        for i in range(m):
-            for j in range(n):
-
-                # Skip where FRESCO cloud product is NAN:
-                if np.isnan(tffrc[i,j]): continue
-
-                # Skip if there is also no valid DLR data due to
-                # poor data quality or missing values:
-                if np.isnan(tdfrc[i,j]): continue
-
-                # Error checks:
-                # Check that lat and lon values are the same (except for
-                # those at 180/-180 that can have different signs):
-                if (tdlons[i,j] != tflons[i,j]) and \
-                   (abs(tdlons[i,j])!=180.0):
-                    print('Longitudes not the same')
-                    print(tdlons[i,j],tflons[i,j])
-                    p,q = np.argmin(abs(out_lon-tdlons[i,j])),\
-                          np.argmin(abs(out_lat-tdlats[i,j]))
-                    print(p)
-                    print(out_lon[p])
-                    sys.exit()
-                if tdlats[i,j] != tflats[i,j]:
-                    print('Latitudes not the same')
-                    raise Exception("Latitudes not the same")
-                    sys.exit()
-
-                # Find corresponding gridsquare:
-                p,q = np.argmin(abs(out_lon-tdlons[i,j])),\
-                      np.argmin(abs(out_lat-tdlats[i,j]))
-
-                # Add data to output arrays:
-                if np.isnan(tffrc[i,j]): continue
-                gknmi_cf[p,q]=gknmi_cf[p,q]+tffrc[i,j]
-                gknmi_ct[p,q]=gknmi_ct[p,q]+np.divide(tftop[i,j],100)
-                gknmi_cnt[p,q]=gknmi_cnt[p,q]+1.0
-                if np.isnan(tdfrc[i,j]): continue
-                gdlr_cf[p,q]=gdlr_cf[p,q]+tdfrc[i,j]
-                gdlr_ct[p,q]=gdlr_ct[p,q]+np.divide(tdtop[i,j],100)
-                gdlr_cb[p,q]=gdlr_cb[p,q]+np.divide(tdbase[i,j],100)
-                gdlr_od[p,q]=gdlr_od[p,q]+tdoptd[i,j]
-                gdlr_cnt[p,q]=gdlr_cnt[p,q]+1.0
+        process_file(tffile, tdfile)
 
     # Get means and differences (only means for cloud base height):
     # (1) Cloud fraction:
