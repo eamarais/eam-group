@@ -33,13 +33,22 @@ from gcpy.gcpy.plot.colormap import WhGrYlRd
 # Turn off warnings:
 # np.warnings.filterwarnings('ignore')
 
+
 class FileMismatchException(Exception):
     """
     Raised when there are an unequal number of cloud and N02 files
     """
     pass
 
-def write_to_netcdf(outdir = '/data/uptrop/Projects/UpTrop/python/Data/' ):
+
+class LatLonException(Exception):
+    """
+    Raised when there is a LatLon mismatch
+    """
+    pass
+
+
+def write_to_netcdf(outdir = '/data/uptrop/Projects/UpTrop/python/Data/'):
     # Write data to file:
     outfile = os.path.join(outdir,'fresco-dlr-cloud-products-' + MMName + '-' + StrYY + '-2x25-v2.nc')
     ncfile = Dataset(outfile, 'w', format='NETCDF4_CLASSIC')
@@ -102,6 +111,83 @@ def write_to_netcdf(outdir = '/data/uptrop/Projects/UpTrop/python/Data/' ):
     data8[:] = gdlr_cnt
     # close the file.
     ncfile.close()
+
+
+def plot_clouds():
+    # PLOT THE DATA:
+    m = Basemap(resolution='l', projection='merc', lat_0=0, lon_0=0,
+                llcrnrlon=minlon, llcrnrlat=-70,
+                urcrnrlon=maxlon, urcrnrlat=70)
+    xi, yi = m(X, Y)
+    # (1) Cloud fraction:
+    plt.figure(1)
+    plt.subplot(3, 1, 1)
+    cs = m.pcolor(xi, yi, np.squeeze(gknmi_cf), vmin=0.7, vmax=1.3, cmap='jet')
+    m.drawcoastlines()
+    cbar = m.colorbar(cs, location='bottom', pad="10%")
+    plt.title('FRESCO Cloud fraction')
+    plt.subplot(3, 1, 2)
+    cs = m.pcolor(xi, yi, np.squeeze(gdlr_cf), vmin=0.7, vmax=1.3, cmap='jet')
+    m.drawcoastlines()
+    cbar = m.colorbar(cs, location='bottom', pad="10%")
+    plt.title('DLR Cloud fraction')
+    plt.subplot(3, 1, 3)
+    cs = m.pcolor(xi, yi, np.squeeze(gdiff_cf), vmin=-0.2, vmax=0.2, cmap='bwr')
+    m.drawcoastlines()
+    cbar = m.colorbar(cs, location='bottom', pad="10%")
+    plt.title('Difference (FRESCO-DLR)')
+    plt.savefig('./Images/fresco-vs-dlr-cloud-frac-' + MMName + '-' + StrYY + '-v2.ps', \
+                format='ps')
+    # (2) Cloud top pressure:
+    plt.figure(2)
+    plt.subplot(3, 1, 1)
+    cs = m.pcolor(xi, yi, np.squeeze(gknmi_ct), vmin=150, vmax=500, cmap='jet')
+    m.drawcoastlines()
+    cbar = m.colorbar(cs, location='bottom', pad="10%")
+    plt.title('FRESCO Cloud top pressure [hPa]')
+    plt.subplot(3, 1, 2)
+    cs = m.pcolor(xi, yi, np.squeeze(gdlr_ct), vmin=150, vmax=500, cmap='jet')
+    m.drawcoastlines()
+    cbar = m.colorbar(cs, location='bottom', pad="10%")
+    plt.title('DLR Cloud top pressure [hPa]')
+    plt.subplot(3, 1, 3)
+    cs = m.pcolor(xi, yi, np.squeeze(gdiff_ct), vmin=-30, vmax=30, cmap='bwr')
+    m.drawcoastlines()
+    cbar = m.colorbar(cs, location='bottom', pad="10%")
+    plt.title('Difference (FRESCO-DLR)')
+    plt.savefig('./Images/fresco-vs-dlr-cloud-top-press-' + MMName + '-' + StrYY + \
+                '-v1.ps', format='ps')
+    # (3) Cloud optical depth/albedo (DLR only):
+    plt.figure(3)
+    cs = m.pcolor(xi, yi, np.squeeze(gdlr_od), vmin=0, vmax=200, cmap='jet')
+    m.drawcoastlines()
+    cbar = m.colorbar(cs, location='bottom', pad="10%")
+    plt.title('DLR cloud optical thickness')
+    plt.savefig('./Images/dlr-cloud-optical-depth-' + MMName + '-' + StrYY + '-v1.ps', \
+                format='ps')
+    # (4) Cloud base pressure (DLR only):
+    plt.figure(4)
+    cs = m.pcolor(xi, yi, np.squeeze(gdlr_cb), vmin=150, vmax=900, cmap='jet')
+    m.drawcoastlines()
+    cbar = m.colorbar(cs, location='bottom', pad="10%")
+    plt.title('DLR base pressure [hPa]')
+    plt.savefig('./Images/dlr-cloud-base-press-' + MMName + '-' + StrYY + '-v1.ps', \
+                format='ps')
+    # (5) Number of points (both):
+    plt.figure(4)
+    plt.subplot(2, 1, 1)
+    cs = m.pcolor(xi, yi, np.squeeze(gknmi_cnt), vmin=0, vmax=5000, cmap=WhGrYlRd)
+    m.drawcoastlines()
+    cbar = m.colorbar(cs, location='bottom', pad="10%")
+    plt.title('FRESCO No. of obs')
+    plt.subplot(2, 1, 2)
+    cs = m.pcolor(xi, yi, np.squeeze(gdlr_cnt), vmin=0, vmax=5000, cmap=WhGrYlRd)
+    m.drawcoastlines()
+    cbar = m.colorbar(cs, location='bottom', pad="10%")
+    plt.title('DLR No. of obs')
+    plt.savefig('./Images/fresco-dlr-number-of-obs-' + MMName + '-' + StrYY + '-v1.ps', \
+                format='ps')
+    plt.show()
 
 
 if __name__ == "__main__":
@@ -196,7 +282,7 @@ if __name__ == "__main__":
     # NOTE: Cloud pressure is given in Pa!!!
 
     # Loop over files:
-    for tffile, tdfile in zip(tffile_list, tdfile_list):   # TODO: Replace with zipped iterator instead of file[f]
+    for tffile, tdfile in zip(tffile_list, tdfile_list):
 
         # Track progress:
         print('===> Processing: ', tdfile)
@@ -230,7 +316,7 @@ if __name__ == "__main__":
         # Convert all valid snow/ice free flag values (0,255) to 0.
         tdsnow=np.where(tdsnow==255, 0, tdsnow)
         # Get data indices:
-        md,nd = tdlons.shape
+        product_x, product_y = tdlons.shape
 
         # Count data:
         dlr_ind=np.where((tdqval<0.5)&(tdfrc>=0.7)&(tdtop>=18000)&\
@@ -314,10 +400,10 @@ if __name__ == "__main__":
                         (tftop<=45000)&(tfsnow==0))[0]
         nobs_fresco=nobs_fresco+len(fr_ind)
 
-        m=md
-        n=nd
+        m=product_x
+        n=product_y
         # Skip files if the number of indices are not equal:
-        if mf!=md:
+        if mf!=product_x:
             print('Indices ne for ', tdfile)
             continue
             #m=min(md,mf)
@@ -348,48 +434,46 @@ if __name__ == "__main__":
 
         # TODO: Make this vectorised
         # REGRID THE DATA:
-        for i in range(m):
-            for j in range(n):
+        #for i in range(m):
+        #    for j in range(n):
 
-                # Skip where FRESCO cloud product is NAN:
-                if np.isnan(tffrc[i,j]): continue
+        # Skip where FRESCO cloud product is NAN:
+        #if np.isnan(tffrc[i,j]): continue
 
-                # Skip if there is also no valid DLR data due to
-                # poor data quality or missing values:
-                if np.isnan(tdfrc[i,j]): continue
+        # Skip if there is also no valid DLR data due to
+        # poor data quality or missing values:
+        #if np.isnan(tdfrc[i,j]): continue
 
-                # Error checks:
-                # Check that lat and lon values are the same (except for
-                # those at 180/-180 that can have different signs):
-                if (tdlons[i,j] != tflons[i,j]) and \
-                   (abs(tdlons[i,j])!=180.0):
-                    print('Longitudes not the same')
-                    print(tdlons[i,j],tflons[i,j])
-                    p,q = np.argmin(abs(out_lon-tdlons[i,j])),\
-                          np.argmin(abs(out_lat-tdlats[i,j]))
-                    print(p)
-                    print(out_lon[p])
-                    sys.exit()
-                if tdlats[i,j] != tflats[i,j]:
-                    print('Latitudes not the same')
-                    raise Exception("Latitudes not the same")
-                    sys.exit()
+        # Error checks:
+        # Check that lat and lon values are the same (except for
+        # those at 180/-180 that can have different signs):
+        if (tdlons != tflons): # Put this back in later maybe and abs(tdlons)!=180.0:
+            print('Longitudes not the same')
+            print(tdlons[i,j],tflons[i,j])
+            p,q = np.argmin(abs(out_lon-tdlons[i,j])),\
+                  np.argmin(abs(out_lat-tdlats[i,j]))
+            print(p)
+            print(out_lon[p])
+            raise LatLonException("Longidtudes not the same")
+        if tdlats != tflats:
+            print('Latitudes not the same')
+            raise LatLonException("Latitudes not the same")
 
-                # Find corresponding gridsquare:
-                p,q = np.argmin(abs(out_lon-tdlons[i,j])),\
-                      np.argmin(abs(out_lat-tdlats[i,j]))
+        # Find corresponding gridsquare:
+        p,q = np.argmin(abs(out_lon-tdlons[i,j])),\
+              np.argmin(abs(out_lat-tdlats[i,j]))
 
-                # Add data to output arrays:
-                if np.isnan(tffrc[i,j]): continue
-                gknmi_cf[p,q]=gknmi_cf[p,q]+tffrc[i,j]
-                gknmi_ct[p,q]=gknmi_ct[p,q]+np.divide(tftop[i,j],100)
-                gknmi_cnt[p,q]=gknmi_cnt[p,q]+1.0
-                if np.isnan(tdfrc[i,j]): continue
-                gdlr_cf[p,q]=gdlr_cf[p,q]+tdfrc[i,j]
-                gdlr_ct[p,q]=gdlr_ct[p,q]+np.divide(tdtop[i,j],100)
-                gdlr_cb[p,q]=gdlr_cb[p,q]+np.divide(tdbase[i,j],100)
-                gdlr_od[p,q]=gdlr_od[p,q]+tdoptd[i,j]
-                gdlr_cnt[p,q]=gdlr_cnt[p,q]+1.0
+        # Add data to output arrays:
+        if np.isnan(tffrc[i,j]): continue
+        gknmi_cf[p,q]=gknmi_cf[p,q]+tffrc[i,j]
+        gknmi_ct[p,q]=gknmi_ct[p,q]+np.divide(tftop[i,j],100)
+        gknmi_cnt[p,q]=gknmi_cnt[p,q]+1.0
+        if np.isnan(tdfrc[i,j]): continue
+        gdlr_cf[p,q]=gdlr_cf[p,q]+tdfrc[i,j]
+        gdlr_ct[p,q]=gdlr_ct[p,q]+np.divide(tdtop[i,j],100)
+        gdlr_cb[p,q]=gdlr_cb[p,q]+np.divide(tdbase[i,j],100)
+        gdlr_od[p,q]=gdlr_od[p,q]+tdoptd[i,j]
+        gdlr_cnt[p,q]=gdlr_cnt[p,q]+1.0
 
     # Get means and differences (only means for cloud base height):
     # (1) Cloud fraction:
@@ -413,98 +497,6 @@ if __name__ == "__main__":
     print('No. of FRESCO obs for '+MMName+' = ',nobs_fresco)
     print('No. of DLR obs for '+MMName+' = ',nobs_dlr)
 
-    # JOHN NOTE: This whole block can be put in a function
-
     write_to_netcdf()
 
-
-    # PLOT THE DATA:
-    m=Basemap(resolution='l',projection='merc',lat_0=0,lon_0=0,\
-              llcrnrlon=minlon,llcrnrlat=-70,\
-              urcrnrlon=maxlon,urcrnrlat=70)
-    xi,yi=m(X,Y)
-
-    # (1) Cloud fraction:
-    plt.figure(1)
-    plt.subplot(3, 1, 1)
-    cs=m.pcolor(xi,yi,np.squeeze(gknmi_cf), vmin=0.7, vmax=1.3, cmap='jet')
-    m.drawcoastlines()
-    cbar = m.colorbar(cs, location='bottom', pad="10%")
-    plt.title('FRESCO Cloud fraction')
-
-    plt.subplot(3, 1, 2)
-    cs=m.pcolor(xi,yi,np.squeeze(gdlr_cf), vmin=0.7, vmax=1.3, cmap='jet')
-    m.drawcoastlines()
-    cbar = m.colorbar(cs, location='bottom', pad="10%")
-    plt.title('DLR Cloud fraction')
-
-    plt.subplot(3, 1, 3)
-    cs=m.pcolor(xi,yi,np.squeeze(gdiff_cf), vmin=-0.2, vmax=0.2, cmap='bwr')
-    m.drawcoastlines()
-    cbar = m.colorbar(cs, location='bottom', pad="10%")
-    plt.title('Difference (FRESCO-DLR)')
-
-    plt.savefig('./Images/fresco-vs-dlr-cloud-frac-'+MMName+'-'+StrYY+'-v2.ps', \
-                format='ps')
-
-    # (2) Cloud top pressure:
-    plt.figure(2)
-    plt.subplot(3, 1, 1)
-    cs=m.pcolor(xi,yi,np.squeeze(gknmi_ct), vmin=150, vmax=500, cmap='jet')
-    m.drawcoastlines()
-    cbar = m.colorbar(cs, location='bottom', pad="10%")
-    plt.title('FRESCO Cloud top pressure [hPa]')
-
-    plt.subplot(3, 1, 2)
-    cs=m.pcolor(xi,yi,np.squeeze(gdlr_ct), vmin=150, vmax=500, cmap='jet')
-    m.drawcoastlines()
-    cbar = m.colorbar(cs, location='bottom', pad="10%")
-    plt.title('DLR Cloud top pressure [hPa]')
-
-    plt.subplot(3, 1, 3)
-    cs=m.pcolor(xi,yi,np.squeeze(gdiff_ct), vmin=-30, vmax=30, cmap='bwr')
-    m.drawcoastlines()
-    cbar = m.colorbar(cs, location='bottom', pad="10%")
-    plt.title('Difference (FRESCO-DLR)')
-
-    plt.savefig('./Images/fresco-vs-dlr-cloud-top-press-'+MMName+'-'+StrYY+\
-                '-v1.ps', format='ps')
-
-    # (3) Cloud optical depth/albedo (DLR only):
-    plt.figure(3)
-    cs=m.pcolor(xi,yi,np.squeeze(gdlr_od), vmin=0, vmax=200, cmap='jet')
-    m.drawcoastlines()
-    cbar = m.colorbar(cs, location='bottom', pad="10%")
-    plt.title('DLR cloud optical thickness')
-
-    plt.savefig('./Images/dlr-cloud-optical-depth-'+MMName+'-'+StrYY+'-v1.ps', \
-                format='ps')
-
-    # (4) Cloud base pressure (DLR only):
-    plt.figure(4)
-    cs=m.pcolor(xi,yi,np.squeeze(gdlr_cb), vmin=150, vmax=900, cmap='jet')
-    m.drawcoastlines()
-    cbar = m.colorbar(cs, location='bottom', pad="10%")
-    plt.title('DLR base pressure [hPa]')
-
-    plt.savefig('./Images/dlr-cloud-base-press-'+MMName+'-'+StrYY+'-v1.ps', \
-                format='ps')
-
-    # (5) Number of points (both):
-    plt.figure(4)
-    plt.subplot(2, 1, 1)
-    cs=m.pcolor(xi,yi,np.squeeze(gknmi_cnt), vmin=0, vmax=5000, cmap=WhGrYlRd)
-    m.drawcoastlines()
-    cbar = m.colorbar(cs, location='bottom', pad="10%")
-    plt.title('FRESCO No. of obs')
-
-    plt.subplot(2, 1, 2)
-    cs=m.pcolor(xi,yi,np.squeeze(gdlr_cnt), vmin=0, vmax=5000, cmap=WhGrYlRd)
-    m.drawcoastlines()
-    cbar = m.colorbar(cs, location='bottom', pad="10%")
-    plt.title('DLR No. of obs')
-
-    plt.savefig('./Images/fresco-dlr-number-of-obs-'+MMName+'-'+StrYY+'-v1.ps', \
-                format='ps')
-
-    plt.show()
+    plot_clouds()
