@@ -369,11 +369,10 @@ if __name__ == "__main__":
                           np.argmin(abs(out_lat-tdlats[i,j]))
                     print(p)
                     print(out_lon[p])
-                    sys.exit()
+                    raise Exception("Latitudes not the same")
                 if tdlats[i,j] != tflats[i,j]:
                     print('Latitudes not the same')
                     raise Exception("Latitudes not the same")
-                    sys.exit()
 
                 # Find corresponding gridsquare:
                 p,q = np.argmin(abs(out_lon-tdlons[i,j])), np.argmin(abs(out_lat-tdlats[i,j]))
