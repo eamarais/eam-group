@@ -196,7 +196,7 @@ if __name__ == "__main__":
     # NOTE: Cloud pressure is given in Pa!!!
 
     # Loop over files:
-    for tffile, tdfile in zip(tffile_list, tdfile_list):   # TODO: Replace with zipped iterator instead of file[f]
+    for tffile, tdfile in zip(tffile_list, tdfile_list):
 
         # Track progress:
         print('===> Processing: ', tdfile)
@@ -376,8 +376,7 @@ if __name__ == "__main__":
                     sys.exit()
 
                 # Find corresponding gridsquare:
-                p,q = np.argmin(abs(out_lon-tdlons[i,j])),\
-                      np.argmin(abs(out_lat-tdlats[i,j]))
+                p,q = np.argmin(abs(out_lon-tdlons[i,j])), np.argmin(abs(out_lat-tdlats[i,j]))
 
                 # Add data to output arrays:
                 if np.isnan(tffrc[i,j]): continue
