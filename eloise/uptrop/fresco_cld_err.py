@@ -46,8 +46,8 @@ maxlon=178.
 if (outres=='1x1'): dellat,dellon=1,1
 if (outres=='2x25'): dellat,dellon=2,2.5
 if (outres=='4x5'): dellat,dellon=4,5
-out_lon=np.arange(minlon,maxlon,dellon)#(-180,181,dellon)
-out_lat=np.arange(minlat,maxlat,dellat)#(-90.,91.,dellat)
+out_lon=np.arange(minlon,maxlon+dellon,dellon)#(-180,181,dellon)
+out_lat=np.arange(minlat,maxlat+dellat,dellat)#(-90.,91.,dellat)
 # Convert output lats and longs to 2D:
 X, Y = np.meshgrid(out_lon, out_lat,indexing='ij') 
 # Dimensions of output data:
@@ -71,8 +71,8 @@ gdlr_cnt=np.zeros(X.shape)
 # Define data arrays to output cloud fraction binned into 0.05 
 # increments from 0.7 to 1.0 centred at 0.725, 0.775 etc.:
 # Consider also splitting this into latitude bands.
-cldbin=np.arange(0.7,1.0,0.05)
-latbin=np.arange(-90,90,15)
+cldbin=np.arange(0.7,1.2+0.05,0.05)
+latbin=np.arange(-90,90+15,15)
 knmi_cf_freq=np.zeros((len(latbin),len(cldbin)))
 dlr_cf_freq=np.zeros((len(latbin),len(cldbin)))
 
