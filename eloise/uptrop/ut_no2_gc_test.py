@@ -79,8 +79,8 @@ if StrRes=='8x10': dellat,dellon=8,10
 if StrRes=='4x5': dellat,dellon=4,5
 if StrRes=='2x25': dellat,dellon=2,2.5
 if StrRes=='1x1': dellat,dellon=1,1
-out_lon=np.arange(minlon,maxlon,dellon)#(-180,181,dellon)
-out_lat=np.arange(minlat,maxlat,dellat)#(-90.,91.,dellat)
+out_lon=np.arange(minlon,maxlon+dellon,dellon)#(-180,181,dellon)
+out_lat=np.arange(minlat,maxlat+dellat,dellat)#(-90.,91.,dellat)
 # Convert output lats and long to 2D:
 X, Y = np.meshgrid(out_lon, out_lat,indexing='ij') 
 # Dimensions of output data:
