@@ -48,7 +48,7 @@ class LatLonException(Exception):
     pass
 
 
-def write_to_netcdf(outdir = '/data/uptrop/Projects/UpTrop/python/Data/'):
+def write_to_netcdf(outdir):
     # Write data to file:
     outfile = os.path.join(outdir,'fresco-dlr-cloud-products-' + MMName + '-' + StrYY + '-2x25-v2.nc')
     ncfile = Dataset(outfile, 'w', format='NETCDF4_CLASSIC')
@@ -114,6 +114,7 @@ def write_to_netcdf(outdir = '/data/uptrop/Projects/UpTrop/python/Data/'):
 
 
 def plot_clouds():
+    # TODO Find the things that are plottet
     # PLOT THE DATA:
     m = Basemap(resolution='l', projection='merc', lat_0=0, lon_0=0,
                 llcrnrlon=minlon, llcrnrlat=-70,
@@ -191,7 +192,8 @@ def plot_clouds():
 
 
 def process_file(tdfile, tffile):
-    global nobs_dlr, nobs_fresco  # TODO: Make these parameters
+    # TODO: This is still too big - break up
+    global nobs_dlr, nobs_fresco  # TODO: Make these parameters or return values
     # Track progress:
     print('===> Processing: ', tdfile)
     # Get orbit/swath number:
@@ -199,10 +201,12 @@ def process_file(tdfile, tffile):
     dorb = tdfile[106:111]
     # Check orbit/swath is the same. If not, skip this iteration:
     if (forb != dorb):
-        pass  # REPLACE WITH RETURN
+        print("Orbit is not swath")
+        return  # REPLACE WITH RETURN
     # Read DLR cloud data:
     dlr_cloud_data = Dataset(tdfile, mode='r')
     # Extract data of interest:
+    # TODO: This set of variables gets passed around a lot - refactor into a struct to avoid all the globals
     tdlons = dlr_cloud_data.groups['PRODUCT'].variables['longitude'][:][0, :, :]
     tdlats = dlr_cloud_data.groups['PRODUCT'].variables['latitude'][:][0, :, :]
     tfrc = dlr_cloud_data.groups['PRODUCT'].variables['cloud_fraction'][:]
@@ -294,7 +298,7 @@ def process_file(tdfile, tffile):
     # Skip files if the number of indices are not equal:
     if mf != product_x:
         print('Indices ne for ', tdfile)
-        pass  # CONTINUE
+        return  # CONTINUE
         # m=min(md,mf)
         # n=min(nd,nf)
     # Set missing/poor quality/irrelevant data to NAN:
@@ -322,48 +326,131 @@ def process_file(tdfile, tffile):
     # REGRID THE DATA:
     for i in range(m):
         for j in range(n):
+            process_pixel(i, j, tdbase, tdfrc, tdlats, tdlons, tdoptd, tdtop, tffrc, tflats, tflons, tftop)
 
-            # Skip where FRESCO cloud product is NAN:
-            if np.isnan(tffrc[i, j]): continue
+    return
 
-            # Skip if there is also no valid DLR data due to
-            # poor data quality or missing values:
-            if np.isnan(tdfrc[i, j]): continue
 
-            # Error checks:
-            # Check that lat and lon values are the same (except for
-            # those at 180/-180 that can have different signs):
-            if (tdlons[i, j] != tflons[i, j]) and \
-                    (abs(tdlons[i, j]) != 180.0):
-                print('Longitudes not the same')
-                print(tdlons[i, j], tflons[i, j])
-                p, q = np.argmin(abs(out_lon - tdlons[i, j])), \
-                       np.argmin(abs(out_lat - tdlats[i, j]))
-                print(p)
-                print(out_lon[p])
-                raise Exception("Longitudes not the same")
-            if tdlats[i, j] != tflats[i, j]:
-                print('Latitudes not the same')
-                raise Exception("Latitudes not the same")
+def process_pixel(i, j, tdbase, tdfrc, tdlats, tdlons, tdoptd, tdtop, tffrc, tflats, tflons, tftop):
+    # Skip where FRESCO cloud product is NAN:
+    # if np.isnan(tffrc[i, j]): continue
+    # Skip if there is also no valid DLR data due to
+    # poor data quality or missing values:
+    # if np.isnan(tdfrc[i, j]): continue
+    # Error checks:
+    # Check that lat and lon values are the same (except for
+    # those at 180/-180 that can have different signs):
+    if (tdlons[i, j] != tflons[i, j]) and \
+            (abs(tdlons[i, j]) != 180.0):
+        print('Longitudes not the same')
+        print(tdlons[i, j], tflons[i, j])
+        p, q = np.argmin(abs(out_lon - tdlons[i, j])), \
+               np.argmin(abs(out_lat - tdlats[i, j]))
+        print(p)
+        print(out_lon[p])
+        raise Exception("Longitudes not the same")
+    if tdlats[i, j] != tflats[i, j]:
+        print('Latitudes not the same')
+        raise Exception("Latitudes not the same")
+    # Find corresponding gridsquare:
+    p, q = np.argmin(abs(out_lon - tdlons[i, j])), \
+           np.argmin(abs(out_lat - tdlats[i, j]))
+    # Add data to output arrays:
+    # if np.isnan(tffrc[i, j]): continue
+    gknmi_cf[p, q] = gknmi_cf[p, q] + tffrc[i, j]
+    gknmi_ct[p, q] = gknmi_ct[p, q] + np.divide(tftop[i, j], 100)
+    gknmi_cnt[p, q] = gknmi_cnt[p, q] + 1.0
+    # if np.isnan(tdfrc[i, j]): continue
+    gdlr_cf[p, q] = gdlr_cf[p, q] + tdfrc[i, j]
+    gdlr_ct[p, q] = gdlr_ct[p, q] + np.divide(tdtop[i, j], 100)
+    gdlr_cb[p, q] = gdlr_cb[p, q] + np.divide(tdbase[i, j], 100)
+    gdlr_od[p, q] = gdlr_od[p, q] + tdoptd[i, j]
+    gdlr_cnt[p, q] = gdlr_cnt[p, q] + 1.0
 
-            # Find corresponding gridsquare:
-            p, q = np.argmin(abs(out_lon - tdlons[i, j])), \
-                   np.argmin(abs(out_lat - tdlats[i, j]))
 
-            # Add data to output arrays:
-            if np.isnan(tffrc[i, j]): continue
-            gknmi_cf[p, q] = gknmi_cf[p, q] + tffrc[i, j]
-            gknmi_ct[p, q] = gknmi_ct[p, q] + np.divide(tftop[i, j], 100)
-            gknmi_cnt[p, q] = gknmi_cnt[p, q] + 1.0
-            if np.isnan(tdfrc[i, j]): continue
-            gdlr_cf[p, q] = gdlr_cf[p, q] + tdfrc[i, j]
-            gdlr_ct[p, q] = gdlr_ct[p, q] + np.divide(tdtop[i, j], 100)
-            gdlr_cb[p, q] = gdlr_cb[p, q] + np.divide(tdbase[i, j], 100)
-            gdlr_od[p, q] = gdlr_od[p, q] + tdoptd[i, j]
-            gdlr_cnt[p, q] = gdlr_cnt[p, q] + 1.0
+def get_cloud_statistics():
+    global gknmi_cf, gdlr_cf, gdiff_cf, gknmi_ct, gdlr_ct, gdiff_ct, gdlr_od, gdlr_cb
+    # Get means and differences (only means for cloud base height):
+    # (1) Cloud fraction:
+    gknmi_cf = np.where(gknmi_cnt == 0, np.nan, np.divide(gknmi_cf, gknmi_cnt))
+    gdlr_cf = np.where(gdlr_cnt == 0, np.nan, np.divide(gdlr_cf, gdlr_cnt))
+    gdiff_cf = np.subtract(gknmi_cf, gdlr_cf)
+    # (2) Cloud top pressure:
+    gknmi_ct = np.where(gknmi_cnt == 0, np.nan, np.divide(gknmi_ct, gknmi_cnt))
+    gdlr_ct = np.where(gdlr_cnt == 0, np.nan, np.divide(gdlr_ct, gdlr_cnt))
+    gdiff_ct = np.subtract(gknmi_ct, gdlr_ct)
+    # (3) Cloud albedo/optical depth:
+    gdlr_od = np.where(gdlr_cnt == 0, np.nan, np.divide(gdlr_od, gdlr_cnt))
+    # (4) Cloud base pressure (DLR only):
+    gdlr_cb = np.divide(gdlr_cb, gdlr_cnt)
+    gdlr_cb[gdlr_cnt == 0.0] = np.nan
+
+
+def prepare_arrays(sen_5_p_dir):
+    global gknmi_cf, gknmi_ct, gknmi_cnt, gdlr_cf, gdlr_ct, gdlr_cb, gdlr_od, gdlr_cnt, nobs_fresco, nobs_dlr, StrMM, StrYY, MMName, tdfile_list, tffile_list
+    # DEFINE DATA ARRAYS:
+    # Define output arrays:
+    gknmi_cf = np.zeros(X.shape)
+    gknmi_ct = np.zeros(X.shape)
+    gknmi_cb = np.zeros(X.shape)
+    gknmi_cnt = np.zeros(X.shape)
+    gdlr_cf = np.zeros(X.shape)
+    gdlr_ct = np.zeros(X.shape)
+    gdlr_cb = np.zeros(X.shape)
+    gdlr_od = np.zeros(X.shape)
+    gdlr_cnt = np.zeros(X.shape)
+    # gdiff_cf=np.zeros(X.shape)
+    # Coverage count:
+    nobs_fresco = 0
+    nobs_dlr = 0
+    # Input parameter (to selet month of interest):
+    # Define month of interest as string 2 characters in length:
+    StrMM = '10'  # TODO: Make this user-specified.
+    # Define string of year and first 3 letters of month name based on above entry:
+    if StrMM == '01': StrYY, MMName = '2020', 'jan'
+    if StrMM == '02': StrYY, MMName = '2020', 'feb'
+    if StrMM == '03': StrYY, MMName = '2020', 'mar'
+    if StrMM == '04': StrYY, MMName = '2020', 'apr'
+    if StrMM == '05': StrYY, MMName = '2020', 'may'
+    if StrMM == '06': StrYY, MMName = '2019', 'jun'
+    if StrMM == '07': StrYY, MMName = '2019', 'jul'
+    if StrMM == '08': StrYY, MMName = '2019', 'aug'
+    if StrMM == '09': StrYY, MMName = '2019', 'sep'
+    if StrMM == '10': StrYY, MMName = '2019', 'oct'
+    if StrMM == '11': StrYY, MMName = '2019', 'nov'
+    if StrMM == '12': StrYY, MMName = '2019', 'dec'
+    # Define days:
+    ndays = 31  # TODO: Change to datetime if needed
+    dd = list(range(1, ndays + 1))
+    strdd = [''] * ndays
+    cnt = 0
+    for d in dd:
+        strdd[cnt] = '0' + str(d) if d < 10 else str(d)
+        cnt = cnt + 1
+    # dir structure specific to HPC, filename from TROPOMI
+    # Get DLR data file names:
+    tdfile_list = glob.glob(sen_5_p_dir + 'CLOUD_OFFL/' + StrYY + '/' + StrMM + '/S5P_OFFL_L2__CLOUD__' + \
+                            StrYY + StrMM + '*')
+    tdfile_list = sorted(tdfile_list)
+    # Get FRESCO file names:
+    tffile_list = glob.glob(sen_5_p_dir + 'NO2_OFFL/' + StrYY + '/' + StrMM + '/S5P_OFFL_L2__NO2____' + \
+                            StrYY + StrMM + '*')
+    tffile_list = sorted(tffile_list)
+    # Check that number of files are equal. If not, exit the programme:
+    if len(tdfile_list) != len(tffile_list):
+        print('DLR files = ', len(tdfile_list))
+        print('FRESCO files = ', len(tffile_list))
+        print('unequal number of files')
+        raise FileMismatchException("Unequal number of DLR and FRESCO files, check archive.")
+    # Get number of files:
+    nfiles = len(tdfile_list)
+    return tf_file_list, td_file_list
 
 
 if __name__ == "__main__":
+
+    s5p_data_dir = '/data/uptrop/nobackup/tropomi/Data/'
+    out_dir = '/data/uptrop/Proje/UpTrop/python/Data/'
 
     # TODO: Check these magic numbers
     # Define constants/maybe parameters?
@@ -384,102 +471,20 @@ if __name__ == "__main__":
     xdim=len(out_lon)
     ydim=len(out_lat)
 
-    # DEFINE DATA ARRAYS:
-    # Define output arrays:
-    gknmi_cf=np.zeros(X.shape)
-    gknmi_ct=np.zeros(X.shape)
-    gknmi_cb=np.zeros(X.shape)
-    gknmi_cnt=np.zeros(X.shape)
-    gdlr_cf=np.zeros(X.shape)
-    gdlr_ct=np.zeros(X.shape)
-    gdlr_cb=np.zeros(X.shape)
-    gdlr_od=np.zeros(X.shape)
-    gdlr_cnt=np.zeros(X.shape)
-    #gdiff_cf=np.zeros(X.shape)
-
-    # Coverage count:
-    nobs_fresco=0
-    nobs_dlr=0
-
-    # Input parameter (to selet month of interest):
-    # Define month of interest as string 2 characters in length:
-    StrMM='10'   # TODO: Make this user-specified.
-    # Define string of year and first 3 letters of month name based on above entry:
-    if StrMM=='01': StrYY,MMName='2020','jan'
-    if StrMM=='02': StrYY,MMName='2020','feb'
-    if StrMM=='03': StrYY,MMName='2020','mar'
-    if StrMM=='04': StrYY,MMName='2020','apr'
-    if StrMM=='05': StrYY,MMName='2020','may'
-    if StrMM=='06': StrYY,MMName='2019','jun'
-    if StrMM=='07': StrYY,MMName='2019','jul'
-    if StrMM=='08': StrYY,MMName='2019','aug'
-    if StrMM=='09': StrYY,MMName='2019','sep'
-    if StrMM=='10': StrYY,MMName='2019','oct'
-    if StrMM=='11': StrYY,MMName='2019','nov'
-    if StrMM=='12': StrYY,MMName='2019','dec'
-
-    # Define directory:
-    s5pdir='/data/uptrop/nobackup/tropomi/Data/'   # TODO: Replace with variable
-
-    # Define days:
-    ndays=31        # TODO: Change to datetime if needed
-    dd=list(range(1,ndays+1))
-    strdd=[''] * ndays
-    cnt=0
-    for d in dd:
-        strdd[cnt]='0'+str(d) if d<10 else str(d)
-        cnt=cnt+1
-
-    # dir structure specific to HPC, filename from TROPOMI
-    # Get DLR data file names:
-    tdfile_list=glob.glob(s5pdir+'CLOUD_OFFL/'+StrYY+'/'+StrMM+'/S5P_OFFL_L2__CLOUD__'+\
-                     StrYY+StrMM+'*')
-    tdfile_list=sorted(tdfile_list)
-
-    # Get FRESCO file names:
-    tffile_list=glob.glob(s5pdir+'NO2_OFFL/'+StrYY+'/'+StrMM+'/S5P_OFFL_L2__NO2____'+\
-                     StrYY+StrMM+'*')
-    tffile_list=sorted(tffile_list)
-
-    # Check that number of files are equal. If not, exit the programme:
-    if len(tdfile_list) != len(tffile_list):
-        print('DLR files = ',len(tdfile_list))
-        print('FRESCO files = ',len(tffile_list))
-        print('unequal number of files')
-        raise FileMismatchException("Unequal number of DLR and FRESCO files, check archive.")
-
-    # Get number of files:
-    nfiles=len(tdfile_list)
+    tf_file_list, td_file_list = prepare_arrays(s5p_data_dir)
 
     # NOTE: Cloud pressure is given in Pa!!!
 
     # Loop over files:
-    for tffile, tdfile in zip(tffile_list, tdfile_list):
+    for tf_file, td_file in zip(tf_file_list, td_file_list):
+        process_file(tf_file, td_file)
 
-        process_file(tffile, tdfile)
-
-    # Get means and differences (only means for cloud base height):
-    # (1) Cloud fraction:
-    gknmi_cf=np.where(gknmi_cnt==0, np.nan, np.divide(gknmi_cf,gknmi_cnt))
-    gdlr_cf=np.where(gdlr_cnt==0, np.nan, np.divide(gdlr_cf,gdlr_cnt))
-    gdiff_cf=np.subtract(gknmi_cf,gdlr_cf)
-
-    # (2) Cloud top pressure:
-    gknmi_ct=np.where(gknmi_cnt==0, np.nan, np.divide(gknmi_ct,gknmi_cnt))
-    gdlr_ct=np.where(gdlr_cnt==0, np.nan, np.divide(gdlr_ct,gdlr_cnt))
-    gdiff_ct=np.subtract(gknmi_ct,gdlr_ct)
-
-    # (3) Cloud albedo/optical depth:
-    gdlr_od=np.where(gdlr_cnt==0, np.nan, np.divide(gdlr_od,gdlr_cnt))
-
-    # (4) Cloud base pressure (DLR only):
-    gdlr_cb=np.divide(gdlr_cb,gdlr_cnt)
-    gdlr_cb[gdlr_cnt==0.0]=np.nan
+    get_cloud_statistics()
 
     # Print number of observations to screen:
     print('No. of FRESCO obs for '+MMName+' = ',nobs_fresco)
     print('No. of DLR obs for '+MMName+' = ',nobs_dlr)
 
-    write_to_netcdf()
+    write_to_netcdf(out_dir)
 
     plot_clouds()
