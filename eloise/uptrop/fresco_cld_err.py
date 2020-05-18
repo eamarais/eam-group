@@ -429,6 +429,7 @@ def prepare_arrays(sen_5_p_dir):
     for d in dd:
         strdd[cnt] = '0' + str(d) if d < 10 else str(d)
         cnt = cnt + 1
+    # TODO: Path-ise these globs to avoid the missing '/' input bug
     # dir structure specific to HPC, filename from TROPOMI
     # Get DLR data file names:
     td_file_list = glob.glob(sen_5_p_dir + 'CLOUD_OFFL/' + StrYY + '/' + StrMM + '/S5P_OFFL_L2__CLOUD__' + \
@@ -444,6 +445,8 @@ def prepare_arrays(sen_5_p_dir):
         print('FRESCO files = ', len(tf_file_list))
         print('unequal number of files')
         raise FileMismatchException("Unequal number of DLR and FRESCO files, check archive.")
+    if len(td_file_list) == 0:
+        raise FileNotFoundError("No files found in {}".format(sen_5_p_dir))
     # Get number of files:
     nfiles = len(td_file_list)
     return tf_file_list, td_file_list
@@ -483,6 +486,7 @@ if __name__ == "__main__":
 
     # Loop over files:
     for tf_file, td_file in zip(tf_file_list, td_file_list):
+        print("Processing files {} and {}".format(tf_file, td_file))
         process_file(tf_file, td_file)
 
     get_cloud_statistics()
