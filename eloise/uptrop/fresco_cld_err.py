@@ -388,7 +388,7 @@ def get_cloud_statistics():
 
 
 def prepare_arrays(sen_5_p_dir):
-    global gknmi_cf, gknmi_ct, gknmi_cnt, gdlr_cf, gdlr_ct, gdlr_cb, gdlr_od, gdlr_cnt, nobs_fresco, nobs_dlr, StrMM, StrYY, MMName, tdfile_list, tffile_list
+    global gknmi_cf, gknmi_ct, gknmi_cnt, gdlr_cf, gdlr_ct, gdlr_cb, gdlr_od, gdlr_cnt, nobs_fresco, nobs_dlr, StrMM, StrYY, MMName
     # DEFINE DATA ARRAYS:
     # Define output arrays:
     gknmi_cf = np.zeros(X.shape)
@@ -430,28 +430,28 @@ def prepare_arrays(sen_5_p_dir):
         cnt = cnt + 1
     # dir structure specific to HPC, filename from TROPOMI
     # Get DLR data file names:
-    tdfile_list = glob.glob(sen_5_p_dir + 'CLOUD_OFFL/' + StrYY + '/' + StrMM + '/S5P_OFFL_L2__CLOUD__' + \
+    td_file_list = glob.glob(sen_5_p_dir + 'CLOUD_OFFL/' + StrYY + '/' + StrMM + '/S5P_OFFL_L2__CLOUD__' + \
                             StrYY + StrMM + '*')
-    tdfile_list = sorted(tdfile_list)
+    td_file_list = sorted(td_file_list)
     # Get FRESCO file names:
-    tffile_list = glob.glob(sen_5_p_dir + 'NO2_OFFL/' + StrYY + '/' + StrMM + '/S5P_OFFL_L2__NO2____' + \
+    tf_file_list = glob.glob(sen_5_p_dir + 'NO2_OFFL/' + StrYY + '/' + StrMM + '/S5P_OFFL_L2__NO2____' + \
                             StrYY + StrMM + '*')
-    tffile_list = sorted(tffile_list)
+    tf_file_list = sorted(tf_file_list)
     # Check that number of files are equal. If not, exit the programme:
-    if len(tdfile_list) != len(tffile_list):
-        print('DLR files = ', len(tdfile_list))
-        print('FRESCO files = ', len(tffile_list))
+    if len(td_file_list) != len(tf_file_list):
+        print('DLR files = ', len(td_file_list))
+        print('FRESCO files = ', len(tf_file_list))
         print('unequal number of files')
         raise FileMismatchException("Unequal number of DLR and FRESCO files, check archive.")
     # Get number of files:
-    nfiles = len(tdfile_list)
+    nfiles = len(td_file_list)
     return tf_file_list, td_file_list
 
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Extracts and plots cloud data")
-    parser.add_argument("--5p_data_dir", default='/data/uptrop/nobackup/tropomi/Data/')
+    parser.add_argument("--s5p_data_dir", default='/data/uptrop/nobackup/tropomi/Data/')
     parser.add_argument("--output_dir", default = '~/eos_library/cloud_test_output')
     args = parser.parse_args()
 
@@ -489,6 +489,6 @@ if __name__ == "__main__":
     print('No. of FRESCO obs for '+MMName+' = ',nobs_fresco)
     print('No. of DLR obs for '+MMName+' = ',nobs_dlr)
 
-    write_to_netcdf(args.out_dir)
+    write_to_netcdf(args.output_dir)
 
     plot_clouds()
