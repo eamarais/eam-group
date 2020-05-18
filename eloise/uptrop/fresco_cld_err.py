@@ -23,12 +23,12 @@ import numpy as np
 import netCDF4 as nc4
 from netCDF4 import Dataset
 from scipy import stats
-import leastsq     # Where is this?
+from scipy.optimize import leastsq     # Where is this?
 import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
 from mpl_toolkits import basemap
 #import random
-from gcpy.gcpy.plot.colormap import WhGrYlRd
+from gamap_colormap import WhGrYlRd
 import argparse
 
 # Turn off warnings:
@@ -452,7 +452,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Extracts and plots cloud data")
     parser.add_argument("--5p_data_dir", default='/data/uptrop/nobackup/tropomi/Data/')
-    parser.add_argument("--output_dir", default = '/data/uptrop/Proje/UpTrop/python/Data/')
+    parser.add_argument("--output_dir", default = '~/eos_library/cloud_test_output')
     args = parser.parse_args()
 
 
