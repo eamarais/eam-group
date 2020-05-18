@@ -29,6 +29,7 @@ from mpl_toolkits.basemap import Basemap
 from mpl_toolkits import basemap
 #import random
 from gcpy.gcpy.plot.colormap import WhGrYlRd
+import argparse
 
 # Turn off warnings:
 # np.warnings.filterwarnings('ignore')
@@ -449,8 +450,11 @@ def prepare_arrays(sen_5_p_dir):
 
 if __name__ == "__main__":
 
-    s5p_data_dir = '/data/uptrop/nobackup/tropomi/Data/'
-    out_dir = '/data/uptrop/Proje/UpTrop/python/Data/'
+    parser = argparse.ArgumentParser(description="Extracts and plots cloud data")
+    parser.add_argument("--5p_data_dir", default='/data/uptrop/nobackup/tropomi/Data/')
+    parser.add_argument("--output_dir", default = '/data/uptrop/Proje/UpTrop/python/Data/')
+    args = parser.parse_args()
+
 
     # TODO: Check these magic numbers
     # Define constants/maybe parameters?
@@ -471,7 +475,7 @@ if __name__ == "__main__":
     xdim=len(out_lon)
     ydim=len(out_lat)
 
-    tf_file_list, td_file_list = prepare_arrays(s5p_data_dir)
+    tf_file_list, td_file_list = prepare_arrays(args.s5p_data_dir)
 
     # NOTE: Cloud pressure is given in Pa!!!
 
@@ -485,6 +489,6 @@ if __name__ == "__main__":
     print('No. of FRESCO obs for '+MMName+' = ',nobs_fresco)
     print('No. of DLR obs for '+MMName+' = ',nobs_dlr)
 
-    write_to_netcdf(out_dir)
+    write_to_netcdf(args.out_dir)
 
     plot_clouds()
