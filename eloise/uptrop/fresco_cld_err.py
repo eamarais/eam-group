@@ -30,6 +30,7 @@ from mpl_toolkits import basemap
 #import random
 from gamap_colormap import WhGrYlRd
 import argparse
+from os import path
 
 # Turn off warnings:
 # np.warnings.filterwarnings('ignore')
@@ -114,7 +115,7 @@ def write_to_netcdf(outdir):
     ncfile.close()
 
 
-def plot_clouds():
+def plot_clouds(plot_dir):
     # TODO Find the things that are plottet
     # PLOT THE DATA:
     m = Basemap(resolution='l', projection='merc', lat_0=0, lon_0=0,
@@ -138,7 +139,7 @@ def plot_clouds():
     m.drawcoastlines()
     cbar = m.colorbar(cs, location='bottom', pad="10%")
     plt.title('Difference (FRESCO-DLR)')
-    plt.savefig('./Images/fresco-vs-dlr-cloud-frac-' + MMName + '-' + StrYY + '-v2.ps', \
+    plt.savefig(path.join(plot_dir, 'fresco-vs-dlr-cloud-frac-' + MMName + '-' + StrYY + '-v2.ps'), \
                 format='ps')
     # (2) Cloud top pressure:
     plt.figure(2)
@@ -157,15 +158,15 @@ def plot_clouds():
     m.drawcoastlines()
     cbar = m.colorbar(cs, location='bottom', pad="10%")
     plt.title('Difference (FRESCO-DLR)')
-    plt.savefig('./Images/fresco-vs-dlr-cloud-top-press-' + MMName + '-' + StrYY + \
-                '-v1.ps', format='ps')
+    plt.savefig(path.join(plot_dir, 'fresco-vs-dlr-cloud-top-press-' + MMName + '-' + StrYY + '-v1.ps'),
+                format='ps')
     # (3) Cloud optical depth/albedo (DLR only):
     plt.figure(3)
     cs = m.pcolor(xi, yi, np.squeeze(gdlr_od), vmin=0, vmax=200, cmap='jet')
     m.drawcoastlines()
     cbar = m.colorbar(cs, location='bottom', pad="10%")
     plt.title('DLR cloud optical thickness')
-    plt.savefig('./Images/dlr-cloud-optical-depth-' + MMName + '-' + StrYY + '-v1.ps', \
+    plt.savefig(path.join(plot_dir, 'dlr-cloud-optical-depth-' + MMName + '-' + StrYY + '-v1.ps'),
                 format='ps')
     # (4) Cloud base pressure (DLR only):
     plt.figure(4)
@@ -173,7 +174,7 @@ def plot_clouds():
     m.drawcoastlines()
     cbar = m.colorbar(cs, location='bottom', pad="10%")
     plt.title('DLR base pressure [hPa]')
-    plt.savefig('./Images/dlr-cloud-base-press-' + MMName + '-' + StrYY + '-v1.ps', \
+    plt.savefig(path.join(plot_dir,'dlr-cloud-base-press-' + MMName + '-' + StrYY + '-v1.ps'),
                 format='ps')
     # (5) Number of points (both):
     plt.figure(4)
@@ -187,7 +188,7 @@ def plot_clouds():
     m.drawcoastlines()
     cbar = m.colorbar(cs, location='bottom', pad="10%")
     plt.title('DLR No. of obs')
-    plt.savefig('./Images/fresco-dlr-number-of-obs-' + MMName + '-' + StrYY + '-v1.ps', \
+    plt.savefig(path.join(plot_dir, 'fresco-dlr-number-of-obs-' + MMName + '-' + StrYY + '-v1.ps'),
                 format='ps')
     plt.show()
 
@@ -453,6 +454,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Extracts and plots cloud data")
     parser.add_argument("--s5p_data_dir", default='/data/uptrop/nobackup/tropomi/Data/')
     parser.add_argument("--output_dir", default = '~/eos_library/cloud_test_output')
+    parser.add_argument("--plot_dir", default = "~/eos_library/cloud_test_plots")
     args = parser.parse_args()
 
 
@@ -491,4 +493,4 @@ if __name__ == "__main__":
 
     write_to_netcdf(args.output_dir)
 
-    plot_clouds()
+    plot_clouds(args.plot_dir)
