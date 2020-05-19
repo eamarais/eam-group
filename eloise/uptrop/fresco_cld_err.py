@@ -315,7 +315,7 @@ class TropomiData:
         self.read_tffile(tf_file_path)
         self.filter_tdfile()
         self.filter_tffile()
-        self.check_parity()
+        self.check_parity(dorb)
         self.shape = self.tdlons.shape
 
     def read_tdfile(self, tdfile):
