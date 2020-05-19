@@ -314,7 +314,7 @@ class TropomiData:
         self.read_tffile(tf_file_path)
         self.filter_tdfile()
         self.filter_tffile()
-        self.check_parity()
+        self.check_parity(dorb)
         self.shape = self.tdlons.shape
 
     def read_tdfile(self, tdfile):
@@ -417,10 +417,10 @@ class TropomiData:
         # Apply filter to remaining data:
         self.tftop = np.where(np.isnan(self.tffrc), np.nan, self.tftop)
 
-    def check_parity(self):
+    def check_parity(self,dorb):
         # Skip files if the number of indices are not equal:
         if self.tdlons.shape != self.tflons.shape:
-            print('Indices ne for ', self.tdfile)
+            print('Indices ne for ', dorb)
             return  # CONTINUE
             # m=min(md,mf)
             # n=min(nd,nf)
