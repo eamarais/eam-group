@@ -19,7 +19,8 @@ import os
 import numpy as np
 from netCDF4 import Dataset
 import matplotlib.pyplot as plt
-from mpl_toolkits.basemap import Basemap
+# Taking Basemap out for now, as it doesn't play nice with Pycharm
+# from mpl_toolkits.basemap import Basemap
 from gamap_colormap import WhGrYlRd
 import argparse
 from os import path
@@ -305,17 +306,18 @@ class TropomiData:
     # TODO: The filter values in get_nobs and filter_t*file are the same _I think_. Put them in attributes, instead of code
 
     def __init__(self, td_file_path, tf_file_path):
-        forb = tf_file_path[104:109]
-        dorb = td_file_path[106:111]
+        # TODO: Ask E which number in the filename is the orbit
+        self.forb = path.basename(tf_file_path)[104:109]
+        self.dorb = path.basename(td_file_path)[106:111]
         # Check orbit/swath is the same. If not, skip this iteration:
-        if (forb != dorb):
+        if (self.forb != self.dorb):
             print("Orbit is not swath")
             return
         self.read_tdfile(td_file_path)
         self.read_tffile(tf_file_path)
         self.filter_tdfile()
         self.filter_tffile()
-        self.check_parity(dorb)
+        self.check_parity()
         self.shape = self.tdlons.shape
 
     def read_tdfile(self, tdfile):
@@ -421,7 +423,7 @@ class TropomiData:
     def check_parity(self):
         # Skip files if the number of indices are not equal:
         if self.tdlons.shape != self.tflons.shape:
-            print('Indices not equal for DLR and FRECSCO files')
+            print('Indices not equal for orbit {}'.format(self.forb))
             return  # CONTINUE
             # m=min(md,mf)
             # n=min(nd,nf)
