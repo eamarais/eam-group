@@ -24,6 +24,8 @@ from gamap_colormap import WhGrYlRd
 import argparse
 from os import path
 
+import pdb
+
 # Turn off warnings:
 # np.warnings.filterwarnings('ignore')
 
@@ -87,6 +89,7 @@ class CloudVariableStore:
         # Skip where FRESCO cloud product is NAN:
         if np.isnan(tropomi_data.tffrc[trop_i, trop_j]):
             print("FRESCO cloud product is NaN, skipping...")
+            pdb.set_trace()
             return
         # Skip if there is also no valid DLR data due to
         # poor data quality or missing values:
@@ -114,11 +117,9 @@ class CloudVariableStore:
             raise Exception("Latitudes not the same")
 
         # Add data to output arrays:
-        # if np.isnan(tffrc[i, j]): continue
         self.gknmi_cf[p, q] += tropomi_data.tffrc[trop_i, trop_j]
         self.gknmi_ct[p, q] += np.divide(tropomi_data.tftop[trop_i, trop_j], 100)
         self.gknmi_cnt[p, q] += 1.0
-        # if np.isnan(tdfrc[i, j]): continue
         self.gdlr_cf[p, q] += tropomi_data.tdfrc[trop_i, trop_j]
         self.gdlr_ct[p, q] += np.divide(tropomi_data.tdtop[trop_i, trop_j], 100)
         self.gdlr_cb[p, q] += np.divide(tropomi_data.tdbase[trop_i, trop_j], 100)
@@ -420,7 +421,7 @@ class TropomiData:
     def check_parity(self):
         # Skip files if the number of indices are not equal:
         if self.tdlons.shape != self.tflons.shape:
-            print('Indices ne for ', self.tdfile)
+            print('Indices not equal for DLR and FRECSCO files')
             return  # CONTINUE
             # m=min(md,mf)
             # n=min(nd,nf)
@@ -440,6 +441,10 @@ def process_file(tdfile, tffile, running_total_container):
     print('===> Processing: ', tdfile)
     file_data_container = TropomiData(tdfile, tffile)
 
+    num_obs = file_data_container.get_nobs()
+    if num_obs == (0,0):
+        print("File is empty, continuing")
+        return
     # REGRID THE DATA:
     for i in range(file_data_container.shape[0]):
         for j in range(file_data_container.shape[1]):
