@@ -121,7 +121,7 @@ def cldslice(pcolno2,cldtophgt,sf=1.0):
 
                     # Finally, remove outliers in the cloud-sliced NO2
                     # 200 pptv threshold is chosen, as far from likely range:
-                    if utmrno2>(200*sf):
+                    if utmrno2>np.multiply(200,sf):
                         num=6
                         utmrno2=np.nan
                         utmrno2err=np.nan 
