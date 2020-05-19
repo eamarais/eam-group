@@ -12,7 +12,7 @@ from gcpy.gcpy.constants import AVOGADRO as na
 from gcpy.gcpy.constants import G as g
 from gcpy.gcpy.constants import MW_AIR as mmair
 
-def cldslice(pcolno2,cldtophgt,sf):
+def cldslice(pcolno2,cldtophgt,sf=1.0):
 
     """ 
     Compute upper troposphere NO2 using partial columns above
@@ -22,9 +22,10 @@ def cldslice(pcolno2,cldtophgt,sf):
     against cloud-top heights over cloudy scenes.
 
     INPUT: vectors of partial columns in molec/m2 and corresponding 
-           cloud top heights in hPa. Scale factor to applie to outlier
-           threshold value. This is done because TROPOMI UT NO2 exhibits a
-           positive bias, so outlier should scale with that.
+           cloud top heights in hPa. 
+           Optional input is a scale factor to apply to outlier
+           threshold value to account for systematic bias in the 
+           TROPOMI data. Default is 1.0.
 
     OUTPUT: NO2 volumetric mixing ratio, corresponding estimated error on the
             cloud-sliced NO2 value, and a number to identify which filtering
