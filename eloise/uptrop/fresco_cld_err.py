@@ -537,7 +537,7 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", default = '~/eos_library/cloud_test_output')
     parser.add_argument("--month", default="10")
     parser.add_argument("--plot_dir", default = "~/eos_library/cloud_test_plots")
-    parser.add_argument("--number_of_days", default=31)
+    parser.add_argument("--number_of_days", default=31, type=int)
     args = parser.parse_args()
 
     # TODO: Make this a member of CloudVariableStore
