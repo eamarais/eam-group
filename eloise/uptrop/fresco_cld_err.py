@@ -546,7 +546,7 @@ if __name__ == "__main__":
     # Convert output lats and long to 2D:
     X, Y = np.meshgrid(out_lon, out_lat, indexing='ij')
 
-    td_file_list, tf_file_list = get_files_for_month(args.s5p_data_dir, args.month)
+    td_file_list, tf_file_list = get_files_for_month(args.s5p_data_dir, args.month, args.number_of_days)
     running_cloud_total = CloudVariableStore(X.shape)
 
     # Loop over files:
