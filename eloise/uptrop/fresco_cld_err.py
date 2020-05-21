@@ -90,7 +90,7 @@ class CloudVariableStore:
         # Skip where FRESCO cloud product is NAN:
         if np.isnan(tropomi_data.tffrc[trop_i, trop_j]):
             print("FRESCO cloud product is NaN, skipping...")
-            pdb.set_trace()
+            #pdb.set_trace()
             return
         # Skip if there is also no valid DLR data due to
         # poor data quality or missing values:
@@ -447,9 +447,9 @@ def process_file(tdfile, tffile, running_total_container):
     file_data_container = TropomiData(tdfile, tffile)
 
     num_obs = file_data_container.get_nobs()
-    if num_obs == (0,0):
-        print("File is empty, continuing")
-        return
+    #if num_obs == (0,0):
+     #   print("File is empty, continuing")
+     #   return
     # REGRID THE DATA:
     for i in range(file_data_container.shape[0]):
         for j in range(file_data_container.shape[1]):
