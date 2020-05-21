@@ -98,9 +98,7 @@ class CloudVariableStore:
             #print("No DLR data, skipping....")
             return
 
-        print("{},{} is a valid pixel".format(trop_i, trop_j))
-
-        # Find corresponding gridsquare
+                # Find corresponding gridsquare
         # TODO: Find a better place to put out_lon
         p = np.argmin(abs(out_lon - tropomi_data.tdlons[trop_i, trop_j]))
         q = np.argmin(abs(out_lat - tropomi_data.tdlats[trop_i, trop_j]))
@@ -114,10 +112,12 @@ class CloudVariableStore:
             print(tropomi_data.tdlons[trop_i, trop_j], tropomi_data.tflons[trop_i, trop_j])
             print(p)
             print(out_lon[p])
-            raise Exception("Longitudes not the same")
+            return
         if tropomi_data.tdlats[trop_i, trop_j] != tropomi_data.tflats[trop_i, trop_j]:
             print('Latitudes not the same')
-            raise Exception("Latitudes not the same")
+            return
+	
+        print("{},{} is a valid pixel".format(trop_i, trop_j))
 
         # Add data to output arrays:
         self.gknmi_cf[p, q] += tropomi_data.tffrc[trop_i, trop_j]
