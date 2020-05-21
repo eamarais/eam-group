@@ -89,14 +89,16 @@ class CloudVariableStore:
         # TODO: Make this vectorised
         # Skip where FRESCO cloud product is NAN:
         if np.isnan(tropomi_data.tffrc[trop_i, trop_j]):
-            print("FRESCO cloud product is NaN, skipping...")
+            #print("FRESCO cloud product is NaN, skipping...")
             #pdb.set_trace()
             return
         # Skip if there is also no valid DLR data due to
         # poor data quality or missing values:
         if np.isnan(tropomi_data.tdfrc[trop_i, trop_j]):
-            print("No DLR data, skipping....")
+            #print("No DLR data, skipping....")
             return
+
+        print("{},{} is a valid pixel".format(trop_i, trop_j))
 
         # Find corresponding gridsquare
         # TODO: Find a better place to put out_lon
