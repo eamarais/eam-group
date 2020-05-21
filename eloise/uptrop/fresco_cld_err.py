@@ -324,8 +324,8 @@ class TropomiData:
         """Read DLR cloud data:"""
         dlr_cloud_data = Dataset(tdfile, mode='r')
         # Extract data of interest:
-        self.tdlons = dlr_cloud_data.groups['PRODUCT'].variables['longitude'][:][0, :, :]
-        self.tdlats = dlr_cloud_data.groups['PRODUCT'].variables['latitude'][:][0, :, :]
+        self.tdlons = dlr_cloud_data.groups['PRODUCT'].variables['longitude'][:].data[0, :, :]
+        self.tdlats = dlr_cloud_data.groups['PRODUCT'].variables['latitude'][:].data[0, :, :]
         tfrc = dlr_cloud_data.groups['PRODUCT'].variables['cloud_fraction'][:]
         self.tdfrc = tfrc.data[0, :, :]
         ttop = dlr_cloud_data.groups['PRODUCT'].variables['cloud_top_pressure'][:]
@@ -344,8 +344,8 @@ class TropomiData:
         """Read in FRESCO cloud data:"""
         dlr_cloud_data = Dataset(tffile, mode='r')
         # Extract data of interest:
-        self.tflons = dlr_cloud_data.groups['PRODUCT'].variables['longitude'][:][0, :, :]
-        self.tflats = dlr_cloud_data.groups['PRODUCT'].variables['latitude'][:][0, :, :]
+        self.tflons = dlr_cloud_data.groups['PRODUCT'].variables['longitude'][:].data[0, :, :]
+        self.tflats = dlr_cloud_data.groups['PRODUCT'].variables['latitude'][:].data[0, :, :]
         tfrc = dlr_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA'].variables['cloud_fraction_crb'][:]
         self.tffrc = tfrc.data[0, :, :]
         talb = dlr_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA'].variables['cloud_albedo_crb'][:]
@@ -413,8 +413,9 @@ class TropomiData:
         #   500 hPa and below 150 hPa (more generous than the 450-200 hPa
         #   range to account for variability around this threshold in the
         #   two cloud products:
-        self.tffrc = np.where(self.tftop > 450 * 1e2, np.nan, self.tffrc)
-        self.tffrc = np.where(self.tftop < 180 * 1e2, np.nan, self.tffrc)
+        # HERE'S THE CULPRIT... wait, no ,there are still values here
+        self.tffrc = np.where(self.tftop > (450 * 1e2), np.nan, self.tffrc)
+        self.tffrc = np.where(self.tftop < (180 * 1e2), np.nan, self.tffrc)
         # Snow/ice cover:
         self.tffrc = np.where(self.tfsnow != 0, np.nan, self.tffrc)
         # Apply filter to remaining data:
@@ -424,11 +425,13 @@ class TropomiData:
         # Skip files if the number of indices are not equal:
         if self.tdlons.shape != self.tflons.shape:
             print('Indices not equal for orbit {}'.format(self.forb))
+            #This should probably raise an error
             return  # CONTINUE
             # m=min(md,mf)
             # n=min(nd,nf)
 
     def get_nobs(self):
+        # Bug might be here?
         dlr_ind = np.where((self.tdqval < 0.5) & (self.tdfrc >= 0.7) & (self.tdtop >= 18000)
                           & (self.tdtop <= 45000) & (self.tdsnow == 0))[0]
         fr_ind = np.where((self.tfqval < 0.45) & (self.tffrc >= 0.7) & (self.tftop >= 18000)
