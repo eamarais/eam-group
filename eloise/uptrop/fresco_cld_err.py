@@ -56,6 +56,11 @@ class LatLonException(Exception):
     """
     pass
 
+class ShapeMismatchException(Exception):
+    """
+    Raised when a FRESCO and DLR file are not the same shape
+    """
+
 
 class CloudVariableStore:
     """
@@ -427,8 +432,7 @@ class TropomiData:
         # Skip files if the number of indices are not equal:
         if self.tdlons.shape != self.tflons.shape:
             print('Indices not equal for orbit {}'.format(self.forb))
-            #This should probably raise an error
-            return  # CONTINUE
+            raise ShapeMismatchException
             # m=min(md,mf)
             # n=min(nd,nf)
 
@@ -446,17 +450,20 @@ def process_file(tdfile, tffile, running_total_container):
     running_total_container"""
     # Track progress:
     print('===> Processing: ', tdfile)
-    file_data_container = TropomiData(tdfile, tffile)
+    try:
+        file_data_container = TropomiData(tdfile, tffile)
 
-    num_obs = file_data_container.get_nobs()
-    #if num_obs == (0,0):
-     #   print("File is empty, continuing")
-     #   return
-    # REGRID THE DATA:
-    for i in range(file_data_container.shape[0]):
-        for j in range(file_data_container.shape[1]):
-            running_total_container.update_pixel(file_data_container, i, j)
-    running_total_container.update_nobs(file_data_container)
+        num_obs = file_data_container.get_nobs()
+        #if num_obs == (0,0):
+         #   print("File is empty, continuing")
+         #   return
+        # REGRID THE DATA:
+        for i in range(file_data_container.shape[0]):
+            for j in range(file_data_container.shape[1]):
+                running_total_container.update_pixel(file_data_container, i, j)
+        running_total_container.update_nobs(file_data_container)
+    except ShapeMismatchException:
+        print("Mismatch in shape of {} and {}".format(tdfile, tffile))
     return
 
 
