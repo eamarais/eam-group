@@ -467,7 +467,7 @@ def process_file(tdfile, tffile, running_total_container):
     return
 
 
-def get_files_for_month(sen_5_p_dir, month_index):
+def get_files_for_month(sen_5_p_dir, month_index, ndays=31):
     """
     For a given month index (jan-may 2020 being 1-5, jun-dec 2019 being 6-12), returns every Tropomi and Fresco
     filepath. Also sets the globals StrMM, StrYY, MMName (used in the plotting method)(at least until I fix it)
@@ -494,7 +494,6 @@ def get_files_for_month(sen_5_p_dir, month_index):
     if StrMM == '11': StrYY, MMName = '2019', 'nov'
     if StrMM == '12': StrYY, MMName = '2019', 'dec'
     # Define days:
-    ndays = 31
     dd = list(range(1, ndays + 1))
     strdd = [''] * ndays
     cnt = 0
@@ -538,6 +537,7 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", default = '~/eos_library/cloud_test_output')
     parser.add_argument("--month", default="10")
     parser.add_argument("--plot_dir", default = "~/eos_library/cloud_test_plots")
+    parser.add_argument("--number_of_days", default=31)
     args = parser.parse_args()
 
     # TODO: Make this a member of CloudVariableStore
