@@ -89,7 +89,7 @@ class CloudVariableStore:
 
     def update_pixel(self, tropomi_data, trop_i, trop_j):
         """
-        Updates the appropriate pixe of running cloud variables with the tropomi data at trop_i, trop_j.
+        Updates the appropriate pixel of running cloud variables with the tropomi data at trop_i, trop_j.
         """
         # TODO: Make this vectorised
         # Skip where FRESCO cloud product is NAN:
@@ -164,6 +164,7 @@ class CloudVariableStore:
 
     def write_to_netcdf(self, out_dir):
         """Given an out_directory, writes totalled data to netcdf"""
+        out_dir = path.abspath(out_dir)
         # Write data to file:
         outfile = os.path.join(out_dir, 'fresco-dlr-cloud-products-' + MMName + '-' + StrYY + '-2x25-v2.nc')
         ncfile = Dataset(outfile, 'w', format='NETCDF4_CLASSIC')
