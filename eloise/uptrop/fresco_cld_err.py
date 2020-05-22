@@ -19,8 +19,7 @@ import os
 import numpy as np
 from netCDF4 import Dataset
 import matplotlib.pyplot as plt
-# Taking Basemap out for now, as it doesn't play nice with Pycharm
-# from mpl_toolkits.basemap import Basemap
+from mpl_toolkits.basemap import Basemap
 from gamap_colormap import WhGrYlRd
 import argparse
 from os import path
@@ -541,13 +540,17 @@ if __name__ == "__main__":
     parser.add_argument("--number_of_days", default=31, type=int)
     args = parser.parse_args()
 
+    s5p_data_dir = path.expanduser(args.s5p_data_dir)
+    output_dir = path.expanduser(args.output_dir)
+    plot_dir = path.expanduser(args.plot_dir)
+
     # TODO: Make this a member of CloudVariableStore
     out_lon=np.arange(MIN_LON, MAX_LON, DELTA_LON)
     out_lat=np.arange(MIN_LAT, MAX_LAT, DELTA_LAT)
     # Convert output lats and long to 2D:
     X, Y = np.meshgrid(out_lon, out_lat, indexing='ij')
 
-    td_file_list, tf_file_list = get_files_for_month(args.s5p_data_dir, args.month, args.number_of_days)
+    td_file_list, tf_file_list = get_files_for_month(s5p_data_dir, args.month, args.number_of_days)
     running_cloud_total = CloudVariableStore(X.shape)
 
     # Loop over files:
@@ -561,7 +564,7 @@ if __name__ == "__main__":
     print('No. of FRESCO obs for '+MMName+' = ',running_cloud_total.nobs_fresco)
     print('No. of DLR obs for '+MMName+' = ',running_cloud_total.nobs_dlr)
     print("Writing to NetCDF at {}".format(args.output_dir))
-    running_cloud_total.write_to_netcdf(args.output_dir)
+    running_cloud_total.write_to_netcdf(output_dir)
     print("Creating plots at {}".format(args.plot_dir))
-    running_cloud_total.plot_clouds_products(args.plot_dir)
+    running_cloud_total.plot_clouds_products(plot_dir)
     print("Processing complete.")
