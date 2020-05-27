@@ -40,6 +40,7 @@ MIN_LON = -178.
 MAX_LON = 178.
 DELTA_LAT = 2  # 4#0.5#4#0.5
 DELTA_LON = 2.5  # 5#0.5#5#0.5
+OUT_RES = '1x1'
 
 
 class FileMismatchException(Exception):
@@ -54,6 +55,7 @@ class LatLonException(Exception):
     Raised when there is a LatLon mismatch
     """
     pass
+
 
 class ShapeMismatchException(Exception):
     """
@@ -85,6 +87,13 @@ class CloudVariableStore:
         self.nobs_dlr = 0
         self.nobs_fresco = 0
         self.shape = data_shape
+        # Define data arrays to output cloud fraction binned into 0.05
+        # increments from 0.7 to 1.0 centred at 0.725, 0.775 etc.:
+        # Consider also splitting this into latitude bands.
+        self.cldbin = np.arange(0.7, 1.2 + 0.05, 0.05)
+        self.latbin = np.arange(-90, 90 + 15, 15)
+        self.knmi_cf_freq = np.zeros((len(self.latbin), len(self.cldbin)))
+        self.dlr_cf_freq = np.zeros((len(self.latbin), len(self.cldbin)))
 
     def update_pixel(self, tropomi_data, trop_i, trop_j):
         """
@@ -120,7 +129,7 @@ class CloudVariableStore:
         if tropomi_data.tdlats[trop_i, trop_j] != tropomi_data.tflats[trop_i, trop_j]:
             print('Latitudes not the same')
             return
-	
+
         print("{},{} is a valid pixel".format(trop_i, trop_j))
 
         # Add data to output arrays:
@@ -132,6 +141,38 @@ class CloudVariableStore:
         self.gdlr_cb[p, q] += np.divide(tropomi_data.tdbase[trop_i, trop_j], 100)
         self.gdlr_od[p, q] += tropomi_data.tdoptd[trop_i, trop_j]
         self.gdlr_cnt[p, q] += 1.0
+
+    def cloud_fraction_filtering(self, tropomi_data):
+        # Gather data on frequency of cloud fraction > 0.7:
+        # This is done before filtering for scenes with knmi cloud frac
+        # > 0.7 to also include all relevant DLR scenes:
+        # loop over cloud and latitude band bins:
+        for w in range(len(self.cldbin)):
+            for n in range(len(self.latbin)):
+
+                # (1) KNMI:
+                # Get indices for relevant data:
+                fbin = np.where((tropomi_data.tffrc >= (self.cldbin[w] - 0.025)) &
+                                (tropomi_data.tffrc < (self.cldbin[w] + 0.025)) &
+                                (tropomi_data.tflats >= (self.latbin[n] - 7.5)) &
+                                (tropomi_data.tflats < (self.latbin[n] + 7.5)) &
+                                (tropomi_data.tftop >= 18000) &
+                                (tropomi_data.tftop <= 45000) &
+                                (~np.isnan(tropomi_data.tffrc)))[0]
+                if len(fbin) > 0:
+                    self.knmi_cf_freq[n, w] += len(fbin)
+
+                # (2) DLR-OCRA:
+                # Get indices for relevant data:
+                dbin = np.where((tropomi_data.tdfrc >= (self.cldbin[w] - 0.025)) &
+                                (tropomi_data.tdfrc < (self.cldbin[w] + 0.025)) &
+                                (tropomi_data.tdlats >= (self.latbin[n] - 7.5)) &
+                                (tropomi_data.tdlats < (self.latbin[n] + 7.5)) &
+                                (tropomi_data.tdtop >= 18000) &
+                                (tropomi_data.tdtop <= 45000) &
+                                (~np.isnan(tropomi_data.tdfrc)))[0]
+                if len(dbin) > 0:
+                    self.dlr_cf_freq[n, w] += len(dbin)
 
     def update_nobs(self, tropomi_data):
         """
@@ -165,10 +206,12 @@ class CloudVariableStore:
         """Given an out_directory, writes totalled data to netcdf"""
         out_dir = path.abspath(out_dir)
         # Write data to file:
-        outfile = os.path.join(out_dir, 'fresco-dlr-cloud-products-' + MMName + '-' + StrYY + '-2x25-v2.nc')
+        outfile = out_dir + 'fresco-dlr-cloud-products-' + MMName + '-' + StrYY + '-' + OUT_RES + '-v1.nc'
         ncfile = Dataset(outfile, 'w', format='NETCDF4_CLASSIC')
-        ncfile.createDimension('xdim', len(out_lon))
+        ncfile.createDimension('xdim', len(out_lon))    # TODO: Make this a member
         ncfile.createDimension('ydim', len(out_lat))
+        ncfile.createDimension('frdim', len(self.cldbin))
+        ncfile.createDimension('lbdim', len(self.latbin))
         # Global attributes:
         ncfile.title = 'FRESCO and DLR TROPOMI monthly mean cloud properties for ' + \
                        StrMM + ' ' + StrYY
@@ -184,6 +227,17 @@ class CloudVariableStore:
         lat.units = 'degrees_north'
         lat.long_name = 'latitude'
         lat[:] = out_lat
+        # Cloud fraction bins:
+        cbin = ncfile.createVariable('cld_fr_bin', np.dtype('float'), ('frdim',))
+        cbin.units = 'unitless'
+        cbin.long_name = 'Cloud fraction bin centre'
+        cbin[:] = self.cldbin
+
+        # Latitude bands bins:
+        lbbin = ncfile.createVariable('lat_band_bin', np.dtype('float'), ('lbdim',))
+        lbbin.units = 'unitless'
+        lbbin.long_name = 'Latitude band bin centre'
+        lbbin[:] = self.latbin
         # DLR cloud fraction:
         data1 = ncfile.createVariable('dlr_cld_frac', np.dtype('float'), ('xdim', 'ydim'))
         data1.units = 'unitless'
@@ -224,6 +278,18 @@ class CloudVariableStore:
         data8.units = 'unitless'
         data8.long_name = 'Number of DLR data points'
         data8[:] = self.gdlr_cnt
+        # Frequency of FRESCO cloud fractions > 0.7:
+        data9 = ncfile.createVariable('knmi_cf_freq', np.dtype('float'), \
+                                      ('lbdim', 'frdim',))
+        data9.units = 'unitless'
+        data9.long_name = 'Freqeuncy distribution of FRESCO cloud fractions > 0.7'
+        data9[:] = self.knmi_cf_freq
+        # Frequency of DRL-OCRA cloud fractions > 0.7:
+        data10 = ncfile.createVariable('dlr_cf_freq', np.dtype('float'), ('lbdim', 'frdim'))
+        data10.units = 'unitless'
+        data10.long_name = 'Freqeuncy distribution of DLR cloud fractions > 0.7'
+        data10[:] = self.dlr_cf_freq
+
         # close the file.
         ncfile.close()
 
@@ -283,7 +349,7 @@ class CloudVariableStore:
                     format='ps')
         # (4) Cloud base pressure (DLR only):
         plt.figure(4)
-        cs = m.pcolor(xi, yi, np.squeeze(self.gdlr_cb), vmin=150, vmax=900, cmap='jet')
+        cs = m.pcolor(xi, yi, np.squeeze(self.gdlr_cb), vmin=150, vmax=500, cmap='jet')
         m.drawcoastlines()
         cbar = m.colorbar(cs, location='bottom', pad="10%")
         plt.title('DLR base pressure [hPa]')
@@ -292,12 +358,12 @@ class CloudVariableStore:
         # (5) Number of points (both):
         plt.figure(4)
         plt.subplot(2, 1, 1)
-        cs = m.pcolor(xi, yi, np.squeeze(self.gknmi_cnt), vmin=0, vmax=5000, cmap=WhGrYlRd)
+        cs = m.pcolor(xi, yi, np.squeeze(self.gknmi_cnt), vmin=0, vmax=500, cmap=WhGrYlRd)
         m.drawcoastlines()
         cbar = m.colorbar(cs, location='bottom', pad="10%")
         plt.title('FRESCO No. of obs')
         plt.subplot(2, 1, 2)
-        cs = m.pcolor(xi, yi, np.squeeze(self.gdlr_cnt), vmin=0, vmax=5000, cmap=WhGrYlRd)
+        cs = m.pcolor(xi, yi, np.squeeze(self.gdlr_cnt), vmin=0, vmax=500, cmap=WhGrYlRd)
         m.drawcoastlines()
         cbar = m.colorbar(cs, location='bottom', pad="10%")
         plt.title('DLR No. of obs')
@@ -368,6 +434,8 @@ class TropomiData:
     def filter_tdfile(self):
         # Convert all valid snow/ice free flag values (0,255) to 0.
         self.tdsnow = np.where(self.tdsnow == 255, 0, self.tdsnow)
+        # Coastlines (listed as potentially "suspect" in the ATBD document p. 67):
+        self.tdsnow = np.where(self.tdsnow == 252, 0, self.tdsnow)
 
         # Set missing/poor quality/irrelevant data to NAN:
         # Apply cloud fraction filter, but set it to 0.7 rather
@@ -389,6 +457,7 @@ class TropomiData:
         self.tdfrc = np.where(self.tdqval < 0.5, np.nan, self.tdfrc)
         # Snow/ice cover:
         self.tdfrc = np.where(self.tdsnow != 0, np.nan, self.tdfrc)
+
         # Apply filter to remaining data:
         self.tdtop = np.where(np.isnan(self.tdfrc), np.nan, self.tdtop)
         self.tdbase = np.where(np.isnan(self.tdfrc), np.nan, self.tdbase)
@@ -404,6 +473,8 @@ class TropomiData:
     def filter_tffile(self):
         # Convert all valid snow/ice free flag values (0,255) to 0.
         self.tfsnow = np.where(self.tfsnow == 255, 0, self.tfsnow)
+        # Coastlines (listed as potential "suspect" in the ATBD document p. 67):
+        self.tfsnow = np.where(self.tfsnow == 252, 0, self.tfsnow)
 
         # Set missing/poor quality/irrelevant data to NAN:
         # Apply cloud fraction filter, but set it to 0.7 rather
@@ -545,8 +616,17 @@ if __name__ == "__main__":
     plot_dir = path.expanduser(args.plot_dir)
 
     # TODO: Make this a member of CloudVariableStore
-    out_lon=np.arange(MIN_LON, MAX_LON, DELTA_LON)
-    out_lat=np.arange(MIN_LAT, MAX_LAT, DELTA_LAT)
+    if OUT_RES == '1x1':
+        DELTA_LAT = 1
+        DELTA_LON = 1
+    if OUT_RES == '2x25':
+        DELTA_LAT = 2
+        DELTA_LON = 2.5
+    if OUT_RES == '4x5':
+        DELTA_LAT = 4
+        DELTA_LON = 5
+    out_lon = np.arange(MIN_LON, MAX_LON, DELTA_LON)
+    out_lat = np.arange(MIN_LAT, MAX_LAT, DELTA_LAT)
     # Convert output lats and long to 2D:
     X, Y = np.meshgrid(out_lon, out_lat, indexing='ij')
 
