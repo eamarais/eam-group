@@ -17,6 +17,7 @@
 import glob
 import os
 import numpy as np
+import netCDF4
 from netCDF4 import Dataset
 import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
@@ -143,6 +144,7 @@ class CloudVariableStore:
         self.gdlr_cnt[p, q] += 1.0
 
     def cloud_fraction_filtering(self, tropomi_data):
+        # TODO: Call this function!
         # Gather data on frequency of cloud fraction > 0.7:
         # This is done before filtering for scenes with knmi cloud frac
         # > 0.7 to also include all relevant DLR scenes:
@@ -532,6 +534,7 @@ def process_file(tdfile, tffile, running_total_container):
         for i in range(file_data_container.shape[0]):
             for j in range(file_data_container.shape[1]):
                 running_total_container.update_pixel(file_data_container, i, j)
+        running_total_container.cloud_fraction_filtering(file_data_container)
         running_total_container.update_nobs(file_data_container)
     except ShapeMismatchException:
         print("Mismatch in shape of {} and {}".format(tdfile, tffile))
