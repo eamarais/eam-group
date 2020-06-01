@@ -5,14 +5,13 @@ import glob
 import sys
 import os
 import numpy as np
-import leastsq
 from bootstrap import rma
 
 from gcpy.gcpy.constants import AVOGADRO as na
 from gcpy.gcpy.constants import G as g
 from gcpy.gcpy.constants import MW_AIR as mmair
 
-def cldslice(pcolno2,cldtophgt,sf=1.0):
+def cldslice(pcolno2,cldtophgt):
 
     """ 
     Compute upper troposphere NO2 using partial columns above
@@ -22,15 +21,13 @@ def cldslice(pcolno2,cldtophgt,sf=1.0):
     against cloud-top heights over cloudy scenes.
 
     INPUT: vectors of partial columns in molec/m2 and corresponding 
-           cloud top heights in hPa. 
-           Optional input is a scale factor to apply to outlier
-           threshold value to account for systematic bias in the 
-           TROPOMI data. Default is 1.0.
+           cloud top heights in hPa.
 
     OUTPUT: NO2 volumetric mixing ratio, corresponding estimated error on the
-            cloud-sliced NO2 value, and a number to identify which filtering
+            cloud-sliced NO2 value, a number to identify which filtering
             criteria led to loss of data in the case that the cloud-sliced
-            NO2 value ia nan.
+            NO2 value ia nan, and the mean cloud pressure of data retained
+            after 10th and 90th percentile filtering.
     """
 
     # Initialize:
@@ -54,13 +51,16 @@ def cldslice(pcolno2,cldtophgt,sf=1.0):
     pcolno2=pcolno2[sind]
     cldtophgt=cldtophgt[sind]
 
+    # Cloud pressure mean:
+    mean_cld_pres=np.mean(cldtophgt)
+
     # Get number of points in vector:
     npoints=len(cldtophgt)
 
     # Only consider data with more than 5 points for reasonably
     # robust statistics. This step is added to account for data loss
     # removing outliers:
-    if npoints<10:
+    if npoints<=10:
         num=1
         utmrno2=np.nan
         utmrno2err=np.nan
@@ -110,23 +110,29 @@ def cldslice(pcolno2,cldtophgt,sf=1.0):
 
                 # Proceed with estimating NO2 mixing ratios for retained data:
                 if not np.isnan(utmrno2):
+                    slope=result[0]
+                    #slope=np.multiply(slope,sf)
+                    slope_err=result[2]
+                    #slope_err=np.multiply(slope_err,sf)
                     # Convert slope to mol/mol:
-                    utmrno2=np.multiply(result[0],den2mr)
+                    utmrno2=np.multiply(slope,den2mr)
                     # Convert error to mol/mol:
-                    utmrno2err=np.multiply(result[2],den2mr)
+                    utmrno2err=np.multiply(slope_err,den2mr)
                     # Convert UT NO2 from mol/mol to ppt:
                     utmrno2=np.multiply(utmrno2,1e+12)
                     # Convert UT NO2 error from mol/mol to ppt
                     utmrno2err=np.multiply(utmrno2err,1e+12)
 
                     # Finally, remove outliers in the cloud-sliced NO2
-                    # 200 pptv threshold is chosen, as far from likely range:
-                    if utmrno2>np.multiply(200,sf):
+                    # 200 pptv threshold is chosen, as far from likely range.
+                    # Scale factor applied to TROPOMI UT NO2 to account for
+                    # positive bias in free tropospheric NO2:
+                    if utmrno2>200:
                         num=6
                         utmrno2=np.nan
                         utmrno2err=np.nan 
 
     # Output goes here:
-    return (utmrno2, utmrno2err, num)
+    return (utmrno2, utmrno2err, num, mean_cld_pres)
 
     

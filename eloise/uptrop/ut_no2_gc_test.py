@@ -37,7 +37,7 @@ from gcpy.gcpy.constants import MW_AIR as mmair
 np.warnings.filterwarnings('ignore')
 
 # Decide on region:
-Reg='CH' #'NA', 'EU', or 'CH'
+Reg='EU' #'NA', 'EU', or 'CH'
 
 # Define target grid:
 if Reg=='NA': 
@@ -67,11 +67,11 @@ StrRes='4x5'
 
 # Define years of interest:
 stryr=['2016','2017']
-if len(stryr)==1: yrrange=stryr
+if len(stryr)==1: yrrange=stryr[0]
 if len(stryr)==2: yrrange='2016-2017'
 
 # Name of log file to output code prorgess:
-log=open("log_"+Reg+"_"+StrRes+"_"+yrrange+"_v3", "w")
+log=open("log_"+Reg+"_"+StrRes+"_"+yrrange+"_v4", "w")
 sys.stdout=log
 
 # Define grid information:
@@ -94,6 +94,7 @@ gno2vmr=np.zeros(X.shape)
 gcldfr=np.zeros(X.shape)
 gcld=np.zeros(X.shape)
 gerr=np.zeros(X.shape)
+trueo3=np.zeros(X.shape)   # ozone mixing ratio coincident with cloud-sliced ut no2
 trueno2=np.zeros(X.shape)  # "true" cloudy UT NO2
 gcutno2=np.zeros(X.shape)  # "true" all-sky UT NO2
 truewgt=np.zeros(X.shape)  # "true" all-sky UT NO2 Gaussian weights
@@ -121,7 +122,6 @@ den2mr=np.divide((np.multiply(g,mmair)),na)
 # 2016:
 gcdir='/data/uptrop/Projects/DEFRA-NH3/GC/geosfp_'+dirreg+'_iccw/'
 files=glob.glob(gcdir+'nc_sat_files_47L/ts_12_15.'+Reg+'.'+stryr[0]+'06*')
-#mon=["06","07","08","09"]
 mon=["07","08"]
 for i in mon:
     for filename in glob.glob(gcdir+'nc_sat_files_47L/ts_12_15.'+Reg+\
@@ -134,19 +134,11 @@ for i in mon:
                               '.'+stryr[1]+i+'*'):
         files.append(filename)
 
-#mon=["06","07","08","09"]
-#mon=["07","08"]
-#for i in mon:
-#    for filename in glob.glob(gcdir+'nc_sat_files/ts_12_15.'+Reg+\
-#                              '.'+stryr[1]+i+'*'):
-#        files.append(filename)
-
 # Order the files:
 files=sorted(files)
 
 # Check:
 print('Number of files:',len(files),flush=True)
-#log.write('Number of files:'+str(len(files))+'\n')
 
 # Loop over files:
 for f in files:
@@ -157,11 +149,12 @@ for f in files:
 
     # Extract data of interest:
     # (Add tropopause height to this in the future)
-    tlon,tlat,tgcno2,tcldfr,tcldhgt,tadn,tbxhgt,tpedge=\
+    tlon,tlat,tgcno2,tcldfr,tcldhgt,tadn,tbxhgt,tpedge,tpause,tgco3=\
           fh.variables['LON'],fh.variables['LAT'],\
           fh.variables['IJ-AVG-S__NO2'],fh.variables['TIME-SER__CF'],\
           fh.variables['TIME-SER__CThgt'],fh.variables['TIME-SER__AIRDEN'],\
-          fh.variables['BXHGHT-S__BXHEIGHT'],fh.variables['PEDGE-S__PSURF']
+          fh.variables['BXHGHT-S__BXHEIGHT'],fh.variables['PEDGE-S__PSURF'],\
+          fh.variables['TR-PAUSE__TP-PRESS'],fh.variables['IJ-AVG-S__O3']
     tlon=tlon[:]
     tlat=tlat[:]
     tgcno2=tgcno2[:]
@@ -170,12 +163,15 @@ for f in files:
     tadn=tadn[:]   # in molec/cm3
     tbxhgt=tbxhgt[:]
     tpedge=tpedge[:]
+    tpause=tpause[0,:,:]
+    tgco3=tgco3[:]
 
     # Convert box height from m to cm:
     tbxhgt=tbxhgt*1e2
 
     # Define output data for this day:
     gno2=np.zeros((xdim,ydim,nval))
+    go3=np.zeros((xdim,ydim,nval))
     allcldfr=np.zeros((xdim,ydim,nval))
     stratno2=np.zeros((xdim,ydim,nval))
     gcldp=np.zeros((xdim,ydim,nval))
@@ -199,20 +195,33 @@ for f in files:
             # be accurate, as surpassing the range of interset):
             tpmid[46]=np.multiply(0.5,(tpedge[46,y,x]+(tpedge[46,y,x]-0.1)))
 
+            # Get model layer of tropopause:
+            tppind=np.argmin(abs(tpmid-tpause[y,x])) 
+
             # Get indices that fall between 450 and 180 hPa for estimating
             # "true' all-sky UT NO2 and partial columns:
             lind=np.where((tpmid>=pmin)&(tpmid<=pmax))[0]
+
+            # Get UT NO2 under "true" all-sky conditions:
+            # Make sure this is below the tropopause:
+            # If below tropopause, use full extent (180-450 hPa):
+            if ( lind[len(lind)-1]<=tppind ): askind=lind
+            # If above tropopause, trim to tropopause-450 hPa:
+            if ( lind[len(lind)-1]>tppind ): 
+                askind=lind[np.where(lind<=tppind)[0]]
+            # If tropopause below 450 hPa, skip entirely:
+            if ( tpause[y,x]>pmax ): continue
 
             # Get Guassian weights that allocated higher weights to points
             # closest to the pressure centre (315 hPa):
             # Equation is:
             #   w = exp(-(p-315)^2/2*135^2 ) where 315 hPa is the centre and
             #         135 hPa is the standard deviation.
-            twgt=np.exp(np.multiply((-1.0),np.divide((np.square(np.subtract(tpmid[lind],315.))),(np.multiply(2,np.square(135.))))))
+            twgt=np.exp(np.multiply((-1.0),np.divide((np.square(np.subtract(tpmid[askind],315.))),(np.multiply(2,np.square(135.))))))
 
-            # Get UT NO2 under "true" all-sky conditions:
+            # Sum up "true" all-sky UT NO2:
             gcutno2[p,q]=gcutno2[p,q] + \
-                          np.sum(tgcno2[lind,y,x]*twgt*1e3)
+                          np.sum(tgcno2[askind,y,x]*twgt*1e3)
             gascnt[p,q]=gascnt[p,q]+1.0
             truewgt[p,q]=truewgt[p,q]+np.sum(twgt)
 
@@ -236,19 +245,26 @@ for f in files:
 
             # Get partial NO2 column in molec/m2 from cloud top height 
             # to highest model level (output up to level 47):
+            #print(tgcno2[lmin:tppind,y,x])
+            #print(tgcno2[lmin:tppind,y,x]*1.5)
             no22d=np.sum(tgcno2[lmin:,y,x]*1e-5*tadn[lmin:,y,x]*\
                          tbxhgt[lmin:,y,x])
 
-            # Get stratospheric column from 180 hPa aloft 
-            # (In future, update to find the model tropopause layer):
-            stratind=np.where(tpmid<180.)[0]
-            stratcol=np.sum(tgcno2[stratind,y,x]*1e-5*tadn[stratind,y,x]*\
-                            tbxhgt[stratind,y,x])
+            tropcol=np.sum(tgcno2[lmin:tppind,y,x]*1e-5*\
+                           tadn[lmin:tppind,y,x]*tbxhgt[lmin:tppind,y,x])
+
+            # Get stratospheric column from 180 hPa aloft:
+            # Previous approach (remove when model simulations done):
+            #tppind=np.where(tpmid<180.)[0]
+
+            stratcol=np.sum(tgcno2[tppind:,y,x]*1e-5*tadn[tppind:,y,x]*\
+                            tbxhgt[tppind:,y,x])
 
             # Add relevant data to array:
-            gno2[p,q,int(cntloop[p,q])]=no22d
+            gno2[p,q,int(cntloop[p,q])]=no22d     #stratcol+tropcol   #no22d
             stratno2[p,q,int(cntloop[p,q])]=stratcol
             gcldp[p,q,int(cntloop[p,q])]=tcldhgt[y,x]
+            go3[p,q,int(cntloop[p,q])]=np.mean(tgco3[lmin:lmax+1,y,x])
             gtrueno2[p,q,int(cntloop[p,q])]=np.mean(tgcno2[lmin:lmax+1,y,x])
             allcldfr[p,q,int(cntloop[p,q])]=np.sum(tcldfr[lmin:lmax+1,y,x])
             
@@ -265,6 +281,7 @@ for f in files:
                 tfrc=allcldfr[i,j,:]
                 tcld=gcldp[i,j,:]
                 tmrno2=gtrueno2[i,j,:]
+                to3=go3[i,j,:]
 
                 # Skip if fewer than 10 points:
                 if len(tcolno2)<10: 
@@ -272,11 +289,12 @@ for f in files:
                     continue                
 
                 # Trim to remove trailing zeros:
-                tcolno2=tcolno2[np.nonzero(tcolno2)]
-                tstratno2=tstratno2[np.nonzero(tstratno2)]
-                tfrc=tfrc[np.nonzero(tfrc)]
-                tcld=tcld[np.nonzero(tcld)]
-                tmrno2=tmrno2[np.nonzero(tmrno2)]
+                tcolno2=np.trim_zeros(tcolno2)#[np.nonzero(tcolno2)]
+                tstratno2=np.trim_zeros(tstratno2)#[np.nonzero(tstratno2)]
+                tfrc=np.trim_zeros(tfrc)#[np.nonzero(tfrc)]
+                tcld=np.trim_zeros(tcld)#[np.nonzero(tcld)]
+                tmrno2=np.trim_zeros(tmrno2)#[np.nonzero(tmrno2)]
+                to3=np.trim_zeros(to3)#[np.nonzero(tmrno2)]
 
                 # Remove non-uniform stratosphere:
                 if (np.std(tstratno2)/np.mean(tstratno2))>0.02:
@@ -295,21 +313,21 @@ for f in files:
                     maxcnt=npnts
                     print(maxcnt,flush=True)
 
-                # Get mean cloud top pressure:
-                pmean=np.mean(tcld)
-
-                # Calculate Gaussian weight:
-                gwgt=np.exp(np.multiply((-1.0),np.divide((np.square(np.subtract(pmean,315.))),(np.multiply(2,np.square(135.))))))
-
                 # Use cloud_slice_ut_no2 function to get cloud-sliced 
                 # UT NO2 mixing ratios.
                 # Treat data differently depending on whether there are no
                 # more than or more than 30 points:
-                if npnts<=30:
+                if ((npnts>=20)&(npnts<100)): #<=30:
                     csval=cldslice(tcolno2,tcld)
                     if np.isnan(csval[0]) or np.isnan(csval[1]):
                         num[csval[2]-1]=num[csval[2]-1]+1
                         continue
+
+                    # Get mean cloud top pressure:
+                    pmean=csval[3]
+
+                    # Calculate Gaussian weight:
+                    gwgt=np.exp(np.multiply((-1.0),np.divide((np.square(np.subtract(pmean,315.))),(np.multiply(2,np.square(135.))))))
 
                     # Apply Gaussian weights to cloud-sliced UT NO2:
                     gno2vmr[i,j]=gno2vmr[i,j]+np.multiply(csval[0],gwgt)
@@ -319,25 +337,46 @@ for f in files:
                     # "True" cloudy UT NO2 (converted from ppbv to pptv):
                     trueno2[i,j]=trueno2[i,j]+\
                                   np.multiply(np.mean(tmrno2*1e3),gwgt)
+
+                    # Ozone coincident with cloud-sliced NO2:
+                    trueo3[i,j]=trueo3[i,j]+\
+                                 np.multiply(np.mean(to3),gwgt)
+                    
                     gcnt[i,j]=gcnt[i,j]+1
                     cnt=cnt+1
 
-                elif npnts>30:
-                    # Code error check:
-                    if len(tcld)!=len(tmrno2): 
-                        print('arrays not =',flush=True)
-                        print(len(tcld),len(tmrno2),flush=True)
+                elif (npnts>=100):
+                #    # Code error check:
+                #    if len(tcld)!=len(tmrno2): 
+                #        print('arrays not =',flush=True)
+                #        print(len(tcld),len(tmrno2),flush=True)
 
-                    # Determine the number of iterations:
-                    niter=round(npnts/17)
+                #    # Determine the number of iterations:
+                    niter=round(npnts/40)
                     nloop=list(range(niter))
 
-                    # Loop over iterations:
+                #    # Loop over iterations:
                     for w in nloop:
                         if w==0:
+                            
+                            # Cloud-slicing:
                             csval=cldslice(tcolno2[::niter],tcld[::niter])
+
+                            # Get mean cloud top pressure:
+                            pmean=csval[3]
+
+                            # Calculate Gaussian weight:
+                            gwgt=np.exp(np.multiply((-1.0),np.divide((np.square(np.subtract(pmean,315.))),(np.multiply(2,np.square(135.))))))
                         else:
+                            
+                            # Cloud-slicing:
                             csval=cldslice(tcolno2[w::niter],tcld[w::niter])
+
+                            # Get mean cloud top pressure:
+                            pmean=csval[3]
+
+                            # Calculate Gaussian weight:
+                            gwgt=np.exp(np.multiply((-1.0),np.divide((np.square(np.subtract(pmean,315.))),(np.multiply(2,np.square(135.))))))
 
                     # Skip if approach didn't work (i.e. cloud-sliced
                     # UT NO2 is NaN):
@@ -357,13 +396,13 @@ for f in files:
                     else:
                         trueno2[i,j]=trueno2[i,j]+\
                             np.multiply(np.mean(tmrno2[w::niter]*1e3),gwgt)
-                        gcldfr[i,j]=gcldfr[i,j]+np.mean(tfrc[w::niter])
+                        gcldfr[i,j]=gcldfr[i,j]+np.mean(tfrc[w::niter])#
 
                     gcnt[i,j]=gcnt[i,j]+1
                     cnt=cnt+1
 
 # No. of data points:                            
-print('No. of valid data points: ',cnt,flush=True)
+#print('No. of valid data points: ',cnt,flush=True)
 print('Max no. of data points in a gridsquare: ',np.amax(gcnt),flush=True)
 
 # Track reasons for data loss:
@@ -374,15 +413,19 @@ print('(4) Large error: ',num[3],flush=True)
 print('(5) Significantly less then zero: ',num[4],flush=True)
 print('(6) Outlier (NO2 > 200 pptv): ',num[5],flush=True)
 print('(7) Non-uniform stratosphere: ',num[6],flush=True)
+print('(8) Successful retrievals: ',cnt,flush=True)
+print('(9) Total possible points: ',(np.sum(num)+cnt),flush=True)
 
 # Get average:
 gno2vmr=np.divide(gno2vmr, gerr, where=gcnt!=0)
 gcldfr=np.divide(gcldfr, gcnt, where=gcnt!=0)
 trueno2=np.divide(trueno2, gerr, where=gcnt!=0)
+trueo3=np.divide(trueo3, gerr, where=gcnt!=0)
 gcld=np.divide(gcld, gcnt, where=gcnt!=0)
 gerr=np.divide(gerr, gcnt, where=gcnt!=0)
 gcutno2=np.divide(gcutno2,truewgt,where=gascnt!=0)
 trueno2[gcnt==0]=np.nan
+trueo3[gcnt==0]=np.nan
 gerr[gcnt==0]=np.nan
 gcutno2[gascnt==0]=np.nan
 gno2vmr[gcnt==0]=np.nan
@@ -403,13 +446,13 @@ cbar = m.colorbar(cs, location='bottom', pad="10%")
 plt.title('Cloud-sliced NO2 VMRs')
 
 plt.subplot(2, 3, 2)
-cs=m.pcolor(xi,yi,np.squeeze(gcldfr), vmin=0.5, vmax=2.0, cmap='jet')
+cs=m.pcolor(xi,yi,np.squeeze(trueo3), vmin=40.0, vmax=120, cmap='jet')
 m.drawparallels(np.arange(-80.,81.,45.),labels=[1,0,0,0],fontsize=8)
 m.drawmeridians(np.arange(-180.,181.,45.),labels=[0,0,0,1],fontsize=8)
 m.drawcoastlines()
 m.drawcountries()
 cbar = m.colorbar(cs, location='bottom', pad="10%")
-plt.title('Cloud fraction')
+plt.title('O3 VMR [ppbv]')
 
 plt.subplot(2, 3, 3)
 cs=m.pcolor(xi,yi,np.squeeze(gcutno2), vmin=0, vmax=80, cmap='jet')
@@ -498,7 +541,7 @@ plt.show()
 
 # Save the data to NetCDF:
 ncout=Dataset('./Data/gc-v12-1-0-ut-no2-'+Reg.lower()+'-jja-'+yrrange+'-'+\
-              StrRes+'-'+prange+'-v3.nc',mode='w',format='NETCDF4')
+              StrRes+'-'+prange+'-v4.nc',mode='w',format='NETCDF4')
 
 # Create data dimensions:
 ncout.createDimension('lat', ydim) 
@@ -558,6 +601,12 @@ utcldfrc = ncout.createVariable('utcldfrc', np.float32, ('lon','lat'))
 utcldfrc.units = 'unitless'
 utcldfrc.long_name = 'GEOS-FP cloud fraction obtained as sum of 3D cloud fractions across range of interest (180-450 hPa)'
 utcldfrc[:] = gcldfr
+
+# (8) O3 sampled coincident with cloud-slicing retrieval:
+uto3 = ncout.createVariable('uto3', np.float32, ('lon','lat'))
+uto3.units = 'ppbv'
+uto3.long_name = 'GEOS-Chem ozone obtained coincident with cloud-sliced NO2'
+uto3[:] = trueo3
 
 # Close the file:
 ncout.close()
