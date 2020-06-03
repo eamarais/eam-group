@@ -36,12 +36,12 @@ import pdb
 FILL_VAL = 9.96921e+36
 # DEFINE GRID:
 # Define model grid:
-MIN_LAT = -88.
-MAX_LAT = 88.
-MIN_LON = -178.
-MAX_LON = 178.
-DELTA_LAT = 2  # 4#0.5#4#0.5
-DELTA_LON = 2.5  # 5#0.5#5#0.5
+MIN_LAT = -90.
+MAX_LAT = 90.
+MIN_LON = -180.
+MAX_LON = 180.
+#DELTA_LAT = 2  # 4#0.5#4#0.5
+#DELTA_LON = 2.5  # 5#0.5#5#0.5
 OUT_RES = '1x1'
 
 
@@ -633,8 +633,8 @@ if __name__ == "__main__":
     if OUT_RES == '4x5':
         DELTA_LAT = 4
         DELTA_LON = 5
-    out_lon = np.arange(MIN_LON, MAX_LON, DELTA_LON)
-    out_lat = np.arange(MIN_LAT, MAX_LAT, DELTA_LAT)
+    out_lon = np.arange(MIN_LON, MAX_LON+DELTA_LON, DELTA_LON)
+    out_lat = np.arange(MIN_LAT, MAX_LAT+DELTA_LAT, DELTA_LAT)
     # Convert output lats and long to 2D:
     X, Y = np.meshgrid(out_lon, out_lat, indexing='ij')
 
