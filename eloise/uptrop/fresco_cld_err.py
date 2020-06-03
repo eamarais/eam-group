@@ -21,9 +21,10 @@ import netCDF4
 from netCDF4 import Dataset
 import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
-from gamap_colormap import WhGrYlRd
 import argparse
 from os import path
+
+from gamap_colormap import WhGrYlRd
 
 import pdb
 
@@ -144,10 +145,11 @@ class CloudVariableStore:
         self.gdlr_cnt[p, q] += 1.0
 
     def cloud_fraction_filtering(self, tropomi_data):
-        # TODO: Call this function!
+        """
         # Gather data on frequency of cloud fraction > 0.7:
         # This is done before filtering for scenes with knmi cloud frac
         # > 0.7 to also include all relevant DLR scenes:
+        """
         # loop over cloud and latitude band bins:
         for w in range(len(self.cldbin)):
             for n in range(len(self.latbin)):
@@ -378,7 +380,6 @@ class TropomiData:
     """
     Class for holding the data for an individual Tropomi file. Applies data filters on creation.
     """
-    # TODO: The filter values in get_nobs and filter_t*file are the same _I think_. Put them in attributes, instead of code
 
     def __init__(self, td_file_path, tf_file_path):
         # TODO: Ask E which number in the filename is the orbit
@@ -473,6 +474,10 @@ class TropomiData:
             raise Exception('Not all missing values converted to NANs')
 
     def filter_tffile(self):
+        """
+        Identifing coincident
+        :return:
+        """
         # Convert all valid snow/ice free flag values (0,255) to 0.
         self.tfsnow = np.where(self.tfsnow == 255, 0, self.tfsnow)
         # Coastlines (listed as potential "suspect" in the ATBD document p. 67):
@@ -493,7 +498,6 @@ class TropomiData:
         #   500 hPa and below 150 hPa (more generous than the 450-200 hPa
         #   range to account for variability around this threshold in the
         #   two cloud products:
-        # HERE'S THE CULPRIT... wait, no ,there are still values here
         self.tffrc = np.where(self.tftop > (450 * 1e2), np.nan, self.tffrc)
         self.tffrc = np.where(self.tftop < (180 * 1e2), np.nan, self.tffrc)
         # Snow/ice cover:
@@ -511,31 +515,32 @@ class TropomiData:
 
     def get_nobs(self):
         # Bug might be here?
+        """
+        Identifiing the valid
+        :return:
+        """
         dlr_ind = np.where((self.tdqval < 0.5) & (self.tdfrc >= 0.7) & (self.tdtop >= 18000)
                           & (self.tdtop <= 45000) & (self.tdsnow == 0))[0]
         fr_ind = np.where((self.tfqval < 0.45) & (self.tffrc >= 0.7) & (self.tftop >= 18000)
                           & (self.tftop <= 45000) & (self.tfsnow == 0))[0]
+        # DLR value will be different, fr_ind will be same
         return len(dlr_ind), len(fr_ind)
 
 
 def process_file(tdfile, tffile, running_total_container):
-    """Processes a paired dtr and fresco product, and adds the pixels to the running total in the
-    running_total_container"""
+    """Processes a paired dtr and fresco product, adds the pixels to the running total in the
+    running_total_container and updates the cloud_fraction"""
     # Track progress:
     print('===> Processing: ', tdfile)
     try:
         file_data_container = TropomiData(tdfile, tffile)
-
-        num_obs = file_data_container.get_nobs()
-        #if num_obs == (0,0):
-         #   print("File is empty, continuing")
-         #   return
+        running_total_container.update_nobs(file_data_container)
+        print("Nobs:{}".format(file_data_container.get_nobs()))
+        running_total_container.cloud_fraction_filtering(file_data_container)
         # REGRID THE DATA:
         for i in range(file_data_container.shape[0]):
             for j in range(file_data_container.shape[1]):
                 running_total_container.update_pixel(file_data_container, i, j)
-        running_total_container.cloud_fraction_filtering(file_data_container)
-        running_total_container.update_nobs(file_data_container)
     except ShapeMismatchException:
         print("Mismatch in shape of {} and {}".format(tdfile, tffile))
     return
