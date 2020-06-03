@@ -11,7 +11,7 @@
     (1) Initial version created on 15 March 2020 by Eloise Marais
         (eloise.marais@le.ac.uk).
 
-    '''
+'''
 
 # Import relevant packages:
 import glob
@@ -516,15 +516,14 @@ class TropomiData:
     def get_nobs(self):
         # Bug might be here?
         """
-        Identifiing the valid
-        :return:
+        Returns a tuple of number of valid observations of (dlr product, fresco product)
         """
-        dlr_ind = np.where((self.tdqval < 0.5) & (self.tdfrc >= 0.7) & (self.tdtop >= 18000)
-                          & (self.tdtop <= 45000) & (self.tdsnow == 0))[0]
-        fr_ind = np.where((self.tfqval < 0.45) & (self.tffrc >= 0.7) & (self.tftop >= 18000)
-                          & (self.tftop <= 45000) & (self.tfsnow == 0))[0]
+        dlr_ind = np.count_nonzero((self.tdqval < 0.5) & (self.tdfrc >= 0.7) & (self.tdtop >= 18000)
+                          & (self.tdtop <= 45000) & (self.tdsnow == 0))
+        fr_ind = np.count_nonzero((self.tfqval < 0.45) & (self.tffrc >= 0.7) & (self.tftop >= 18000)
+                          & (self.tftop <= 45000) & (self.tfsnow == 0))
         # DLR value will be different, fr_ind will be same
-        return len(dlr_ind), len(fr_ind)
+        return dlr_ind, fr_ind
 
 
 def process_file(tdfile, tffile, running_total_container):
@@ -613,9 +612,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Extracts and plots cloud data")
     parser.add_argument("--s5p_data_dir", default='/data/uptrop/nobackup/tropomi/Data/')
-    parser.add_argument("--output_dir", default = '~/eos_library/cloud_test_output')
+    parser.add_argument("--output_dir", default='~/eos_library/cloud_test_output')
     parser.add_argument("--month", default="10")
-    parser.add_argument("--plot_dir", default = "~/eos_library/cloud_test_plots")
+    parser.add_argument("--plot_dir", default="~/eos_library/cloud_test_plots")
     parser.add_argument("--number_of_days", default=31, type=int)
     args = parser.parse_args()
 
