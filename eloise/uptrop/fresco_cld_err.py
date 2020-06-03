@@ -549,7 +549,7 @@ def process_file(tdfile, tffile, running_total_container):
     try:
         file_data_container = TropomiData(tdfile, tffile)
         running_total_container.update_nobs(file_data_container)
-        print("Fresco nobs: {}\nDLR nobs: {}".format(
+        #print("Fresco nobs: {}\nDLR nobs: {}".format(
             file_data_container.nobs_fresco, file_data_container.nobs_dlr))
         running_total_container.cloud_fraction_filtering(file_data_container)
         # REGRID THE DATA:
