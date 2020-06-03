@@ -16,7 +16,7 @@
 
 
 # Validation against mode
-# E runs model over EU, CH, AVOGADRO. EU is quickest.
+# E runs model over EU, CH, NA. EU is quickest.
 # Spits out a netCDF with NO2 from retreval, sat clear, sat cloudy
 # Runs about 20 minutes per month
 
@@ -44,14 +44,15 @@ from gcpy.gcpy.constants import MW_AIR
 np.warnings.filterwarnings('ignore')
 
 # Decide on region:
-REGION= 'EU' #'AVOGADRO', 'EU', or 'CH'
+REGION= 'EU' #'NA', 'EU', or 'CH'
 
 # Define information for grid:
 STR_RES= '4x5'
 
 # Define pressure range:
-P_MIN=180     #380   #290   #180   #190
-P_MAX=450     #450   #380   #290   #440
+# These are fixed, so can be constants, as opposed to inputs.
+P_MIN=180     
+P_MAX=450     
 
 
 # Define years of interest:
@@ -195,11 +196,12 @@ class ProcessedData:
             print(maxcnt, flush=True)
 
         # TODO: Check if the treshold ratios will need to be tweaked
+        # No, these are fixed. The other numbers were just experiments. I've deleted those now for clarity.
         # Use cloud_slice_ut_no2 function to get cloud-sliced
         # UT NO2 mixing ratios.
         # Treat data differently depending on whether there are no
-        # more than or more than 30 points:
-        if ((npnts >= 20) & (npnts < 100)):  # <=30:
+        # 20-100 points:
+        if ((npnts >= 20) & (npnts < 100)):
             csval = cldslice(tcolno2, tcld)
             if np.isnan(csval[0]) or np.isnan(csval[1]):
                 self.loss_count[csval[2] - 1] += 1
@@ -237,6 +239,9 @@ class ProcessedData:
             nloop = list(range(niter))
 
             # TODO: Get what this is from E. Looks like some kind of cumulative function?
+            # This was my attempt at subsampling the data: if there are more than 100 satellite pixels in a 1 deg x 1 deg 
+            # array I split these up be dividing the number of observations by 40 to obtain niter (the number of iterations)
+            # and looping over these iterations.  
             #    # Loop over iterations:
             for w in nloop:
                 if w == 0:
@@ -246,6 +251,8 @@ class ProcessedData:
                     # Get mean cloud top pressure:
                     pmean = csval[3]
                     # Calculate Gaussian weight:
+                    # This could appear as a separate function called "Gaussian weight" that requires as input the average
+                    # cloud pressure pmean, the center cloud pressure (315) and the cloud standard deviation (135).
                     gwgt = np.exp(np.multiply((-1.0), np.divide((np.square(np.subtract(pmean, 315.))),
                                                                 (np.multiply(2, np.square(135.))))))
                 else:
@@ -572,12 +579,12 @@ if __name__ == "__main__":
     sys.stdout = log
 
     # Define target grid:
-    if REGION == 'AVOGADRO':
+    if REGION == 'NA':
         minlat = 6.
         maxlat = 58.
         minlon = -135.
         maxlon = -60.
-        dirreg = 'AVOGADRO'
+        dirreg = 'NA'
         factor = 40  # used to determine size of gno2
     if REGION == 'EU':
         minlat = 30.
@@ -600,8 +607,8 @@ if __name__ == "__main__":
     if STR_RES == '4x5': dellat, dellon = 4, 5
     if STR_RES == '2x25': dellat, dellon = 2, 2.5
     if STR_RES == '1x1': dellat, dellon = 1, 1
-    out_lon = np.arange(minlon, maxlon + dellon, dellon)  # (-180,181,dellon)
-    out_lat = np.arange(minlat, maxlat + dellat, dellat)  # (-90.,91.,dellat)
+    out_lon = np.arange(minlon, maxlon + dellon, dellon) 
+    out_lat = np.arange(minlat, maxlat + dellat, dellat) 
     # Convert output lats and long to 2D:
     X, Y = np.meshgrid(out_lon, out_lat, indexing='ij')
     # Dimensions of output data:
