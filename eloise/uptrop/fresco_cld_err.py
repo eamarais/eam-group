@@ -182,9 +182,8 @@ class CloudVariableStore:
         """
         Given a tropomi_data object, updates the number of observations.
         """
-        nobs_dlr, nobs_fresco = tropomi_data.get_nobs()
-        self.nobs_dlr += nobs_dlr
-        self.nobs_fresco += nobs_fresco
+        self.nobs_dlr += tropomi_data.nobs_dlr
+        self.nobs_fresco += tropomi_data.nobs_fresco
 
     def calc_cloud_statistics(self):
         """
@@ -391,6 +390,7 @@ class TropomiData:
             return
         self.read_tdfile(td_file_path)
         self.read_tffile(tf_file_path)
+        self.nobs_dlr, self.nobs_fresco = self.get_nobs()
         self.filter_tdfile()
         self.filter_tffile()
         self.check_parity()
@@ -534,7 +534,8 @@ def process_file(tdfile, tffile, running_total_container):
     try:
         file_data_container = TropomiData(tdfile, tffile)
         running_total_container.update_nobs(file_data_container)
-        print("Nobs:{}".format(file_data_container.get_nobs()))
+        print("Fresco nobs: {}\nDTR nobs: {}".format(
+            file_data_container.nobs_fresco, file_data_container.nobs_dlr))
         running_total_container.cloud_fraction_filtering(file_data_container)
         # REGRID THE DATA:
         for i in range(file_data_container.shape[0]):
