@@ -132,7 +132,7 @@ class CloudVariableStore:
             print('Latitudes not the same')
             return
 
-        print("{},{} is a valid pixel".format(trop_i, trop_j))
+        # print("{},{} is a valid pixel".format(trop_i, trop_j))
 
         # Add data to output arrays:
         self.gknmi_cf[p, q] += tropomi_data.tffrc[trop_i, trop_j]
