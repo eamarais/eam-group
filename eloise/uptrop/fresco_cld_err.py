@@ -34,16 +34,12 @@ import pdb
 # TODO: Check with Eloise how constant these are going to be
 # Define constants/maybe parameters?
 FILL_VAL = 9.96921e+36
-# DEFINE GRID:
-# Define model grid:
+
+# Define model grid lat and long limits:
 MIN_LAT = -90.
 MAX_LAT = 90.
 MIN_LON = -180.
 MAX_LON = 180.
-#DELTA_LAT = 2  # 4#0.5#4#0.5
-#DELTA_LON = 2.5  # 5#0.5#5#0.5
-OUT_RES = '1x1'
-
 
 class FileMismatchException(Exception):
     """
@@ -527,14 +523,14 @@ class TropomiData:
 
 
 def process_file(tdfile, tffile, running_total_container):
-    """Processes a paired dtr and fresco product, adds the pixels to the running total in the
+    """Processes a paired dlr and fresco product, adds the pixels to the running total in the
     running_total_container and updates the cloud_fraction"""
     # Track progress:
     print('===> Processing: ', tdfile)
     try:
         file_data_container = TropomiData(tdfile, tffile)
         running_total_container.update_nobs(file_data_container)
-        print("Fresco nobs: {}\nDTR nobs: {}".format(
+        print("Fresco nobs: {}\nDLR nobs: {}".format(
             file_data_container.nobs_fresco, file_data_container.nobs_dlr))
         running_total_container.cloud_fraction_filtering(file_data_container)
         # REGRID THE DATA:
@@ -613,24 +609,25 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Extracts and plots cloud data")
     parser.add_argument("--s5p_data_dir", default='/data/uptrop/nobackup/tropomi/Data/')
-    parser.add_argument("--output_dir", default='~/eos_library/cloud_test_output')
+    parser.add_argument("--output_dir", default='/data/uptrop/Projects/UpTrop/python/Data/')
     parser.add_argument("--month", default="10")
-    parser.add_argument("--plot_dir", default="~/eos_library/cloud_test_plots")
+    parser.add_argument("--plot_dir", default="/data/uptrop/Projects/UpTrop/python/Images/")
     parser.add_argument("--number_of_days", default=31, type=int)
+    parser.add_argument("--out_res", default="1x1")
     args = parser.parse_args()
 
     s5p_data_dir = path.expanduser(args.s5p_data_dir)
-    output_dir = path.expanduser(args.output_dir)
-    plot_dir = path.expanduser(args.plot_dir)
+    output_file = path.expanduser(args.output_dir)
+    plot_file = path.expanduser(args.plot_dir)
 
     # TODO: Make this a member of CloudVariableStore
-    if OUT_RES == '1x1':
+    if args.out_res == '1x1':
         DELTA_LAT = 1
         DELTA_LON = 1
-    if OUT_RES == '2x25':
+    if args.out_res == '2x25':
         DELTA_LAT = 2
         DELTA_LON = 2.5
-    if OUT_RES == '4x5':
+    if args.out_res == '4x5':
         DELTA_LAT = 4
         DELTA_LON = 5
     out_lon = np.arange(MIN_LON, MAX_LON+DELTA_LON, DELTA_LON)
