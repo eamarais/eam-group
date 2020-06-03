@@ -617,8 +617,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     s5p_data_dir = path.expanduser(args.s5p_data_dir)
-    output_file = path.expanduser(args.output_dir)
-    plot_file = path.expanduser(args.plot_dir)
+    output_dir = path.expanduser(args.output_dir)
+    plot_dir = path.expanduser(args.plot_dir)
 
     # TODO: Make this a member of CloudVariableStore
     if args.out_res == '1x1':
