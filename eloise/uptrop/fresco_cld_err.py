@@ -398,14 +398,15 @@ class TropomiData:
         self.tdlats = dlr_cloud_data.groups['PRODUCT'].variables['latitude'][:].data[0, :, :]
         tfrc = dlr_cloud_data.groups['PRODUCT'].variables['cloud_fraction'][:]
         self.tdfrc = tfrc.data[0, :, :]
-        ttop = dlr_cloud_data.groups['PRODUCT'].variables['cloud_top_pressure'][:]
-        self.tdtop = ttop.data[0, :, :]
         if ( dlr_cld_top=='height' ):
             ttop = dlr_cloud_data.groups['PRODUCT'].variables['cloud_top_height'][:]
+            self.tdtop = ttop.data[0, :, :]       
+            # Convert height to pressure (done before counting the number
+            # if valid data points in get_nobs:            
+            self.tdtop = np.where(self.tdtop != FILL_VAL, alt2pres(self.tdtop), FILL_VAL) 
         else:
-            ttop = dlr_cloud_data.groups['PRODUCT'].variables['cloud_top_pressure'][:]
-        self.tdtop = ttop.data[0, :, :]
-
+            ttop = dlr_cloud_data.groups['PRODUCT'].variables['cloud_top_pressure'][:]     
+            self.tdtop = ttop.data[0, :, :]
         tbase = dlr_cloud_data.groups['PRODUCT'].variables['cloud_base_pressure'][:]
         self.tdbase = tbase.data[0, :, :]
         tqval = dlr_cloud_data.groups['PRODUCT'].variables['qa_value'][:]
@@ -445,9 +446,9 @@ class TropomiData:
         #self.tdsnow = np.where(self.tdsnow == 252, 0, self.tdsnow)
 
         # If necessary, convert heigh to pressure:
-        if ( dlr_cld_top=='height' ):
-            self.tdtop = np.where(self.tdtop != FILL_VAL, \
-                                  alt2pres(self.tdtop), self.tdtop) 
+        #if ( dlr_cld_top=='height' ):
+        #    self.tdtop = np.where(self.tdtop != FILL_VAL, \
+        #                          alt2pres(self.tdtop), self.tdtop) 
 
         # Set missing/poor quality/irrelevant data to NAN:
         # Apply cloud fraction filter, but set it to 0.7 rather
