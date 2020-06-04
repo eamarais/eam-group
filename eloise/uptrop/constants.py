@@ -21,3 +21,6 @@ MW_AIR = 28.97e-3
 
 # Molar mass of water, kg/mol
 MW_H2O = 18.016e-3
+
+# Number of molecules per cm2 in 1 DU:
+DU_TO_MOLECULES_PER_CM2 = 2.6867e+16
