@@ -43,6 +43,10 @@ MAX_LAT = 90.
 MIN_LON = -180.
 MAX_LON = 180.
 
+# Define limits of pressure range of interest (in hPa):
+PMIN = 180.
+PMAX = 450.
+
 class FileMismatchException(Exception):
     """
     Raised when there are an unequal number of cloud and N02 files
@@ -153,8 +157,8 @@ class CloudVariableStore:
                                 (tropomi_data.tffrc < (self.cldbin[w] + 0.025)) &
                                 (tropomi_data.tflats >= (self.latbin[n] - 7.5)) &
                                 (tropomi_data.tflats < (self.latbin[n] + 7.5)) &
-                                (tropomi_data.tftop >= 18000) &
-                                (tropomi_data.tftop <= 45000) &
+                                (tropomi_data.tftop >= PMIN*1e2) &
+                                (tropomi_data.tftop <= PMAX*1e2) &
                                 (~np.isnan(tropomi_data.tffrc)))[0]
                 if len(fbin) > 0:
                     self.knmi_cf_freq[n, w] += len(fbin)
@@ -165,8 +169,8 @@ class CloudVariableStore:
                                 (tropomi_data.tdfrc < (self.cldbin[w] + 0.025)) &
                                 (tropomi_data.tdlats >= (self.latbin[n] - 7.5)) &
                                 (tropomi_data.tdlats < (self.latbin[n] + 7.5)) &
-                                (tropomi_data.tdtop >= 18000) &
-                                (tropomi_data.tdtop <= 45000) &
+                                (tropomi_data.tdtop >= PMIN*1e2) &
+                                (tropomi_data.tdtop <= PMAX*1e2) &
                                 (~np.isnan(tropomi_data.tdfrc)))[0]
                 if len(dbin) > 0:
                     self.dlr_cf_freq[n, w] += len(dbin)
@@ -514,8 +518,8 @@ class TropomiData:
         #   500 hPa and below 150 hPa (more generous than the 450-200 hPa
         #   range to account for variability around this threshold in the
         #   two cloud products:
-        self.tffrc = np.where(self.tftop > (450 * 1e2), np.nan, self.tffrc)
-        self.tffrc = np.where(self.tftop < (180 * 1e2), np.nan, self.tffrc)
+        self.tffrc = np.where(self.tftop > (PMAX * 1e2), np.nan, self.tffrc)
+        self.tffrc = np.where(self.tftop < (PMIN * 1e2), np.nan, self.tffrc)
         # Snow/ice cover:
         self.tffrc = np.where(self.tfsnow != 0, np.nan, self.tffrc)
         # Apply filter to remaining data:
@@ -534,10 +538,8 @@ class TropomiData:
         """
         Returns a tuple of number of valid observations of (dlr product, fresco product)
         """
-        dlr_ind = np.count_nonzero((self.tdqval < 0.5) & (self.tdfrc >= 0.7) & (self.tdtop >= 18000)
-                          & (self.tdtop <= 45000) & (self.tdsnow == 0))
-        fr_ind = np.count_nonzero((self.tfqval < 0.45) & (self.tffrc >= 0.7) & (self.tftop >= 18000)
-                          & (self.tftop <= 45000) & (self.tfsnow == 0))
+        dlr_ind = np.count_nonzero((self.tdqval < 0.5) & (self.tdfrc >= 0.7) & (self.tdtop >= PMIN*1e2) & (self.tdtop <= PMAX*1e2) & (self.tdsnow == 0))
+        fr_ind = np.count_nonzero((self.tfqval < 0.45) & (self.tffrc >= 0.7) & (self.tftop >= PMIN*1e2) & (self.tftop <= PMAX*1e2) & (self.tfsnow == 0))
         # DLR value will be different, fr_ind will be same
         return dlr_ind, fr_ind
 
