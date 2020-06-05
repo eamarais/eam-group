@@ -26,16 +26,14 @@ import glob
 import sys
 import os
 import numpy as np
-import netCDF4 as nc4
 from netCDF4 import Dataset
 from scipy import stats
-from bootstrap import rma
 import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
-from mpl_toolkits import basemap
-from cloud_slice_ut_no2 import cldslice
-import leastsq  # E has replaced this with error-bar having version(so better)
 import argparse
+
+from bootstrap import rma
+from cloud_slice_ut_no2 import cldslice
 
 from gcpy.gcpy.constants import AVOGADRO
 from gcpy.gcpy.constants import G
