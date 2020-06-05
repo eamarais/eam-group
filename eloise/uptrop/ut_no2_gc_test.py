@@ -600,9 +600,9 @@ if __name__ == "__main__":
     STR_RES = '4x5'
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("gc_dir")
-    parser.add_argument("out_dir")
-    parser.add_argument('resolution', help="Can be 8x10, 4x5, 2x25 or 1x1")
+    parser.add_argument("--gc_dir", default='/data/uptrop/Projects/DEFRA-NH3/GC/geosfp_eu_naei_iccw/')
+    parser.add_argument("--out_path", default='/home/j/jfr10/eos_library/uptrop_comparison/test.nc2')
+    parser.add_argument('--resolution', default="8x10", help="Can be 8x10, 4x5, 2x25 or 1x1")
     parser.add_argument("-p", "--plot")
     args = parser.parse_args()
 
@@ -619,7 +619,7 @@ if __name__ == "__main__":
    # Get files (test June 2016 for now)
     # 2016:
     gc_dir = args.gc_dir
-    files = get_file_list(gc_dir)
+    files = get_file_list(gc_dir, REGION, YEARS_TO_PROCESS)
     print('Number of files:', len(files), flush=True)
 
     rolling_total = ProcessedData(REGION, STR_RES)
@@ -631,7 +631,7 @@ if __name__ == "__main__":
     rolling_total.apply_gaussian_weight()
     rolling_total.print_data_report()
     rolling_total.plot_data()
-    out_path = './Data/gc-v12-1-0-ut-self-' + REGION.lower() + '-jja-' + yrrange + '-' + STR_RES + '-' + rolling_total.prange + '-v4.nc'
+    out_path = args.out_path 
     rolling_total.save_to_netcdf(out_path)
 
     # Close the log file:

@@ -7,9 +7,9 @@ import os
 import numpy as np
 from bootstrap import rma
 
-from gcpy.gcpy.constants import AVOGADRO as na
-from gcpy.gcpy.constants import G as g
-from gcpy.gcpy.constants import MW_AIR as mmair
+from constants import AVOGADRO as na
+from constants import G as g
+from constants import MW_AIR as mmair
 
 def cldslice(pcolno2,cldtophgt):
 
