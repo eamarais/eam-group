@@ -44,11 +44,7 @@ from gcpy.gcpy.constants import MW_AIR
 # Turn off warnings:
 np.warnings.filterwarnings('ignore')
 
-# Decide on region:
-REGION= 'EU' #'NA', 'EU', or 'CH'
 
-# Define information for grid:
-STR_RES= '4x5'
 
 # Define pressure range:
 # These are fixed, so can be constants, as opposed to inputs.
@@ -59,37 +55,40 @@ P_MAX=450
 # Define years of interest:
 YEARS_TO_PROCESS=['2016', '2017']
 
-
+# TODO: Go through code and replace pass statements with exceptions. Add try-catch.
+class ProcessingException(Exception):
+    pass
 
 class ProcessedData:
 
-    def __init__(self, REGION, STR_RES):
+    # ----Initialisation methods----
+    def __init__(self, region, str_res):
 
-        nval, xdim, ydim = self.define_grid(REGION, STR_RES)
-
-        shape = self.X.shape
+        self.define_grid(region, str_res)
+        grid_shape = self.X.shape
 
         # Define output arrays:
-        self.gno2vcd = np.zeros(shape)
-        self.gno2vmr = np.zeros(shape)
-        self.gcldfr = np.zeros(shape)
-        self.gcld = np.zeros(shape)
-        self.gerr = np.zeros(shape)
-        self.trueo3 = np.zeros(shape)  # ozone mixing ratio coincident with cloud-sliced ut self
-        self.trueno2 = np.zeros(shape)  # "true" cloudy UT NO2
-        self.gcutno2 = np.zeros(shape)  # "true" all-sky UT NO2
-        self.truewgt = np.zeros(shape)  # "true" all-sky UT NO2 Gaussian weights
-        self.gascnt = np.zeros(shape)  # Count all-sky
-        self.gcnt = np.zeros(shape)
+        self.g_no2_vcd = np.zeros(grid_shape)
+        self.g_no2_vmr = np.zeros(grid_shape)
+        self.g_cld_fr = np.zeros(grid_shape)
+        self.g_cld = np.zeros(grid_shape)
+        self.g_err = np.zeros(grid_shape)
+        self.true_o3 = np.zeros(grid_shape)  # ozone mixing ratio coincident with cloud-sliced ut self
+        self.true_no2 = np.zeros(grid_shape)  # "true" cloudy UT NO2
+        self.g_cut_no2 = np.zeros(grid_shape)  # "true" all-sky UT NO2
+        self.true_wgt = np.zeros(grid_shape)  # "true" all-sky UT NO2 Gaussian weights
+        self.g_as_cnt = np.zeros(grid_shape)  # Count all-sky
+        self.g_cnt = np.zeros(grid_shape)
 
         # Define output data for this day:
-        self.gno2 = np.zeros((xdim, ydim, nval))
-        self.go3 = np.zeros((xdim, ydim, nval))
-        self.allcldfr = np.zeros((xdim, ydim, nval))
-        self.stratno2 = np.zeros((xdim, ydim, nval))
-        self.gcldp = np.zeros((xdim, ydim, nval))
-        self.gtrueno2 = np.zeros((xdim, ydim, nval))
-        self.cntloop = np.zeros((xdim, ydim))
+        out_shape = (self.xdim, self.ydim, self.nval)
+        self.g_no2 = np.zeros(out_shape)
+        self.g_o3 = np.zeros(out_shape)
+        self.g_cld_fr = np.zeros(out_shape)
+        self.strat_no2 = np.zeros(out_shape)
+        self.g_cld_p = np.zeros(out_shape)
+        self.g_true_no2 = np.zeros(out_shape)
+        self.cnt_loop = np.zeros(out_shape)
 
         #NOTE: Lots of these didn't seem to appear in the code
         self.loss_count = {
@@ -104,7 +103,6 @@ class ProcessedData:
 
         # Initialize:
         self.cnt = 0
-        # numcnt=0
         self.maxcnt = 0
 
         # Define string to represent the layer range:
@@ -114,7 +112,7 @@ class ProcessedData:
         # to VMR:
         self.den2mr = np.divide((np.multiply(G, MW_AIR)), AVOGADRO)
 
-    def define_grid(self, region, STR_RES):
+    def define_grid(self, region, str_res):
         # Define target grid:
         if region == 'NA':
             self.minlat = 6.
@@ -122,7 +120,7 @@ class ProcessedData:
             self.minlon = -135.
             self.maxlon = -60.
             self.dirreg = 'NA'
-            self.factor = 40  # used to determine size of gno2
+            self.factor = 40  # used to determine size of g_no2
         if region == 'EU':
             self.minlat = 30.
             self.maxlat = 62.
@@ -142,13 +140,13 @@ class ProcessedData:
             sys.exit(1)
         # NOTE FOR LATER: This snippet turns up in fresco_cld_err; a candidate for the library.
         # Define grid information:
-        if STR_RES == '8x10':
+        if str_res == '8x10':
             self.dellat, self.dellon = 8, 10
-        if STR_RES == '4x5':
+        if str_res == '4x5':
             self.dellat, self.dellon = 4, 5
-        if STR_RES == '2x25':
+        if str_res == '2x25':
             self.dellat, self.dellon = 2, 2.5
-        if STR_RES == '1x1':
+        if str_res == '1x1':
             self.dellat, self.dellon = 1, 1
         else:
             print("Invalid resolution: valid resolutions are 8x10, 4x5, 2x25 (two pt 5) and 1x1")
@@ -162,34 +160,146 @@ class ProcessedData:
         self.ydim = len(self.out_lat)
         self.nval = int(self.factor * self.dellat * self.dellon)  # Scale array size with resolution
 
+    # ----Processing methods----
+    def process_geochem_day(self, file_path):
+        """
+        I _think_ this performs some preprocessing on a partiuclar set of no2 pixels, then saves the
+        result in a grid square, then performs an update on that grid square.
+        """
+        this_geoschem_day = GeosChemDay(file_path)
+        # Get column values:
+        for y in range(len(this_geoschem_day.t_lat)):
+            for x in range(len(this_geoschem_day.t_lon)):
+                this_geoschem_day.prepare_no2_pixel(x, y)
+                self.regrid_and_process(x, y, this_geoschem_day)
+        for i in range(self.xdim):
+            for j in range(self.ydim):
+                if self.g_no2[i, j, 0] != 0:
+                    self.process_grid_square(i, j)
+
     def regrid_and_process(self, x, y, no2):
         # Find nearest gridsquare in output grid:
-        p, q = np.argmin(abs(self.out_lon - no2.tlon[x])), \
-               np.argmin(abs(self.out_lat - no2.tlat[y]))
+        lon = np.argmin(abs(self.out_lon - no2.t_lon[x]))
+        lat = np.argmin(abs(self.out_lat - no2.t_lat[y]))
 
-        self.truewgt[p, q] += np.sum(no2.twgt)
+        self.true_wgt[lon, lat] += np.sum(no2.twgt)
 
         # Sum up "true" all-sky UT NO2:
-        self.gcutno2[p, q] += np.sum(no2.tgcno2[no2.askind, y, x] * no2.twgt * 1e3)
-        self.gascnt[p, q] += 1.0
-
-        no2.prepare_no2_pixel(no2, x, y)
+        self.g_cut_no2[lon, lat] += np.sum(no2.t_gc_no2[no2.askind, y, x] * no2.twgt * 1e3)
+        self.g_as_cnt[lon, lat] += 1.0
 
         # Add relevant data to array:
-        # QUESTION: Does cntloop need to be a grid
-        self.gno2[p, q, int(no2.cntloop[p, q])] = no2.no22d  # stratcol+tropcol   #no22d
-        self.stratno2[p, q, int(self.cntloop[p, q])] = no2.stratcol
-        self.gcldp[p, q, int(self.cntloop[p, q])] = no2.tcldhgt[y, x]
-        self.go3[p, q, int(self.cntloop[p, q])] = np.mean(no2.tgco3[no2.lmin:no2.lmax + 1, y, x])
-        self.gtrueno2[p, q, int(self.cntloop[p, q])] = np.mean(no2.tgcno2[no2.lmin:no2.lmax + 1, y, x])
-        self.allcldfr[p, q, int(self.cntloop[p, q])] = np.sum(no2.tcldfr[no2.lmin:no2.lmax + 1, y, x])
+        # QUESTION: Does cnt_loop need to be a grid
+        # These are all jagged arrays; may not be the same side
+        self.g_no2[lon, lat, int(self.cnt_loop[lon, lat])] = no2.no2_2d  # strat_col+trop_col   #no2_2d
+        self.strat_no2[lon, lat, int(self.cnt_loop[lon, lat])] = no2.strat_col
+        self.g_cld_p[lon, lat, int(self.cnt_loop[lon, lat])] = no2.t_cld_hgt[y, x]
+        self.g_o3[lon, lat, int(self.cnt_loop[lon, lat])] = np.mean(no2.t_gc_o3[no2.level_min:no2.level_max + 1, y, x])
+        self.g_true_no2[lon, lat, int(self.cnt_loop[lon, lat])] = np.mean(no2.t_gc_no2[no2.level_min:no2.level_max + 1, y, x])
+        self.g_cld_fr[lon, lat, int(self.cnt_loop[lon, lat])] = np.sum(no2.t_cld_fr[no2.level_min:no2.level_max + 1, y, x])
         # Increment indices:
-        self.cntloop[p, q] += 1
+        self.cnt_loop[lon, lat] += 1
 
+    def process_grid_square(self, i, j):
+        # Define vectors of relevant data:
+        # These should all have the same length
+        t_col_no2 = self.g_no2[i, j, :]
+        t_strat_no2 = self.strat_no2[i, j, :]
+        t_fr_c = self.g_cld_fr[i, j, :]
+        t_cld = self.g_cld_p[i, j, :]
+        t_mr_no2 = self.g_true_no2[i, j, :]
+        t_o3 = self.g_o3[i, j, :]
+        # Skip if fewer than 10 points:
+        if len(t_col_no2) < 10:
+            print("Grid square {}, {} failed with condition 0".format(i, j))
+            self.loss_count["too_few_points"] += 1
+            return
+
+        #TODO: Can change this
+            # Trim to remove trailing zeros:
+        t_col_no2 = np.trim_zeros(t_col_no2)
+        t_strat_no2 = np.trim_zeros(t_strat_no2)
+        t_fr_c = np.trim_zeros(t_fr_c)
+        t_cld = np.trim_zeros(t_cld)
+        t_mr_no2 = np.trim_zeros(t_mr_no2)
+        t_o3 = np.trim_zeros(t_o3)
+        # Remove non-uniform stratosphere:
+        if (np.std(t_strat_no2) / np.mean(t_strat_no2)) > 0.02:
+            self.loss_count["non_uni_strat"] += 1
+            return  # continue
+        # Check if there are any repeat values:
+        u, ind = np.unique(t_cld, return_inverse=True)
+        if (len(ind) != len(t_cld)):
+            #TODO: Find out why this is bad
+            print('Repeat cloud values', flush=True)
+            sys.exit()
+        # Get number of points:
+        n_pnts = len(t_cld)
+        if n_pnts > self.maxcnt:
+            max_cnt = n_pnts
+            print(max_cnt, flush=True)
+
+        # Use cloud_slice_ut_no2 function to get cloud-sliced
+        # UT NO2 mixing ratios.
+        # Treat data differently depending on whether there are no
+        # 20-100 points:
+
+        if n_pnts >= 20 and n_pnts <100:
+            self.add_slice(i,j,t_cld,t_col_no2,t_fr_c, t_mr_no2)
+        elif n_pnts >= 100:
+            num_slices = 40
+            stride = round(n_pnts / num_slices)
+            nloop = list(range(stride))
+            for w in nloop:
+                # Cloud-slicing:
+                subset_t_col_no2 = t_col_no2[w::stride]
+                subset_t_cld = t_cld[w::stride]
+                subset_t_fr_c = t_fr_c[w::stride]
+                subset_t_mr_no2 = t_mr_no2[w::stride]
+                self.add_slice(i, j, subset_t_cld, subset_t_col_no2, subset_t_fr_c, subset_t_mr_no2)
+
+    def add_slice(self, i, j, t_cld, t_col_no2, t_fr_c, t_mr_no2):
+        """Applies and adds a cloud slice from the given data"""
+        utmrno2, utmrno2err, num, mean_cld_pres = cldslice(t_col_no2, t_cld)
+        # Calculate Gaussian weight:
+        g_wgt = np.exp((-(mean_cld_pres - 315) ** 2) / (2 * 135 ** 2))
+        # Skip if approach didn't work (i.e. cloud-sliced UT NO2 is NaN):
+        # TODO: Check with E if we need to carry on with the loop in this case, or drop it
+        if np.isnan(utmrno2) or np.isnan(utmrno2err):
+            self.loss_count[num - 1] += 1
+            # return
+        # Gaussian-weighted mean for each pass of cldslice:
+        gaussian_mean = np.mean(t_mr_no2 * 1e3) * g_wgt
+        self.true_no2[i, j] += gaussian_mean
+        self.g_cld_fr[i, j] += np.mean(t_fr_c)
+        self.g_no2_vmr[i, j] += utmrno2 * g_wgt
+        self.g_err[i, j] += g_wgt
+        self.g_cnt[i, j] += 1
+        self.cnt += 1
+
+    def apply_gaussian_weight(self):
+        """
+        Apply gaussian weighting to data
+        """
+        self.g_no2_vmr = np.divide(self.g_no2_vmr, self.g_err, where=self.g_cnt != 0)
+        self.g_cld_fr = np.divide(self.g_cld_fr, self.g_cnt, where=self.g_cnt != 0)
+        self.true_no2 = np.divide(self.true_no2, self.g_err, where=self.g_cnt != 0)
+        self.true_o3 = np.divide(self.true_o3, self.g_err, where=self.g_cnt != 0)
+        self.g_cld = np.divide(self.g_cld, self.g_cnt, where=self.g_cnt != 0)
+        self.g_err = np.divide(self.g_err, self.g_cnt, where=self.g_cnt != 0)
+        self.g_cut_no2 = np.divide(self.g_cut_no2, self.true_wgt, where=self.g_as_cnt != 0)
+        self.true_no2[self.g_cnt == 0] = np.nan
+        self.true_o3[self.g_cnt == 0] = np.nan
+        self.g_err[self.g_cnt == 0] = np.nan
+        self.g_cut_no2[self.g_as_cnt == 0] = np.nan
+        self.g_no2_vmr[self.g_cnt == 0] = np.nan
+        self.g_cld_fr[self.g_cnt == 0] = np.nan
+
+    # ----Reporting and saving methods----
     def print_data_report(self):
         # No. of data points:
         # print('No. of valid data points: ',cnt,flush=True)
-        print('Max no. of data points in a gridsquare: ', np.amax(self.gcnt), flush=True)
+        print('Max no. of data points in a gridsquare: ', np.amax(self.g_cnt), flush=True)
         # Track reasons for data loss:
         print('(1) Too few points: ', self.loss_count["too_few_points"], flush=True)
         print('(2) Low cloud height range: ', self.loss_count["low_cloud_height_range"], flush=True)
@@ -201,164 +311,6 @@ class ProcessedData:
         print('(8) Successful retrievals: ', self.cnt, flush=True)
         print('(9) Total possible points: ', (np.sum(self.loss_count.values()) + self.cnt), flush=True)
 
-    def process_file(self, file_path):
-        """
-        I _think_ this performs some preprocessing on a partiuclar set of no2 pixels, then saves the
-        result in a grid square, then performs an update on that grid square.
-        """
-        no2_data = N02_Data(file_path)
-        # Get column values:
-        for y in range(len(no2_data.tlat)):
-            for x in range(len(no2_data.tlon)):
-                self.regrid_and_process(x, y, no2_data)
-        for i in range(self.xdim):
-            for j in range(self.ydim):
-                if self.gno2[i, j, 0] != 0:
-                    self.process_grid_square(no2_data, i, j)
-        self.get_average()
-
-    def get_average(self):
-        # Get average:
-        gno2vmr = np.divide(self.gno2vmr, self.gerr, where=self.gcnt != 0)
-        gcldfr = np.divide(self.gcldfr, self.gcnt, where=self.gcnt != 0)
-        trueno2 = np.divide(self.trueno2, self.gerr, where=self.gcnt != 0)
-        trueo3 = np.divide(self.trueo3, self.gerr, where=self.gcnt != 0)
-        gcld = np.divide(self.gcld, self.gcnt, where=self.gcnt != 0)
-        gerr = np.divide(self.gerr, self.gcnt, where=self.gcnt != 0)
-        gcutno2 = np.divide(self.gcutno2, self.truewgt, where=self.gascnt != 0)
-        trueno2[self.gcnt == 0] = np.nan
-        trueo3[self.gcnt == 0] = np.nan
-        gerr[self.gcnt == 0] = np.nan
-        gcutno2[self.gascnt == 0] = np.nan
-        gno2vmr[self.gcnt == 0] = np.nan
-        gcldfr[self.gcnt == 0] = np.nan
-
-    def process_grid_square(self, no2_data, i, j):
-        # Define vectors of relevant data:
-        tcolno2 = no2_data.gno2[i, j, :]
-        tstratno2 = no2_data.stratno2[i, j, :]
-        tfrc = no2_data.allcldfr[i, j, :]
-        tcld = no2_data.gcldp[i, j, :]
-        tmrno2 = no2_data.gtrueno2[i, j, :]
-        to3 = no2_data.go3[i, j, :]
-        # Skip if fewer than 10 points:
-        if len(tcolno2) < 10:
-            print("Grid square {}, {} failed with condition 0".format(i, j))
-            self.loss_count["too_few_points"] += 1
-            return
-
-            # Trim to remove trailing zeros:
-        tcolno2 = np.trim_zeros(tcolno2)
-        tstratno2 = np.trim_zeros(tstratno2)
-        tfrc = np.trim_zeros(tfrc)
-        tcld = np.trim_zeros(tcld)
-        tmrno2 = np.trim_zeros(tmrno2)
-        to3 = np.trim_zeros(to3)
-        # Remove non-uniform stratosphere:
-        if (np.std(tstratno2) / np.mean(tstratno2)) > 0.02:
-            self.loss_count["non_uni_strat"] += 1
-            pass  # continue
-        # Check if there are any repeat values:
-        u, ind = np.unique(tcld, return_inverse=True)
-        if (len(ind) != len(tcld)):
-            print('Repeat cloud values', flush=True)
-            sys.exit()
-        # Get number of points:
-        npnts = len(tcld)
-        if npnts > self.maxcnt:
-            maxcnt = npnts
-            print(maxcnt, flush=True)
-
-        # Use cloud_slice_ut_no2 function to get cloud-sliced
-        # UT NO2 mixing ratios.
-        # Treat data differently depending on whether there are no
-        # 20-100 points:
-        if (npnts >= 20) & (npnts < 100):
-            # TODO: Refactor csval into explicit values. 
-            csval = cldslice(tcolno2, tcld)
-            if np.isnan(csval[0]) or np.isnan(csval[1]):
-                self.loss_count[csval[2] - 1] += 1
-                pass  # continue
-
-            # Get mean cloud top pressure:
-            pmean = csval[3]
-
-            # Calculate Gaussian weight:
-            gwgt = np.exp(np.multiply((-1.0), np.divide((np.square(np.subtract(pmean, 315.))),
-                                                        (np.multiply(2, np.square(135.))))))
-
-            # Apply Gaussian weights to cloud-sliced UT NO2:
-            self.gno2vmr[i, j] += np.multiply(csval[0], gwgt)
-            self.gcldfr[i, j] += np.mean(tfrc)
-            self.gerr[i, j] += gwgt
-
-            # "True" cloudy UT NO2 (converted from ppbv to pptv):
-            self.trueno2[i, j] += np.multiply(np.mean(tmrno2 * 1e3), gwgt)
-
-            # Ozone coincident with cloud-sliced NO2:
-            self.trueo3[i, j] += np.multiply(np.mean(to3), gwgt)
-
-            self.gcnt[i, j] += 1
-            self.cnt += 1
-
-        elif (npnts >= 100):
-            #    # Code error check:
-            #    if len(tcld)!=len(tmrno2):
-            #        print('arrays not =',flush=True)
-            #        print(len(tcld),len(tmrno2),flush=True)
-
-            #    # Determine the number of iterations:
-            niter = round(npnts / 40)
-            nloop = list(range(niter))
-
-            # TODO: Get what this is from E. Looks like some kind of cumulative function?
-            # This was my attempt at subsampling the data: if there are more than 100 satellite pixels in a 1 deg x 1 deg 
-            # array I split these up be dividing the number of observations by 40 to obtain niter (the number of iterations)
-            # and looping over these iterations.  
-            #    # Loop over iterations:
-            for w in nloop:
-                if w == 0:
-
-                    # Cloud-slicing:
-                    csval = cldslice(tcolno2[::niter], tcld[::niter])
-                    # Get mean cloud top pressure:
-                    pmean = csval[3]
-                    # Calculate Gaussian weight:
-                    # This could appear as a separate function called "Gaussian weight" that requires as input the average
-                    # cloud pressure pmean, the center cloud pressure (315) and the cloud standard deviation (135).
-                    gwgt = np.exp(np.multiply((-1.0), np.divide((np.square(np.subtract(pmean, 315.))),
-                                                                (np.multiply(2, np.square(135.))))))
-                else:
-
-                    # Cloud-slicing:
-                    csval = cldslice(tcolno2[w::niter], tcld[w::niter])
-                    # Get mean cloud top pressure:
-                    pmean = csval[3]
-                    # Calculate Gaussian weight:
-                    gwgt = np.exp(np.multiply((-1.0), np.divide((np.square(np.subtract(pmean, 315.))),
-                                                                (np.multiply(2, np.square(135.))))))
-
-            # Skip if approach didn't work (i.e. cloud-sliced
-            # UT NO2 is NaN):
-            if np.isnan(no2_data.csval[0]) or np.isnan(no2_data.csval[1]):
-                self.loss_count[no2_data.csval[2] - 1] += 1
-                pass  # continue
-
-            # Gaussian-weighted mean:
-            self.gno2vmr[i, j] += np.multiply(csval[0], gwgt)
-            self.gerr[i, j] += gwgt
-
-            # "True" cloudy UT NO2 (converted from ppbv to pptv):
-            if (w == 0):
-                self.trueno2[i, j] += np.multiply(np.mean(tmrno2[::niter] * 1e3), gwgt)
-                self.gcldfr[i, j] += np.mean(tfrc[::niter])
-            else:
-                self.trueno2[i, j] += np.multiply(np.mean(tmrno2[w::niter] * 1e3), gwgt)
-                self.gcldfr[i, j] += np.mean(tfrc[w::niter])  #
-
-            self.gcnt[i, j] += 1
-            self.cnt += 1
-
     def plot_data(self):
         # Plot the data:
         m = Basemap(resolution='l', projection='merc',
@@ -366,7 +318,7 @@ class ProcessedData:
                     llcrnrlat=self.minlat, urcrnrlon=self.maxlon, urcrnrlat=self.maxlat)
         xi, yi = m(self.X, self.Y)
         plt.subplot(2, 3, 1)
-        cs = m.pcolor(xi, yi, np.squeeze(self.gno2vmr), vmin=0, vmax=80, cmap='jet')
+        cs = m.pcolor(xi, yi, np.squeeze(self.g_no2_vmr), vmin=0, vmax=80, cmap='jet')
         m.drawparallels(np.arange(-80., 81., 45.), labels=[1, 0, 0, 0], fontsize=8)
         m.drawmeridians(np.arange(-180., 181., 45.), labels=[0, 0, 0, 1], fontsize=8)
         m.drawcoastlines()
@@ -374,7 +326,7 @@ class ProcessedData:
         cbar = m.colorbar(cs, location='bottom', pad="10%")
         plt.title('Cloud-sliced NO2 VMRs')
         plt.subplot(2, 3, 2)
-        cs = m.pcolor(xi, yi, np.squeeze(self.trueo3), vmin=40.0, vmax=120, cmap='jet')
+        cs = m.pcolor(xi, yi, np.squeeze(self.true_o3), vmin=40.0, vmax=120, cmap='jet')
         m.drawparallels(np.arange(-80., 81., 45.), labels=[1, 0, 0, 0], fontsize=8)
         m.drawmeridians(np.arange(-180., 181., 45.), labels=[0, 0, 0, 1], fontsize=8)
         m.drawcoastlines()
@@ -382,7 +334,7 @@ class ProcessedData:
         cbar = m.colorbar(cs, location='bottom', pad="10%")
         plt.title('O3 VMR [ppbv]')
         plt.subplot(2, 3, 3)
-        cs = m.pcolor(xi, yi, np.squeeze(self.gcutno2), vmin=0, vmax=80, cmap='jet')
+        cs = m.pcolor(xi, yi, np.squeeze(self.g_cut_no2), vmin=0, vmax=80, cmap='jet')
         m.drawparallels(np.arange(-80., 81., 45.), labels=[1, 0, 0, 0], fontsize=8)
         m.drawmeridians(np.arange(-180., 181., 45.), labels=[0, 0, 0, 1], fontsize=8)
         m.drawcoastlines()
@@ -390,12 +342,12 @@ class ProcessedData:
         cbar = m.colorbar(cs, location='bottom', pad="10%")
         plt.title('True NO2 VMRs under all-sky conditions')
         plt.subplot(2, 3, 4)
-        plt.plot(self.trueno2, self.gno2vmr, 'o', color='black', markersize=6)
-        r = stats.pearsonr(self.trueno2[~np.isnan(self.gno2vmr)],
-                           self.gno2vmr[~np.isnan(self.gno2vmr)])
+        plt.plot(self.true_no2, self.g_no2_vmr, 'o', color='black', markersize=6)
+        r = stats.pearsonr(self.true_no2[~np.isnan(self.g_no2_vmr)],
+                           self.g_no2_vmr[~np.isnan(self.g_no2_vmr)])
         # print('Correlation = ', r[0])
-        result = rma(self.trueno2[~np.isnan(self.gno2vmr)], self.gno2vmr[~np.isnan(self.gno2vmr)],
-                     len(self.trueno2[~np.isnan(self.gno2vmr)]), 1000)
+        result = rma(self.true_no2[~np.isnan(self.g_no2_vmr)], self.g_no2_vmr[~np.isnan(self.g_no2_vmr)],
+                     len(self.true_no2[~np.isnan(self.g_no2_vmr)]), 1000)
         print(result, flush=True)
         xvals = np.arange(0, 100, 5)
         yvals = result[1] + xvals * result[0]
@@ -417,12 +369,12 @@ class ProcessedData:
         plt.text(2, 65, add2plt, fontsize=8,
                  ha='left', va='center')  # , transform=ax.transAxes)
         plt.subplot(2, 3, 5)
-        plt.plot(self.gcutno2, self.gno2vmr, 'o', color='black', markersize=6)
-        r = stats.pearsonr(self.gcutno2[(~np.isnan(self.gno2vmr)) & (~np.isnan(self.gcutno2))],
-                           self.gno2vmr[(~np.isnan(self.gno2vmr)) & (~np.isnan(self.gcutno2))])
-        result = rma(self.gcutno2[(~np.isnan(self.gno2vmr)) & (~np.isnan(self.gcutno2))],
-                     self.gno2vmr[(~np.isnan(self.gno2vmr)) & (~np.isnan(self.gcutno2))],
-                     len(self.gcutno2[(~np.isnan(self.gno2vmr)) & (~np.isnan(self.gcutno2))]),
+        plt.plot(self.g_cut_no2, self.g_no2_vmr, 'o', color='black', markersize=6)
+        r = stats.pearsonr(self.g_cut_no2[(~np.isnan(self.g_no2_vmr)) & (~np.isnan(self.g_cut_no2))],
+                           self.g_no2_vmr[(~np.isnan(self.g_no2_vmr)) & (~np.isnan(self.g_cut_no2))])
+        result = rma(self.g_cut_no2[(~np.isnan(self.g_no2_vmr)) & (~np.isnan(self.g_cut_no2))],
+                     self.g_no2_vmr[(~np.isnan(self.g_no2_vmr)) & (~np.isnan(self.g_cut_no2))],
+                     len(self.g_cut_no2[(~np.isnan(self.g_no2_vmr)) & (~np.isnan(self.g_cut_no2))]),
                      1000)
         xvals = np.arange(0, 100, 5)
         yvals = result[1] + xvals * result[0]
@@ -439,12 +391,12 @@ class ProcessedData:
         plt.text(2, 65, add2plt, fontsize=8, \
                  ha='left', va='center')  # , transform=ax.transAxes)
         plt.subplot(2, 3, 6)
-        plt.plot(self.gcutno2, self.trueno2, 'o', color='black', markersize=6)
-        r = stats.pearsonr(self.gcutno2[(~np.isnan(self.trueno2)) & (~np.isnan(self.gcutno2))],
-                           self.trueno2[(~np.isnan(self.trueno2)) & (~np.isnan(self.gcutno2))])
-        result = rma(self.gcutno2[(~np.isnan(self.trueno2)) & (~np.isnan(self.gcutno2))],
-                     self.trueno2[(~np.isnan(self.trueno2)) & (~np.isnan(self.gcutno2))],
-                     len(self.gcutno2[(~np.isnan(self.trueno2)) & (~np.isnan(self.gcutno2))]),
+        plt.plot(self.g_cut_no2, self.true_no2, 'o', color='black', markersize=6)
+        r = stats.pearsonr(self.g_cut_no2[(~np.isnan(self.true_no2)) & (~np.isnan(self.g_cut_no2))],
+                           self.true_no2[(~np.isnan(self.true_no2)) & (~np.isnan(self.g_cut_no2))])
+        result = rma(self.g_cut_no2[(~np.isnan(self.true_no2)) & (~np.isnan(self.g_cut_no2))],
+                     self.true_no2[(~np.isnan(self.true_no2)) & (~np.isnan(self.g_cut_no2))],
+                     len(self.g_cut_no2[(~np.isnan(self.true_no2)) & (~np.isnan(self.g_cut_no2))]),
                      1000)
         xvals = np.arange(0, 100, 5)
         yvals = result[1] + xvals * result[0]
@@ -481,47 +433,47 @@ class ProcessedData:
         csutno2 = ncout.createVariable('csutno2', np.float32, ('lon', 'lat'))
         csutno2.units = 'pptv'
         csutno2.long_name = 'UT NO2 mixing ratio (180-450 hPa) obtained using cloud-slicing'
-        csutno2[:] = self.gno2vmr
+        csutno2[:] = self.g_no2_vmr
         # (2) Cloud-sliced NO2 error:
         utno2err = ncout.createVariable('utno2err', np.float32, ('lon', 'lat'))
         utno2err.units = 'pptv'
         utno2err.long_name = 'Standard error of the NO2 mixing ratios in the UT (180-450 hPa) obtained using cloud-slicing'
-        utno2err[:] = self.gerr
+        utno2err[:] = self.g_err
         # (3) Number of observations in each gridsquare:
         nobs = ncout.createVariable('nobs', np.float32, ('lon', 'lat'))
         nobs.units = 'unitless'
         nobs.long_name = 'Number of observations in each gridsquare used to obtain cloud-sliced UT NO2 mixing ratios'
-        nobs[:] = self.gcnt
+        nobs[:] = self.g_cnt
         # (4) Mean cloud pressure for season between 450-180 hPa:
         utcld = ncout.createVariable('utcld', np.float32, ('lon', 'lat'))
         utcld.units = 'hPa'
         utcld.long_name = 'Mean cloud pressure between 450 and 180 hPa'
-        utcld[:] = self.gcld
+        utcld[:] = self.g_cld
         # (5) Mean NO2 mixing ratio at 450-180 hPa for scenes with clouds:
         cldutno2 = ncout.createVariable('cldutno2', np.float32, ('lon', 'lat'))
         cldutno2.units = 'pptv'
         cldutno2.long_name = 'UT NO2 mixing ratio (180-450 hPa) obtained if clouds are present'
-        cldutno2[:] = self.trueno2
+        cldutno2[:] = self.true_no2
         # (6) Mean NO2 mixing ratio at 450-180 hPa under all conditions (all-sky):
         askutno2 = ncout.createVariable('askutno2', np.float32, ('lon', 'lat'))
         askutno2.units = 'pptv'
         askutno2.long_name = 'UT NO2 mixing ratio (180-450 hPa) obtained under all conditions (all-sky)'
-        askutno2[:] = self.gcutno2
+        askutno2[:] = self.g_cut_no2
         # (7) Cloud fraction:
         utcldfrc = ncout.createVariable('utcldfrc', np.float32, ('lon', 'lat'))
         utcldfrc.units = 'unitless'
         utcldfrc.long_name = 'GEOS-FP cloud fraction obtained as sum of 3D cloud fractions across range of interest (180-450 hPa)'
-        utcldfrc[:] = self.gcldfr
+        utcldfrc[:] = self.g_cld_fr
         # (8) O3 sampled coincident with cloud-slicing retrieval:
         uto3 = ncout.createVariable('uto3', np.float32, ('lon', 'lat'))
         uto3.units = 'ppbv'
         uto3.long_name = 'GEOS-Chem ozone obtained coincident with cloud-sliced NO2'
-        uto3[:] = self.trueo3
+        uto3[:] = self.true_o3
         # Close the file:
         ncout.close()
 
 
-class N02_Data():
+class GeosChemDay:
 
     def __init__(self, file_path):
         print(file_path, flush=True)
@@ -535,66 +487,76 @@ class N02_Data():
             fh.variables['TIME-SER__CThgt'], fh.variables['TIME-SER__AIRDEN'], \
             fh.variables['BXHGHT-S__BXHEIGHT'], fh.variables['PEDGE-S__PSURF'], \
             fh.variables['TR-PAUSE__TP-PRESS'], fh.variables['IJ-AVG-S__O3']
-        self.tlon = tlon[:]
-        self.tlat = tlat[:]
-        self.tgcno2 = tgcno2[:]
-        self.tcldfr = tcldfr[:]
-        self.tcldhgt = tcldhgt[0, :, :]
-        self.tadn = tadn[:]  # in molec/cm3
-        self.tbxhgt = tbxhgt[:]
-        self.tpedge = tpedge[:]
-        self.tpause = tpause[0, :, :]
-        self.tgco3 = tgco3[:]
+        self.t_lon = tlon[:]
+        self.t_lat = tlat[:]
+        self.t_gc_no2 = tgcno2[:]
+        self.t_cld_fr = tcldfr[:]
+        self.t_cld_hgt = tcldhgt[0, :, :]
+        self.t_adn = tadn[:]  # in molec/cm3
+        self.t_bx_hgt = tbxhgt[:]
+        self.t_p_edge = tpedge[:]
+        self.t_pause = tpause[0, :, :]
+        self.t_gc_o3 = tgco3[:]
         # Convert box height from m to cm:
-        self.tbxhgt = tbxhgt * 1e2
+        self.t_bx_hgt = tbxhgt * 1e2
+
+        #Get outputs ready here for tidyness:
+        self.no2_2d = None
+        self.trop_col = None
+        self.strat_col = None
+        self.gcutno2 = None
+        self.gascnt
+
+        self.level_min = None
+        self.level_max = None
+        self.askind = None
 
 
-    def filter_pixel(self, x, y):
+    def prepare_no2_pixel(self, x, y):
+
         # Calculate corresponding mid-pressure values:
-        self.tpmid = np.zeros(len(self.tpedge[:, y, x]))
+        tp_mid = np.zeros(len(self.t_p_edge[:, y, x]))
         # Get mid-pressure values, except for highest layer:
-        for k in range(len(self.tpedge[:, y, x]) - 1):
-            self.tpmid[k] = np.multiply(0.5, (self.tpedge[k, y, x] + self.tpedge[k + 1, y, x]))
+        for k in range(len(self.t_p_edge[:, y, x]) - 1):
+            tp_mid[k] = np.multiply(0.5, (self.t_p_edge[k, y, x] + self.t_p_edge[k + 1, y, x]))
         # Estimate mid-pressure for highest value (doesn't need to
         # be accurate, as surpassing the range of interset):
         # TODO: Check with E why 46. Middle of tpmid?
-        self.tpmid[46] = np.multiply(0.5, (self.tpedge[46, y, x] + (self.tpedge[46, y, x] - 0.1)))
+        tp_mid[46] = np.multiply(0.5, (self.t_p_edge[46, y, x] + (self.t_p_edge[46, y, x] - 0.1)))
         # Get model layer of tropopause:
-        self.tppind = np.argmin(abs(self.tpmid - self.tpause[y, x]))
+        tppind = np.argmin(abs(tp_mid - self.t_pause[y, x]))
         # Get indices that fall between 450 and 180 hPa for estimating
         # "true' all-sky UT NO2 and partial columns:
-        lind = np.where((self.tpmid >= P_MIN) & (self.tpmid <= P_MAX))[0]
+        lind = np.where((tp_mid >= P_MIN) & (tp_mid <= P_MAX))[0]
         # Get UT NO2 under "true" all-sky conditions:
         # Make sure this is below the tropopause:
         # If below tropopause, use full extent (180-450 hPa):
-        if lind[len(lind) - 1] <= self.tppind:
-            askind = lind
+        if lind[len(lind) - 1] <= tppind:
+            self.askind = lind
         # If above tropopause, trim to tropopause-450 hPa:
-        if lind[len(lind) - 1] > self.tppind:
-            askind = lind[np.where(lind <= self.tppind)[0]]
+        if lind[len(lind) - 1] > tppind:
+            self.askind = lind[np.where(lind <= tppind)[0]]
         # If tropopause below 450 hPa, skip entirely:
-        if self.tpause[y, x] > P_MAX:
-            return # continue
+        if self.t_pause[y, x] > P_MAX:
+            return  # continue
         # Get Guassian weights that allocated higher weights to points
         # closest to the pressure centre (315 hPa):
         # Equation is:
         #   w = exp(-(p-315)^2/2*135^2 ) where 315 hPa is the centre and
         #         135 hPa is the standard deviation.
-        self.twgt = np.exp(np.multiply((-1.0), np.divide((np.square(np.subtract(self.tpmid[askind], 315.))),
-                                                    (np.multiply(2, np.square(135.))))))
-
-    def prepare_no2_pixel(self, x, y):
+        self.twgt = np.exp(np.multiply((-1.0), np.divide((np.square(np.subtract(tp_mid[self.askind], 315.))),
+                                                         (np.multiply(2, np.square(135.))))))
 
         # Find where cloud fraction in UT exceeds 0.7 after calculating
         # true all-sky NO2:
         # (Keep for testing effect of thick clouds on cloud-sliced UT NO2):
-        # if (np.sum(tcldfr[lind,y,x])<=0.7): continue
+        # if (np.sum(t_cld_fr[lind,y,x])<=0.7): continue
         # Get model level of cloud top height closest to lowest
         # pressure-altitude of interest (P_MIN):
-        self.lcld = np.argmin(abs(self.tcldhgt[y, x] - self.tpmid))
+        self.lcld = np.argmin(abs(self.t_cld_hgt[y, x] - tp_mid))
         # Skip if cloud top height ouside pressure range of interest:
-        lmin, lmax = np.amin(self.lind), np.amax(self.lind)
-        if (self.lcld < lmin) or (self.lcld > lmax):
+        self.level_min, self.level_max = np.amin(lind), np.amax(lind)
+        if (self.lcld <self.level_min) or (self.lcld > self.level_max):
             pass  # continue
         # This error check is probably redundant, but included in case:
         if self.lcld == 0:
@@ -602,21 +564,19 @@ class N02_Data():
             sys.exit()
         # Get partial NO2 column in molec/m2 from cloud top height
         # to highest model level (output up to level 47):
-        # print(tgcno2[lmin:tppind,y,x])
-        # print(tgcno2[lmin:tppind,y,x]*1.5)
-        self.no22d = np.sum(self.tgcno2[lmin:, y, x] * 1e-5 * self.tadn[lmin:, y, x] *
-                       self.tbxhgt[lmin:, y, x])
-        self.tropcol = np.sum(self.tgcno2[lmin:self.tppind, y, x] * 1e-5 *
-                         self.tadn[lmin:self.tppind, y, x] * self.tbxhgt[lmin:self.tppind, y, x])
+        # print(t_gc_no2[self.level_min:tppind,y,x])
+        # print(t_gc_no2[self.level_min:tppind,y,x]*1.5)
+        self.no2_2d = np.sum(self.t_gc_no2[self.level_min:, y, x] * 1e-5 * self.t_adn[self.level_min:, y, x] *
+                             self.t_bx_hgt[self.level_min:, y, x])
         # Get stratospheric column from 180 hPa aloft:
         # Previous approach (remove when model simulations done):
         # tppind=np.where(tpmid<180.)[0]
-        self.stratcol = np.sum(self.tgcno2[self.tppind:, y, x] * 1e-5 * self.tadn[self.tppind:, y, x] *
-                          self.tbxhgt[self.tppind:, y, x])
+        self.strat_col = np.sum(self.t_gc_no2[tppind:, y, x] * 1e-5 * self.t_adn[tppind:, y, x] *
+                                self.t_bx_hgt[tppind:, y, x])
 
 
-def get_file_list(gcdir):
-    # TODO: Replace with os.path
+def get_file_list(gcdir, REGION, YEARS_TO_PROCESS):
+    # TODO: Rework after you've looked at the files
     files = glob.glob(gcdir + 'nc_sat_files_47L/ts_12_15.' + REGION + '.' + YEARS_TO_PROCESS[0] + '06*')
     mon = ["07", "08"]
     for i in mon:
@@ -629,41 +589,47 @@ def get_file_list(gcdir):
         for filename in glob.glob(gcdir + 'nc_sat_files_47L/ts_12_15.' + REGION + \
                                   '.' + YEARS_TO_PROCESS[1] + i + '*'):
             files.append(filename)
-    return files
+    return sorted(files)
 
 
 if __name__ == "__main__":
 
-    #TODO: Argparse
+    # Decide on region:
+    REGION = 'EU'  # 'NA', 'EU', or 'CH'
 
-    if len(YEARS_TO_PROCESS) == 1: yrrange = YEARS_TO_PROCESS[0]
-    if len(YEARS_TO_PROCESS) == 2: yrrange = '2016-2017'
+    # Define information for grid:
+    STR_RES = '4x5'
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("gc_dir")
+    parser.add_argument("out_dir")
+    parser.add_argument('resolution', help="Can be 8x10, 4x5, 2x25 or 1x1")
+    parser.add_argument("-p", "--plot")
+    args = parser.parse_args()
+
+    if len(YEARS_TO_PROCESS) == 1:
+        yrrange = YEARS_TO_PROCESS[0]
+    if len(YEARS_TO_PROCESS) == 2:
+        yrrange = '2016-2017'
 
     # Name of log file to output code prorgess:
     # TODO: Maybe replace this with Python logging? See rest of code.
     log = open("log_" + REGION + "_" + STR_RES + "_" + yrrange + "_v4", "w")
     sys.stdout = log
 
-
-
-
    # Get files (test June 2016 for now)
     # 2016:
-    gc_dir = '/data/uptrop/Projects/DEFRA-NH3/GC/geosfp_' + dirreg + '_iccw/'
+    gc_dir = args.gc_dir
     files = get_file_list(gc_dir)
-
-    # Order the files:
-    files = sorted(files)
-
-    # Check:
     print('Number of files:', len(files), flush=True)
 
-    rolling_total = ProcessedData(X)
+    rolling_total = ProcessedData(REGION, STR_RES)
 
     # Loop over files:
     for file_path in files:
-        rolling_total.process_file(file_path)
+        rolling_total.process_geochem_day(file_path)
 
+    rolling_total.apply_gaussian_weight()
     rolling_total.print_data_report()
     rolling_total.plot_data()
     out_path = './Data/gc-v12-1-0-ut-self-' + REGION.lower() + '-jja-' + yrrange + '-' + STR_RES + '-' + rolling_total.prange + '-v4.nc'
