@@ -37,9 +37,9 @@ from cloud_slice_ut_no2 import cldslice
 import leastsq  # E has replaced this with error-bar having version(so better)
 import argparse
 
-from gcpy.gcpy.constants import AVOGADRO
-from gcpy.gcpy.constants import G
-from gcpy.gcpy.constants import MW_AIR
+from constants import AVOGADRO
+from constants import G
+from constants import MW_AIR
 
 # Turn off warnings:
 np.warnings.filterwarnings('ignore')
