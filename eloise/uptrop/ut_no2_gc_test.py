@@ -70,9 +70,16 @@ stryr=['2016','2017']
 if len(stryr)==1: yrrange=stryr[0]
 if len(stryr)==2: yrrange='2016-2017'
 
+# Apply temperature correction?
+# (Can be added as an input argument; default is False)
+temperature_correction=True
+
 # Name of log file to output code prorgess:
 log=open("log_"+Reg+"_"+StrRes+"_"+yrrange+"_v4", "w")
 sys.stdout=log
+
+if ( temperature_correction ):
+    print('Temperature correction is being applied', flush=True)
 
 # Define grid information:
 if StrRes=='8x10': dellat,dellon=8,10
@@ -149,12 +156,13 @@ for f in files:
 
     # Extract data of interest:
     # (Add tropopause height to this in the future)
-    tlon,tlat,tgcno2,tcldfr,tcldhgt,tadn,tbxhgt,tpedge,tpause,tgco3=\
+    tlon,tlat,tgcno2,tcldfr,tcldhgt,tadn,tbxhgt,tpedge,tpause,tgco3,tdegk=\
           fh.variables['LON'],fh.variables['LAT'],\
           fh.variables['IJ-AVG-S__NO2'],fh.variables['TIME-SER__CF'],\
           fh.variables['TIME-SER__CThgt'],fh.variables['TIME-SER__AIRDEN'],\
           fh.variables['BXHGHT-S__BXHEIGHT'],fh.variables['PEDGE-S__PSURF'],\
-          fh.variables['TR-PAUSE__TP-PRESS'],fh.variables['IJ-AVG-S__O3']
+          fh.variables['TR-PAUSE__TP-PRESS'],fh.variables['IJ-AVG-S__O3'],\
+          fh.variables['DAO-3D-S__TMPU']
     tlon=tlon[:]
     tlat=tlat[:]
     tgcno2=tgcno2[:]
@@ -165,6 +173,7 @@ for f in files:
     tpedge=tpedge[:]
     tpause=tpause[0,:,:]
     tgco3=tgco3[:]
+    tdegk=tdegk[:]    # 3D temperature in deg K
 
     # Convert box height from m to cm:
     tbxhgt=tbxhgt*1e2
@@ -243,15 +252,30 @@ for f in files:
                 print("No cloud detected!!!",flush=True)
                 sys.exit()
 
+            # Calculate temperature correction to test its effect on cloud-sliced
+            # UT NO2 (no temperature correction is applied to the AMF used to 
+            # calculated TROPOMI partial NO2 columns, as 3D temperature isn't included
+            # in the TROPOMI file. This serves as a test of the effect of this
+            # temperature correction on the synthetic results):
+            if ( temperature_correction ):
+
+                # Equation is from the TROPOMI product ATBD (p. 32, Eqn 18)
+                # (product document abbrevation: S5P-KNMI-L2-0005-RP)
+                temp_corr=1-(3.16e-3*(tdegk[lmin:,y,x] - 220.)) + \
+                           (3.39e-6*((tdegk[lmin:,y,x] - 220)**2))
+            else:
+                # Set to 1 so that no scaling is applied:
+                # (might be a more eloquent way to do this)
+                temp_corr=np.ones(len(tgcno2[lmin:,y,x]))
+
             # Get partial NO2 column in molec/m2 from cloud top height 
             # to highest model level (output up to level 47):
-            #print(tgcno2[lmin:tppind,y,x])
-            #print(tgcno2[lmin:tppind,y,x]*1.5)
-            no22d=np.sum(tgcno2[lmin:,y,x]*1e-5*tadn[lmin:,y,x]*\
-                         tbxhgt[lmin:,y,x])
+            no22d=np.sum(tgcno2[lmin:,y,x]*1e-5*temp_corr*tadn[lmin:,y,x]*\
+                         tbxhgt[lmin:,y,x])                
 
-            tropcol=np.sum(tgcno2[lmin:tppind,y,x]*1e-5*\
-                           tadn[lmin:tppind,y,x]*tbxhgt[lmin:tppind,y,x])
+            # No longer used, so can be commented out or deleted
+            #tropcol=np.sum(tgcno2[lmin:tppind,y,x]*1e-5*\
+            #               tadn[lmin:tppind,y,x]*tbxhgt[lmin:tppind,y,x])
 
             # Get stratospheric column from 180 hPa aloft:
             # Previous approach (remove when model simulations done):
