@@ -103,7 +103,7 @@ class ProcessedData:
         self.g_cnt = np.zeros(grid_shape)
 
         # Define output data for this day:
-        n_grid_cells = self.x_dim*self.y_dim
+        n_grid_cells = self.xdim*self.ydim
         out_shape = (self.xdim, self.ydim)  # This feel gross. A numpy array of appendable lists.
         self.g_no2 = np.array([] for n in range(n_grid_cells)).reshape(out_shape)
         self.g_o3 = np.array([] for n in range(n_grid_cells)).reshape(out_shape)
