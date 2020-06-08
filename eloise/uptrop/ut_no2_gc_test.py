@@ -54,21 +54,37 @@ P_MAX=450
 # Define years of interest:
 YEARS_TO_PROCESS=['2016', '2017']
 
+CLOUD_SLICE_ERROR_ENUM = {
+    1: "too_few_points",
+    2: "low_cloud_height_range",
+    3: "low_cloud_height_std",
+    4: "large_error",
+    5: "much_less_than_zero",
+    6: "no2_outlier",
+    7: "non_uni_strat"
+}
+
+
 # TODO: Go through code and replace pass statements with exceptions. Add try-catch.
 class ProcessingException(Exception):
     pass
 
+
 class CloudSliceException(Exception):
     pass
+
 
 class InvalidRegionException(Exception):
     pass
 
+
 class InvalidResolutionException(Exception):
     pass
 
-class ProcessedData:
 
+
+
+class ProcessedData:
     # ----Initialisation methods----
     def __init__(self, region, str_res):
 
@@ -264,14 +280,15 @@ class ProcessedData:
 
     def add_slice(self, i, j, t_cld, t_col_no2, t_fr_c, t_mr_no2):
         """Applies and adds a cloud slice from the given data"""
-        utmrno2, utmrno2err, num, mean_cld_pres = cldslice(t_col_no2, t_cld)
+        utmrno2, utmrno2err, stage_reached, mean_cld_pres = cldslice(t_col_no2, t_cld)
         # Calculate Gaussian weight:
         g_wgt = np.exp((-(mean_cld_pres - 315) ** 2) / (2 * 135 ** 2))
         # Skip if approach didn't work (i.e. cloud-sliced UT NO2 is NaN):
         # TODO: Check with E if we need to carry on with the loop in this case, or drop it
         # Yes, drop out after the reason for data loss is added to loss_count.
         if np.isnan(utmrno2) or np.isnan(utmrno2err):
-            self.loss_count[num - 1] += 1
+            # TODO: Temporary fix; see cloud_slice_ut_no2 note
+            self.loss_count[CLOUD_SLICE_ERROR_ENUM[stage_reached]] += 1
             raise CloudSliceException
         # Gaussian-weighted mean for each pass of cldslice:
         gaussian_mean = np.mean(t_mr_no2 * 1e3) * g_wgt
