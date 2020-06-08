@@ -103,14 +103,13 @@ class ProcessedData:
         self.g_cnt = np.zeros(grid_shape)
 
         # Define output data for this day:
-        n_grid_cells = self.x_dim*self.y_dim
         out_shape = (self.xdim, self.ydim)  # This feel gross. A numpy array of appendable lists.
-        self.g_no2 = np.array([] for n in range(n_grid_cells)).reshape(out_shape)
-        self.g_o3 = np.array([] for n in range(n_grid_cells)).reshape(out_shape)
-        self.g_cld_fr = np.array([] for n in range(n_grid_cells)).reshape(out_shape)
-        self.strat_no2 = np.array([] for n in range(n_grid_cells)).reshape(out_shape)
-        self.g_cld_p = np.array([] for n in range(n_grid_cells)).reshape(out_shape)
-        self.g_true_no2 = np.array([] for n in range(n_grid_cells)).reshape(out_shape)
+        self.g_no2 = [[[] for n in range(self.xdim)] for m in range(self.ydim)]
+        self.g_o3 = [[[] for n in range(self.xdim)] for m in range(self.ydim)]
+        self.g_cld_fr = [[[] for n in range(self.xdim)] for m in range(self.ydim)]
+        self.strat_no2 = [[[] for n in range(self.xdim)] for m in range(self.ydim)]
+        self.g_cld_p = [[[] for n in range(self.xdim)] for m in range(self.ydim)]
+        self.g_true_no2 = [[[] for n in range(self.xdim)] for m in range(self.ydim)]
 
         #NOTE: Lots of these didn't seem to appear in the code
         self.loss_count = {
@@ -198,8 +197,8 @@ class ProcessedData:
 
     def regrid_and_process(self, x, y, no2):
         # Find nearest gridsquare in output grid:
-        lon = np.argmin(abs(self.out_lon - no2.t_lon[x]))
-        lat = np.argmin(abs(self.out_lat - no2.t_lat[y]))
+        lon = int(np.argmin(abs(self.out_lon - no2.t_lon[x])))
+        lat = int(np.argmin(abs(self.out_lat - no2.t_lat[y])))
 
         self.true_wgt[lon, lat] += np.sum(no2.twgt)
 
@@ -211,12 +210,12 @@ class ProcessedData:
         # QUESTION: Does cnt_loop need to be a grid
         # These are all jagged arrays; may not be the same side
 
-        self.g_no2[lon, lat].append( no2.no2_2d)  # strat_col+trop_col   #no2_2d
-        self.strat_no2[lon, lat].append( no2.strat_col)
-        self.g_cld_p[lon, lat].append( no2.t_cld_hgt[y, x])
-        self.g_o3[lon, lat].append( np.mean(no2.t_gc_o3[no2.level_min:no2.level_max + 1, y, x]))
-        self.g_true_no2[lon, lat].append( np.mean(no2.t_gc_no2[no2.level_min:no2.level_max + 1, y, x]))
-        self.g_cld_fr[lon, lat].append( np.sum(no2.t_cld_fr[no2.level_min:no2.level_max + 1, y, x]))
+        self.g_no2[lon][lat].append(no2.no2_2d)  # strat_col+trop_col   #no2_2d
+        self.strat_no2[lon][lat].append(no2.strat_col)
+        self.g_cld_p[lon][lat].append(no2.t_cld_hgt[y, x])
+        self.g_o3[lon][lat].append(np.mean(no2.t_gc_o3[no2.level_min:no2.level_max + 1, y, x]))
+        self.g_true_no2[lon][lat].append(np.mean(no2.t_gc_no2[no2.level_min:no2.level_max + 1, y, x]))
+        self.g_cld_fr[lon][lat].append(np.sum(no2.t_cld_fr[no2.level_min:no2.level_max + 1, y, x]))
 
 
     def process_grid_square(self, i, j):
@@ -670,4 +669,4 @@ if __name__ == "__main__":
     rolling_total.save_to_netcdf(out_path)
 
     # Close the log file:
-    log.close()
+    #log.close()
