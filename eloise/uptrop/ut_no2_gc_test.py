@@ -32,12 +32,12 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
 import argparse
 
-from constants import AVOGADRO
-from constants import G
-from constants import MW_AIR
+from uptrop.constants import AVOGADRO
+from uptrop.constants import G
+from uptrop.constants import MW_AIR
 
-from bootstrap import rma
-from cloud_slice_ut_no2 import cldslice
+from uptrop.bootstrap import rma
+from uptrop.cloud_slice_ut_no2 import cldslice
 
 
 # Turn off warnings:
@@ -103,14 +103,13 @@ class ProcessedData:
         self.g_cnt = np.zeros(grid_shape)
 
         # Define output data for this day:
-        n_grid_cells = self.xdim*self.ydim
-        out_shape = (self.xdim, self.ydim)  # This feel gross. A numpy array of appendable lists.
-        self.g_no2 = np.array([] for n in range(n_grid_cells)).reshape(out_shape)
-        self.g_o3 = np.array([] for n in range(n_grid_cells)).reshape(out_shape)
-        self.g_cld_fr = np.array([] for n in range(n_grid_cells)).reshape(out_shape)
-        self.strat_no2 = np.array([] for n in range(n_grid_cells)).reshape(out_shape)
-        self.g_cld_p = np.array([] for n in range(n_grid_cells)).reshape(out_shape)
-        self.g_true_no2 = np.array([] for n in range(n_grid_cells)).reshape(out_shape)
+        out_shape = (self.xdim, self.ydim)  # This feel gross. A 3-d list of appendable lists.
+        self.g_no2 = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
+        self.g_o3 = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
+        self.g_cld_fr = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
+        self.strat_no2 = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
+        self.g_cld_p = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
+        self.g_true_no2 = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
 
         #NOTE: Lots of these didn't seem to appear in the code
         self.loss_count = {
@@ -191,15 +190,16 @@ class ProcessedData:
             for x in range(len(this_geoschem_day.t_lon)):
                 this_geoschem_day.prepare_no2_pixel(x, y)
                 self.regrid_and_process(x, y, this_geoschem_day)
+        self.finalise_grid()
         for i in range(self.xdim):
             for j in range(self.ydim):
-                if self.g_no2[i, j, 0] != 0:
+                if self.g_no2[i][j].any() != 0:
                     self.process_grid_square(i, j)
 
     def regrid_and_process(self, x, y, no2):
         # Find nearest gridsquare in output grid:
-        lon = np.argmin(abs(self.out_lon - no2.t_lon[x]))
-        lat = np.argmin(abs(self.out_lat - no2.t_lat[y]))
+        lon = int(np.argmin(abs(self.out_lon - no2.t_lon[x])))
+        lat = int(np.argmin(abs(self.out_lat - no2.t_lat[y])))
 
         self.true_wgt[lon, lat] += np.sum(no2.twgt)
 
@@ -211,12 +211,16 @@ class ProcessedData:
         # QUESTION: Does cnt_loop need to be a grid
         # These are all jagged arrays; may not be the same side
 
-        self.g_no2[lon, lat].append( no2.no2_2d)  # strat_col+trop_col   #no2_2d
-        self.strat_no2[lon, lat].append( no2.strat_col)
-        self.g_cld_p[lon, lat].append( no2.t_cld_hgt[y, x])
-        self.g_o3[lon, lat].append( np.mean(no2.t_gc_o3[no2.level_min:no2.level_max + 1, y, x]))
-        self.g_true_no2[lon, lat].append( np.mean(no2.t_gc_no2[no2.level_min:no2.level_max + 1, y, x]))
-        self.g_cld_fr[lon, lat].append( np.sum(no2.t_cld_fr[no2.level_min:no2.level_max + 1, y, x]))
+        self.g_no2[lon][lat].append(no2.no2_2d)  # strat_col+trop_col   #no2_2d
+        self.strat_no2[lon][lat].append(no2.strat_col)
+        self.g_cld_p[lon][lat].append(no2.t_cld_hgt[y, x])
+        self.g_o3[lon][lat].append(
+            np.mean(no2.t_gc_o3[no2.level_min:no2.level_max + 1, y, x]))
+        self.g_true_no2[lon][lat].append(
+            np.mean(no2.t_gc_no2[no2.level_min:no2.level_max + 1, y, x]))
+        self.g_cld_fr[lon][lat].append(
+            np.sum(no2.t_cld_fr[no2.level_min:no2.level_max + 1, y, x]))
+        pass
 
 
     def process_grid_square(self, i, j):
@@ -298,6 +302,20 @@ class ProcessedData:
         self.g_err[i, j] += g_wgt
         self.g_cnt[i, j] += 1
         self.cloud_slice_count += 1
+
+    def finalise_grid(self):
+        """
+        Converts the lists-of-lists-of-lists into numpy arrays
+        """
+        self.g_no2 = jagged_3d_list_to_np_array(self.g_no2)
+        self.g_o3 = jagged_3d_list_to_np_array(self.g_o3)
+        self.g_cld_fr = jagged_3d_list_to_np_array(self.g_cld_fr)
+        self.strat_no2 = jagged_3d_list_to_np_array(self.strat_no2)
+        self.g_cld_p = jagged_3d_list_to_np_array(self.g_cld_p)
+        self.g_true_no2 = jagged_3d_list_to_np_array(self.g_true_no2)
+
+
+
 
     def apply_gaussian_weight(self):
         """
@@ -587,7 +605,7 @@ class GeosChemDay:
         self.level_min, self.level_max = np.amin(lind), np.amax(lind)
         if (self.lcld <self.level_min) or (self.lcld > self.level_max):
             # Should this be return rather than pass? This checks for clouds between min and mas pressure. If none, move to next pixel.
-            print("Clouds {}")
+            print("Cloud top outside pressure range in pixel {},{}".format(x,y))
             return
         print(self.lcld)
         # This error check is probably redundant, but included in case:
@@ -605,6 +623,20 @@ class GeosChemDay:
         # tppind=np.where(tpmid<180.)[0]
         self.strat_col = np.sum(self.t_gc_no2[tppind:, y, x] * 1e-5 * self.t_adn[tppind:, y, x] *
                                 self.t_bx_hgt[tppind:, y, x])
+
+
+def jagged_3d_list_to_np_array(list):
+    array_size = max([len(gridsquare) for line in list for gridsquare in line])
+    out = np.zeros((len(list), len(list[0]), array_size))
+    for x in range(len(list)):
+        for y in range(len(list[0])):
+            out[x, y, :] = pad_list(list[x][y], array_size)
+    return out
+
+
+def pad_list(list, final_length):
+    list += [0]*(final_length-len(list))
+    return list
 
 
 def get_file_list(gcdir, REGION, YEARS_TO_PROCESS):
@@ -670,4 +702,4 @@ if __name__ == "__main__":
     rolling_total.save_to_netcdf(out_path)
 
     # Close the log file:
-    log.close()
+    #log.close()
