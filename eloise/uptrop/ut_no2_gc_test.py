@@ -82,8 +82,6 @@ class InvalidResolutionException(Exception):
     pass
 
 
-
-
 class ProcessedData:
     # ----Initialisation methods----
     def __init__(self, region, str_res):
@@ -103,7 +101,6 @@ class ProcessedData:
         self.true_wgt = np.zeros(grid_shape)  # "true" all-sky UT NO2 Gaussian weights
         self.g_as_cnt = np.zeros(grid_shape)  # Count all-sky
         self.g_cnt = np.zeros(grid_shape)
-        self.cnt_loop = np.zeros(grid_shape)
 
         # Define output data for this day:
         out_shape = (self.xdim, self.ydim, self.nval)
@@ -113,7 +110,6 @@ class ProcessedData:
         self.strat_no2 = np.zeros(out_shape)
         self.g_cld_p = np.zeros(out_shape)
         self.g_true_no2 = np.zeros(out_shape)
-
 
         #NOTE: Lots of these didn't seem to appear in the code
         self.loss_count = {
@@ -127,7 +123,7 @@ class ProcessedData:
         }
 
         # Initialize:
-        self.cnt = 0
+        self.cloud_slice_count = 0
         self.maxcnt = 0
 
         # Define string to represent the layer range:
@@ -187,10 +183,7 @@ class ProcessedData:
 
     # ----Processing methods----
     def process_geochem_day(self, file_path):
-        """
-        I _think_ this performs some preprocessing on a partiuclar set of no2 pixels, then saves the
-        result in a grid square, then performs an update on that grid square.
-        """
+
         this_geoschem_day = GeosChemDay(file_path)
         # Get column values:
         for y in range(len(this_geoschem_day.t_lat)):
@@ -216,14 +209,14 @@ class ProcessedData:
         # Add relevant data to array:
         # QUESTION: Does cnt_loop need to be a grid
         # These are all jagged arrays; may not be the same side
-        self.g_no2[lon, lat, int(self.cnt_loop[lon, lat])] = no2.no2_2d  # strat_col+trop_col   #no2_2d
-        self.strat_no2[lon, lat, int(self.cnt_loop[lon, lat])] = no2.strat_col
-        self.g_cld_p[lon, lat, int(self.cnt_loop[lon, lat])] = no2.t_cld_hgt[y, x]
-        self.g_o3[lon, lat, int(self.cnt_loop[lon, lat])] = np.mean(no2.t_gc_o3[no2.level_min:no2.level_max + 1, y, x])
-        self.g_true_no2[lon, lat, int(self.cnt_loop[lon, lat])] = np.mean(no2.t_gc_no2[no2.level_min:no2.level_max + 1, y, x])
-        self.g_cld_fr[lon, lat, int(self.cnt_loop[lon, lat])] = np.sum(no2.t_cld_fr[no2.level_min:no2.level_max + 1, y, x])
-        # Increment indices:
-        self.cnt_loop[lon, lat] += 1
+
+        self.g_no2[lon, lat].append( no2.no2_2d)  # strat_col+trop_col   #no2_2d
+        self.strat_no2[lon, lat].append( no2.strat_col)
+        self.g_cld_p[lon, lat].append( no2.t_cld_hgt[y, x])
+        self.g_o3[lon, lat].append( np.mean(no2.t_gc_o3[no2.level_min:no2.level_max + 1, y, x]))
+        self.g_true_no2[lon, lat].append( np.mean(no2.t_gc_no2[no2.level_min:no2.level_max + 1, y, x]))
+        self.g_cld_fr[lon, lat].append( np.sum(no2.t_cld_fr[no2.level_min:no2.level_max + 1, y, x]))
+
 
     def process_grid_square(self, i, j):
         # Define vectors of relevant data:
@@ -236,7 +229,7 @@ class ProcessedData:
         t_o3 = self.g_o3[i, j, :]
         # Skip if fewer than 10 points:
         if len(t_col_no2) < 10:
-            print("Grid square {}, {} failed with condition 0".format(i, j))
+            print("Grid square {}, {} failed with condition too_few_points".format(i, j))
             self.loss_count["too_few_points"] += 1
             return
 
@@ -248,6 +241,7 @@ class ProcessedData:
         t_cld = np.trim_zeros(t_cld)
         t_mr_no2 = np.trim_zeros(t_mr_no2)
         t_o3 = np.trim_zeros(t_o3)
+
         # Remove non-uniform stratosphere:
         if (np.std(t_strat_no2) / np.mean(t_strat_no2)) > 0.02:
             self.loss_count["non_uni_strat"] += 1
@@ -263,26 +257,23 @@ class ProcessedData:
         # UT NO2 mixing ratios.
         # Treat data differently depending on whether there are no
         # 20-100 points:
-
-        if n_pnts >= 20 and n_pnts <100:
-            try:
+        try:
+            if n_pnts >= 20 and n_pnts <100:
                 self.add_slice(i,j,t_cld,t_col_no2,t_fr_c, t_mr_no2)
-            except CloudSliceException:
-                pass
-        elif n_pnts >= 100:
-            num_slices = 40
-            stride = round(n_pnts / num_slices)
-            nloop = list(range(stride))
-            for w in nloop:
-                try:
-                # Cloud-slicing:
+            elif n_pnts >= 100:
+                num_slices = 40
+                stride = round(n_pnts / num_slices)
+                nloop = list(range(stride))
+                for w in nloop:
                     subset_t_col_no2 = t_col_no2[w::stride]
                     subset_t_cld = t_cld[w::stride]
                     subset_t_fr_c = t_fr_c[w::stride]
                     subset_t_mr_no2 = t_mr_no2[w::stride]
                     self.add_slice(i, j, subset_t_cld, subset_t_col_no2, subset_t_fr_c, subset_t_mr_no2)
-                except CloudSliceException:
-                    continue
+        except CloudSliceException:
+            print("Moving on to next pixel")
+            return
+
     def add_slice(self, i, j, t_cld, t_col_no2, t_fr_c, t_mr_no2):
         """Applies and adds a cloud slice from the given data"""
         utmrno2, utmrno2err, stage_reached, mean_cld_pres = cldslice(t_col_no2, t_cld)
@@ -305,7 +296,7 @@ class ProcessedData:
         self.g_no2_vmr[i, j] += utmrno2 * g_wgt
         self.g_err[i, j] += g_wgt
         self.g_cnt[i, j] += 1
-        self.cnt += 1
+        self.cloud_slice_count += 1
 
     def apply_gaussian_weight(self):
         """
@@ -328,7 +319,7 @@ class ProcessedData:
     # ----Reporting and saving methods----
     def print_data_report(self):
         # No. of data points:
-        # print('No. of valid data points: ',cnt,flush=True)
+        # print('No. of valid data points: ',cloud_slice_count,flush=True)
         print('Max no. of data points in a gridsquare: ', np.amax(self.g_cnt), flush=True)
         # Track reasons for data loss:
         print('(1) Too few points: ', self.loss_count["too_few_points"], flush=True)
@@ -338,8 +329,8 @@ class ProcessedData:
         print('(5) Significantly less then zero: ', self.loss_count["much_less_than_zero"], flush=True)
         print('(6) Outlier (NO2 > 200 pptv): ', self.loss_count["no2_outlier"], flush=True)
         print('(7) Non-uniform stratosphere: ', self.loss_count["non_uni_strat"], flush=True)
-        print('(8) Successful retrievals: ', self.cnt, flush=True)
-        print('(9) Total possible points: ', (np.sum(self.loss_count.values()) + self.cnt), flush=True)
+        print('(8) Successful retrievals: ', self.cloud_slice_count, flush=True)
+        print('(9) Total possible points: ', (np.sum(self.loss_count.values()) + self.cloud_slice_count), flush=True)
 
     def plot_data(self):
         # Plot the data:
@@ -573,6 +564,7 @@ class GeosChemDay:
             self.askind = lind[np.where(lind <= tppind)[0]]
         # If tropopause below 450 hPa, skip entirely:
         if self.t_pause[y, x] > P_MAX:
+            print("Tropopause less than P_MAX in geoschem pixel x:{}, y:{}".format(x,y))
             return  # continue
         # Get Guassian weights that allocated higher weights to points
         # closest to the pressure centre (315 hPa):
@@ -594,6 +586,7 @@ class GeosChemDay:
         self.level_min, self.level_max = np.amin(lind), np.amax(lind)
         if (self.lcld <self.level_min) or (self.lcld > self.level_max):
             # Should this be return rather than pass? This checks for clouds between min and mas pressure. If none, move to next pixel.
+            print("Clouds {}")
             return
         print(self.lcld)
         # This error check is probably redundant, but included in case:
