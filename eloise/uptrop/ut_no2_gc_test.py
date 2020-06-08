@@ -32,12 +32,12 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
 import argparse
 
-from uptrop.constants import AVOGADRO
-from uptrop.constants import G
-from uptrop.constants import MW_AIR
+from constants import AVOGADRO
+from constants import G
+from constants import MW_AIR
 
-from uptrop.bootstrap import rma
-from uptrop.cloud_slice_ut_no2 import cldslice
+from bootstrap import rma
+from cloud_slice_ut_no2 import cldslice
 
 
 # Turn off warnings:
@@ -190,10 +190,9 @@ class ProcessedData:
             for x in range(len(this_geoschem_day.t_lon)):
                 this_geoschem_day.prepare_no2_pixel(x, y)
                 self.regrid_and_process(x, y, this_geoschem_day)
-        self.finalise_grid()
         for i in range(self.xdim):
             for j in range(self.ydim):
-                if self.g_no2[i][j].any() != 0:
+                if any(value != 0 for value in self.g_no2[i][j]):
                     self.process_grid_square(i, j)
 
     def regrid_and_process(self, x, y, no2):
@@ -222,30 +221,31 @@ class ProcessedData:
             np.sum(no2.t_cld_fr[no2.level_min:no2.level_max + 1, y, x]))
         pass
 
-
     def process_grid_square(self, i, j):
         # Define vectors of relevant data:
         # These should all have the same length
-        t_col_no2 = self.g_no2[i, j, :]
-        t_strat_no2 = self.strat_no2[i, j, :]
-        t_fr_c = self.g_cld_fr[i, j, :]
-        t_cld = self.g_cld_p[i, j, :]
-        t_mr_no2 = self.g_true_no2[i, j, :]
-        t_o3 = self.g_o3[i, j, :]
+        t_col_no2 = np.asarray(self.g_no2[i][j],dtype=np.float)
+        t_strat_no2 = np.asarray(self.strat_no2[i][j],dtype=np.float)
+        t_fr_c = np.asarray(self.g_cld_fr[i][j],dtype=np.float)
+        t_cld = np.asarray(self.g_cld_p[i][j],dtype=np.float)
+        t_mr_no2 = np.asarray(self.g_true_no2[i][j],dtype=np.float)
+        t_o3 = np.asarray(self.g_o3[i][j],dtype=np.float)
         # Skip if fewer than 10 points:
+
+
+        #TODO: Can change this
+            # Trim to remove trailing zeros:
+        t_col_no2 = np.trim_zeros(t_col_no2,'b')
+        t_strat_no2 = np.trim_zeros(t_strat_no2,'b')
+        t_fr_c = np.trim_zeros(t_fr_c,'b')
+        t_cld = np.trim_zeros(t_cld,'b')
+        t_mr_no2 = np.trim_zeros(t_mr_no2,'b')
+        t_o3 = np.trim_zeros(t_o3,'b')
+
         if len(t_col_no2) < 10:
             print("Grid square {}, {} failed with condition too_few_points".format(i, j))
             self.loss_count["too_few_points"] += 1
             return
-
-        #TODO: Can change this
-            # Trim to remove trailing zeros:
-        t_col_no2 = np.trim_zeros(t_col_no2)
-        t_strat_no2 = np.trim_zeros(t_strat_no2)
-        t_fr_c = np.trim_zeros(t_fr_c)
-        t_cld = np.trim_zeros(t_cld)
-        t_mr_no2 = np.trim_zeros(t_mr_no2)
-        t_o3 = np.trim_zeros(t_o3)
 
         # Remove non-uniform stratosphere:
         if (np.std(t_strat_no2) / np.mean(t_strat_no2)) > 0.02:
@@ -302,20 +302,6 @@ class ProcessedData:
         self.g_err[i, j] += g_wgt
         self.g_cnt[i, j] += 1
         self.cloud_slice_count += 1
-
-    def finalise_grid(self):
-        """
-        Converts the lists-of-lists-of-lists into numpy arrays
-        """
-        self.g_no2 = jagged_3d_list_to_np_array(self.g_no2)
-        self.g_o3 = jagged_3d_list_to_np_array(self.g_o3)
-        self.g_cld_fr = jagged_3d_list_to_np_array(self.g_cld_fr)
-        self.strat_no2 = jagged_3d_list_to_np_array(self.strat_no2)
-        self.g_cld_p = jagged_3d_list_to_np_array(self.g_cld_p)
-        self.g_true_no2 = jagged_3d_list_to_np_array(self.g_true_no2)
-
-
-
 
     def apply_gaussian_weight(self):
         """
@@ -623,20 +609,6 @@ class GeosChemDay:
         # tppind=np.where(tpmid<180.)[0]
         self.strat_col = np.sum(self.t_gc_no2[tppind:, y, x] * 1e-5 * self.t_adn[tppind:, y, x] *
                                 self.t_bx_hgt[tppind:, y, x])
-
-
-def jagged_3d_list_to_np_array(list):
-    array_size = max([len(gridsquare) for line in list for gridsquare in line])
-    out = np.zeros((len(list), len(list[0]), array_size))
-    for x in range(len(list)):
-        for y in range(len(list[0])):
-            out[x, y, :] = pad_list(list[x][y], array_size)
-    return out
-
-
-def pad_list(list, final_length):
-    list += [0]*(final_length-len(list))
-    return list
 
 
 def get_file_list(gcdir, REGION, YEARS_TO_PROCESS):
