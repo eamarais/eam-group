@@ -289,7 +289,10 @@ class ProcessedData:
         if np.isnan(utmrno2) or np.isnan(utmrno2err):
             # TODO: Temporary fix; see cloud_slice_ut_no2 note
             self.loss_count[CLOUD_SLICE_ERROR_ENUM[stage_reached]] += 1
-            raise CloudSliceException
+            print("Cloud-slice exception {} in pixel i:{} j:{}".format(
+                CLOUD_SLICE_ERROR_ENUM[stage_reached], i, j
+            ))
+            return
         # Gaussian-weighted mean for each pass of cldslice:
         gaussian_mean = np.mean(t_mr_no2 * 1e3) * g_wgt
         self.true_no2[i, j] += gaussian_mean
