@@ -265,19 +265,24 @@ class ProcessedData:
         # 20-100 points:
 
         if n_pnts >= 20 and n_pnts <100:
-            self.add_slice(i,j,t_cld,t_col_no2,t_fr_c, t_mr_no2)
+            try:
+                self.add_slice(i,j,t_cld,t_col_no2,t_fr_c, t_mr_no2)
+            except CloudSliceException:
+                pass
         elif n_pnts >= 100:
             num_slices = 40
             stride = round(n_pnts / num_slices)
             nloop = list(range(stride))
             for w in nloop:
+                try:
                 # Cloud-slicing:
-                subset_t_col_no2 = t_col_no2[w::stride]
-                subset_t_cld = t_cld[w::stride]
-                subset_t_fr_c = t_fr_c[w::stride]
-                subset_t_mr_no2 = t_mr_no2[w::stride]
-                self.add_slice(i, j, subset_t_cld, subset_t_col_no2, subset_t_fr_c, subset_t_mr_no2)
-
+                    subset_t_col_no2 = t_col_no2[w::stride]
+                    subset_t_cld = t_cld[w::stride]
+                    subset_t_fr_c = t_fr_c[w::stride]
+                    subset_t_mr_no2 = t_mr_no2[w::stride]
+                    self.add_slice(i, j, subset_t_cld, subset_t_col_no2, subset_t_fr_c, subset_t_mr_no2)
+                except CloudSliceException:
+                    continue
     def add_slice(self, i, j, t_cld, t_col_no2, t_fr_c, t_mr_no2):
         """Applies and adds a cloud slice from the given data"""
         utmrno2, utmrno2err, stage_reached, mean_cld_pres = cldslice(t_col_no2, t_cld)
@@ -292,7 +297,7 @@ class ProcessedData:
             print("Cloud-slice exception {} in pixel i:{} j:{}".format(
                 CLOUD_SLICE_ERROR_ENUM[stage_reached], i, j
             ))
-            return
+            raise CloudSliceException
         # Gaussian-weighted mean for each pass of cldslice:
         gaussian_mean = np.mean(t_mr_no2 * 1e3) * g_wgt
         self.true_no2[i, j] += gaussian_mean
