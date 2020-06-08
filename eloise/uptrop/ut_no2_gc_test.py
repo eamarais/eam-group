@@ -58,6 +58,9 @@ YEARS_TO_PROCESS=['2016', '2017']
 class ProcessingException(Exception):
     pass
 
+class CloudSliceException(Exception):
+    pass
+
 class ProcessedData:
 
     # ----Initialisation methods----
@@ -78,6 +81,7 @@ class ProcessedData:
         self.true_wgt = np.zeros(grid_shape)  # "true" all-sky UT NO2 Gaussian weights
         self.g_as_cnt = np.zeros(grid_shape)  # Count all-sky
         self.g_cnt = np.zeros(grid_shape)
+        self.cnt_loop = np.zeros(grid_shape)
 
         # Define output data for this day:
         out_shape = (self.xdim, self.ydim, self.nval)
@@ -87,8 +91,7 @@ class ProcessedData:
         self.strat_no2 = np.zeros(out_shape)
         self.g_cld_p = np.zeros(out_shape)
         self.g_true_no2 = np.zeros(out_shape)
-        # cnt_loop should have grid_shape rather than out_shape dimensions
-        self.cnt_loop = np.zeros(out_shape)
+
 
         #NOTE: Lots of these didn't seem to appear in the code
         self.loss_count = {
@@ -113,28 +116,27 @@ class ProcessedData:
         self.den2mr = np.divide((np.multiply(G, MW_AIR)), AVOGADRO)
 
     def define_grid(self, region, str_res):
-        # Change dirreg to '_na_', '_eu_naei_', and '_ch_'
         # Define target grid:
         if region == 'NA':
             self.minlat = 6.
             self.maxlat = 58.
             self.minlon = -135.
             self.maxlon = -60.
-            self.dirreg = 'NA'
+            self.dirreg = '_na_'
             self.factor = 40  # used to determine size of g_no2
         if region == 'EU':
             self.minlat = 30.
             self.maxlat = 62.
             self.minlon = -20.
             self.maxlon = 40.
-            self.dirreg = 'eu_naei'
+            self.dirreg = '_eu_naei_'
             self.factor = 30
         if region == 'CH':
             self.minlat = 10.
             self.maxlat = 54.
             self.minlon = 65.
             self.maxlon = 135.
-            self.dirreg = 'ch'
+            self.dirreg = '_ch_'
             self.factor = 100
         else:
             print("Invalid region; valid regions are 'NA','EU','CH'.")
@@ -228,13 +230,7 @@ class ProcessedData:
         if (np.std(t_strat_no2) / np.mean(t_strat_no2)) > 0.02:
             self.loss_count["non_uni_strat"] += 1
             return  # continue
-        # Check if there are any repeat values:
-        u, ind = np.unique(t_cld, return_inverse=True)
-        if (len(ind) != len(t_cld)):
-            #TODO: Find out why this is bad
-            # This can be removed (including the np.unique line above). This was an earlier issue that hasn't cropped up again.
-            print('Repeat cloud values', flush=True)
-            sys.exit()
+
         # Get number of points:
         n_pnts = len(t_cld)
         if n_pnts > self.maxcnt:
@@ -267,10 +263,10 @@ class ProcessedData:
         g_wgt = np.exp((-(mean_cld_pres - 315) ** 2) / (2 * 135 ** 2))
         # Skip if approach didn't work (i.e. cloud-sliced UT NO2 is NaN):
         # TODO: Check with E if we need to carry on with the loop in this case, or drop it
-        # Yes, drop out after the reason for data loss is added to loss_count. 
+        # Yes, drop out after the reason for data loss is added to loss_count.
         if np.isnan(utmrno2) or np.isnan(utmrno2err):
             self.loss_count[num - 1] += 1
-            # return
+            raise CloudSliceException
         # Gaussian-weighted mean for each pass of cldslice:
         gaussian_mean = np.mean(t_mr_no2 * 1e3) * g_wgt
         self.true_no2[i, j] += gaussian_mean
@@ -501,9 +497,9 @@ class GeosChemDay:
         self.t_pause = tpause[0, :, :]
         self.t_gc_o3 = tgco3[:]
         # Convert box height from m to cm:
-        # I obtained an error message for this line and to address this I 
+        # I obtained an error message for this line and to address this I
         # changed t_bx_hgt on the rhs to self.t_bx_hgt
-        self.t_bx_hgt = tbxhgt * 1e2
+        self.t_bx_hgt = self.t_bx_hgt * 1e2
 
         #Get outputs ready here for tidyness:
         self.no2_2d = None
@@ -512,7 +508,7 @@ class GeosChemDay:
         # Should this be self.gcutno2 = None?
         self.gcutno2 = None
         # Should this be self.gcutno2 = None?
-        self.gascnt
+        self.gascnt = None
 
         self.level_min = None
         self.level_max = None
@@ -552,9 +548,9 @@ class GeosChemDay:
         # Equation is:
         #   w = exp(-(p-315)^2/2*135^2 ) where 315 hPa is the centre and
         #         135 hPa is the standard deviation.
-        # The "shorthand" formula (np.exp((-(mean_cld_pres - 315) ** 2) / (2 * 135 ** 2))) can be used here too 
-        self.twgt = np.exp(np.multiply((-1.0), np.divide((np.square(np.subtract(tp_mid[self.askind], 315.))),
-                                                         (np.multiply(2, np.square(135.))))))
+        # The "shorthand" formula (np.exp((-(mean_cld_pres - 315) ** 2) / (2 * 135 ** 2))) can be used here too
+        # TODO: Check tp_mid is what we want
+        self.twgt = np.exp((-(tp_mid[self.askind] - 315) ** 2) / (2 * 135 ** 2))
 
         # Find where cloud fraction in UT exceeds 0.7 after calculating
         # true all-sky NO2:
@@ -567,7 +563,7 @@ class GeosChemDay:
         self.level_min, self.level_max = np.amin(lind), np.amax(lind)
         if (self.lcld <self.level_min) or (self.lcld > self.level_max):
             # Should this be return rather than pass? This checks for clouds between min and mas pressure. If none, move to next pixel.
-            pass  # continue
+            return
         print(self.lcld)
         # This error check is probably redundant, but included in case:
         if self.lcld == 0:
@@ -612,7 +608,7 @@ if __name__ == "__main__":
     STR_RES = '4x5'
 
     parser = argparse.ArgumentParser()
-    # Shorten directory name to up to "GC/", then define the subdirectory 
+    # Shorten directory name to up to "GC/", then define the subdirectory
     # as 'geosfp' + dirreg + 'iccw/' in get_file_list.
     parser.add_argument("--gc_dir", default='/data/uptrop/Projects/DEFRA-NH3/GC/geosfp_eu_naei_iccw/')
     parser.add_argument("--out_path", default='/home/j/jfr10/eos_library/uptrop_comparison/test.nc2')
@@ -645,7 +641,7 @@ if __name__ == "__main__":
     rolling_total.apply_gaussian_weight()
     rolling_total.print_data_report()
     rolling_total.plot_data()
-    out_path = args.out_path 
+    out_path = args.out_path
     rolling_total.save_to_netcdf(out_path)
 
     # Close the log file:
