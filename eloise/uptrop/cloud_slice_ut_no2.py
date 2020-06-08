@@ -11,6 +11,10 @@ from constants import AVOGADRO as na
 from constants import G as g
 from constants import MW_AIR as mmair
 
+
+# TODO: Rework error handling in here a little
+
+
 def cldslice(pcolno2,cldtophgt):
 
     """ 
