@@ -61,6 +61,12 @@ class ProcessingException(Exception):
 class CloudSliceException(Exception):
     pass
 
+class InvalidRegionException(Exception):
+    pass
+
+class InvalidResolutionException(Exception):
+    pass
+
 class ProcessedData:
 
     # ----Initialisation methods----
@@ -140,7 +146,7 @@ class ProcessedData:
             self.factor = 100
         else:
             print("Invalid region; valid regions are 'NA','EU','CH'.")
-            sys.exit(1)
+            raise InvalidRegionException
         # NOTE FOR LATER: This snippet turns up in fresco_cld_err; a candidate for the library.
         # Define grid information:
         if str_res == '8x10':
@@ -153,7 +159,7 @@ class ProcessedData:
             self.dellat, self.dellon = 1, 1
         else:
             print("Invalid resolution: valid resolutions are 8x10, 4x5, 2x25 (two pt 5) and 1x1")
-            sys.exit(1)
+            raise InvalidResolutionException
         self.out_lon = np.arange(self.minlon, self.maxlon + self.dellon, self.dellon)
         self.out_lat = np.arange(self.minlat, self.maxlat + self.dellat, self.dellat)
         # Convert output lats and long to 2D:
