@@ -130,14 +130,14 @@ class ProcessedData:
             self.maxlon = -60.
             self.dirreg = '_na_'
             self.factor = 40  # used to determine size of g_no2
-        if region == 'EU':
+        elif region == 'EU':
             self.minlat = 30.
             self.maxlat = 62.
             self.minlon = -20.
             self.maxlon = 40.
             self.dirreg = '_eu_naei_'
             self.factor = 30
-        if region == 'CH':
+        elif region == 'CH':
             self.minlat = 10.
             self.maxlat = 54.
             self.minlon = 65.
@@ -151,11 +151,11 @@ class ProcessedData:
         # Define grid information:
         if str_res == '8x10':
             self.dellat, self.dellon = 8, 10
-        if str_res == '4x5':
+        elif str_res == '4x5':
             self.dellat, self.dellon = 4, 5
-        if str_res == '2x25':
+        elif str_res == '2x25':
             self.dellat, self.dellon = 2, 2.5
-        if str_res == '1x1':
+        elif str_res == '1x1':
             self.dellat, self.dellon = 1, 1
         else:
             print("Invalid resolution: valid resolutions are 8x10, 4x5, 2x25 (two pt 5) and 1x1")
@@ -629,8 +629,8 @@ if __name__ == "__main__":
 
     # Name of log file to output code prorgess:
     # TODO: Maybe replace this with Python logging? See rest of code.
-    log = open("log_" + REGION + "_" + STR_RES + "_" + yrrange + "_v4", "w")
-    sys.stdout = log
+    #log = open("log_" + REGION + "_" + STR_RES + "_" + yrrange + "_v4", "w")
+    #sys.stdout = log
 
    # Get files (test June 2016 for now)
     # 2016:
