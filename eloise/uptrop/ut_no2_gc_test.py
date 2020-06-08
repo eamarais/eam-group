@@ -103,13 +103,13 @@ class ProcessedData:
         self.g_cnt = np.zeros(grid_shape)
 
         # Define output data for this day:
-        out_shape = (self.xdim, self.ydim, self.nval)
-        self.g_no2 = np.zeros(out_shape)
-        self.g_o3 = np.zeros(out_shape)
-        self.g_cld_fr = np.zeros(out_shape)
-        self.strat_no2 = np.zeros(out_shape)
-        self.g_cld_p = np.zeros(out_shape)
-        self.g_true_no2 = np.zeros(out_shape)
+        out_shape = (self.xdim, self.ydim)  # This feel gross. A numpy array of appendable lists.
+        self.g_no2 = np.array([]*self.xdim*self.ydim).reshape(out_shape)
+        self.g_o3 = np.array([]*self.xdim*self.ydim).reshape(out_shape)
+        self.g_cld_fr = np.array([]*self.xdim*self.ydim).reshape(out_shape)
+        self.strat_no2 = np.array([]*self.xdim*self.ydim).reshape(out_shape)
+        self.g_cld_p = np.array([]*self.xdim*self.ydim).reshape(out_shape)
+        self.g_true_no2 = np.array([]*self.xdim*self.ydim).reshape(out_shape)
 
         #NOTE: Lots of these didn't seem to appear in the code
         self.loss_count = {
