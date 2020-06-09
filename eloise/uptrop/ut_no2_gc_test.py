@@ -102,15 +102,6 @@ class ProcessedData:
         self.g_as_cnt = np.zeros(grid_shape)  # Count all-sky
         self.g_cnt = np.zeros(grid_shape)
 
-        # Define output data for this day:
-        out_shape = (self.xdim, self.ydim)  # This feel gross. A 3-d list of appendable lists.
-        self.g_no2 = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
-        self.g_o3 = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
-        self.g_cld_fr = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
-        self.strat_no2 = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
-        self.g_cld_p = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
-        self.g_true_no2 = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
-
         #NOTE: Lots of these didn't seem to appear in the code
         self.loss_count = {
             "too_few_points": 0,
@@ -141,21 +132,21 @@ class ProcessedData:
             self.minlon = -135.
             self.maxlon = -60.
             self.dirreg = '_na_'
-            self.factor = 40  # used to determine size of g_no2
+            #self.factor = 40  # used to determine size of g_no2
         elif region == 'EU':
             self.minlat = 30.
             self.maxlat = 62.
             self.minlon = -20.
             self.maxlon = 40.
             self.dirreg = '_eu_naei_'
-            self.factor = 30
+            #self.factor = 30
         elif region == 'CH':
             self.minlat = 10.
             self.maxlat = 54.
             self.minlon = 65.
             self.maxlon = 135.
             self.dirreg = '_ch_'
-            self.factor = 100
+            #self.factor = 100
         else:
             print("Invalid region; valid regions are 'NA','EU','CH'.")
             raise InvalidRegionException
@@ -179,10 +170,21 @@ class ProcessedData:
         # Dimensions of output data:
         self.xdim = len(self.out_lon)
         self.ydim = len(self.out_lat)
-        self.nval = int(self.factor * self.dellat * self.dellon)  # Scale array size with resolution
+        #self.nval = int(self.factor * self.dellat * self.dellon)  # Scale array size with resolution
 
     # ----Processing methods----
-    def process_geochem_day(self, file_path):
+    def process_geoschem_day(self, file_path):
+
+        # I plonked this here to force these arrays to be reinitated each day with each new
+        # file. Please relocate if this could be more eloquently done.
+        # Define output data for this day:
+        out_shape = (self.xdim, self.ydim)  # This feel gross. A 3-d list of appendable lists.
+        self.g_no2 = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
+        self.g_o3 = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
+        self.all_cld_fr = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
+        self.strat_no2 = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
+        self.g_cld_p = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
+        self.g_true_no2 = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
 
         this_geoschem_day = GeosChemDay(file_path)
         # Get column values:
@@ -210,6 +212,12 @@ class ProcessedData:
         # QUESTION: Does cnt_loop need to be a grid
         # These are all jagged arrays; may not be the same side
 
+        # Only proceed beyond this step if there are clouds at 450-180 hPa:
+        if (no2.lcld <no2.level_min) or (no2.lcld > no2.level_max):
+            # Should this be return rather than pass? This checks for clouds between min and mas pressure. If none, move to next pixel.
+            #print("Cloud top outside pressure range in pixel {},{}".format(x,y))
+            return
+
         self.g_no2[lon][lat].append(no2.no2_2d)  # strat_col+trop_col   #no2_2d
         self.strat_no2[lon][lat].append(no2.strat_col)
         self.g_cld_p[lon][lat].append(no2.t_cld_hgt[y, x])
@@ -217,7 +225,7 @@ class ProcessedData:
             np.mean(no2.t_gc_o3[no2.level_min:no2.level_max + 1, y, x]))
         self.g_true_no2[lon][lat].append(
             np.mean(no2.t_gc_no2[no2.level_min:no2.level_max + 1, y, x]))
-        self.g_cld_fr[lon][lat].append(
+        self.all_cld_fr[lon][lat].append(
             np.sum(no2.t_cld_fr[no2.level_min:no2.level_max + 1, y, x]))
         pass
 
@@ -226,24 +234,24 @@ class ProcessedData:
         # These should all have the same length
         t_col_no2 = np.asarray(self.g_no2[i][j],dtype=np.float)
         t_strat_no2 = np.asarray(self.strat_no2[i][j],dtype=np.float)
-        t_fr_c = np.asarray(self.g_cld_fr[i][j],dtype=np.float)
+        t_fr_c = np.asarray(self.all_cld_fr[i][j],dtype=np.float)
         t_cld = np.asarray(self.g_cld_p[i][j],dtype=np.float)
         t_mr_no2 = np.asarray(self.g_true_no2[i][j],dtype=np.float)
         t_o3 = np.asarray(self.g_o3[i][j],dtype=np.float)
         # Skip if fewer than 10 points:
 
-
+        # I assume this section isn't needed, now that the arrays are appended.
         #TODO: Can change this
             # Trim to remove trailing zeros:
-        t_col_no2 = np.trim_zeros(t_col_no2,'b')
-        t_strat_no2 = np.trim_zeros(t_strat_no2,'b')
-        t_fr_c = np.trim_zeros(t_fr_c,'b')
-        t_cld = np.trim_zeros(t_cld,'b')
-        t_mr_no2 = np.trim_zeros(t_mr_no2,'b')
-        t_o3 = np.trim_zeros(t_o3,'b')
+        #t_col_no2 = np.trim_zeros(t_col_no2,'b')
+        #t_strat_no2 = np.trim_zeros(t_strat_no2,'b')
+        #t_fr_c = np.trim_zeros(t_fr_c,'b')
+        #t_cld = np.trim_zeros(t_cld,'b')
+        #t_mr_no2 = np.trim_zeros(t_mr_no2,'b')
+        #t_o3 = np.trim_zeros(t_o3,'b')
 
         if len(t_col_no2) < 10:
-            print("Grid square {}, {} failed with condition too_few_points".format(i, j))
+            #print("Grid square {}, {} failed with condition too_few_points".format(i, j))
             self.loss_count["too_few_points"] += 1
             return
 
@@ -255,30 +263,36 @@ class ProcessedData:
         # Get number of points:
         n_pnts = len(t_cld)
         if n_pnts > self.maxcnt:
-            max_cnt = n_pnts
-            print(max_cnt, flush=True)
+            self.maxcnt = n_pnts
+            print(self.maxcnt, flush=True)
 
         # Use cloud_slice_ut_no2 function to get cloud-sliced
         # UT NO2 mixing ratios.
         # Treat data differently depending on whether there are no
         # 20-100 points:
-        try:
-            if n_pnts >= 20 and n_pnts <100:
-                self.add_slice(i,j,t_cld,t_col_no2, t_mr_no2)
-            elif n_pnts >= 100:
-                num_slices = 40
-                stride = round(n_pnts / num_slices)
-                nloop = list(range(stride))
-                for w in nloop:
-                    subset_t_col_no2 = t_col_no2[w::stride]
-                    subset_t_cld = t_cld[w::stride]
-                    subset_t_mr_no2 = t_mr_no2[w::stride]
-                    self.add_slice(i, j, subset_t_cld, subset_t_col_no2, subset_t_mr_no2)
-        except CloudSliceException:
-            print("Moving on to next pixel")
-            return
+        #try:
+        if n_pnts >= 20 and n_pnts <100:
+            self.add_slice(i,j,t_cld,t_col_no2, t_mr_no2, t_fr_c)
+        elif n_pnts >= 100:
+            num_slices = 40
+            stride = round(n_pnts / num_slices)
+            nloop = list(range(stride))
+            for w in nloop:
+                tdata=t_col_no2[w::stride]
+                subset_t_col_no2 = t_col_no2[w::stride]
+                subset_t_cld = t_cld[w::stride]
+                subset_t_mr_no2 = t_mr_no2[w::stride]
+                subset_t_fr_c = t_fr_c[w::stride]
+                self.add_slice(i, j, subset_t_cld, subset_t_col_no2, subset_t_mr_no2, subset_t_fr_c)
 
-    def add_slice(self, i, j, t_cld, t_col_no2, t_mr_no2):
+        # The "try - except" was causing the code to exit the "for w in stride loop" before
+        # progressing through all iterations. I assume this is because there are multiple
+        # calls to add_slice in the "for w in nloop" loop?
+        #except CloudSliceException:
+        #    print("Moving on to next pixel")
+        #    return
+
+    def add_slice(self, i, j, t_cld, t_col_no2, t_mr_no2, t_fr_c):
         """Applies and adds a cloud slice from the given data"""
         utmrno2, utmrno2err, stage_reached, mean_cld_pres = cldslice(t_col_no2, t_cld)
         # Calculate Gaussian weight:
@@ -289,22 +303,25 @@ class ProcessedData:
         if np.isnan(utmrno2) or np.isnan(utmrno2err):
             # TODO: Temporary fix; see cloud_slice_ut_no2 note
             self.loss_count[CLOUD_SLICE_ERROR_ENUM[stage_reached]] += 1
-            print("Cloud-slice exception {} in pixel i:{} j:{}".format(
-                CLOUD_SLICE_ERROR_ENUM[stage_reached], i, j
-            ))
-            raise CloudSliceException
-        # Gaussian-weighted mean for each pass of cldslice:
-        gaussian_mean = np.mean(t_mr_no2 * 1e3) * g_wgt
-        self.true_no2[i, j] += gaussian_mean
-        self.g_no2_vmr[i, j] += utmrno2 * g_wgt
-        self.g_err[i, j] += g_wgt
-        self.g_cnt[i, j] += 1
-        self.cloud_slice_count += 1
+            #print("Cloud-slice exception {} in pixel i:{} j:{}".format(
+            #    CLOUD_SLICE_ERROR_ENUM[stage_reached], i, j
+            #))
+            #raise CloudSliceException
+        else:
+            # Gaussian-weighted mean for each pass of cldslice:
+            gaussian_mean = np.mean(t_mr_no2 * 1e3) * g_wgt
+            self.true_no2[i, j] += gaussian_mean
+            self.g_no2_vmr[i, j] += utmrno2 * g_wgt
+            self.g_err[i, j] += g_wgt
+            self.g_cnt[i, j] += 1
+            self.g_cld_fr[i, j] += np.mean(t_fr_c )
+            self.cloud_slice_count += 1
 
     def apply_gaussian_weight(self):
         """
         Apply gaussian weighting to data
         """
+
         self.g_no2_vmr = np.divide(self.g_no2_vmr, self.g_err, where=self.g_cnt != 0)
         self.g_cld_fr = np.divide(self.g_cld_fr, self.g_cnt, where=self.g_cnt != 0)
         self.true_no2 = np.divide(self.true_no2, self.g_err, where=self.g_cnt != 0)
@@ -333,7 +350,7 @@ class ProcessedData:
         print('(6) Outlier (NO2 > 200 pptv): ', self.loss_count["no2_outlier"], flush=True)
         print('(7) Non-uniform stratosphere: ', self.loss_count["non_uni_strat"], flush=True)
         print('(8) Successful retrievals: ', self.cloud_slice_count, flush=True)
-        print('(9) Total possible points: ', (np.sum(self.loss_count.values()) + self.cloud_slice_count), flush=True)
+        print('(9) Total possible points: ', (sum(self.loss_count.values()) + self.cloud_slice_count), flush=True)
 
     def plot_data(self):
         # Plot the data:
@@ -522,17 +539,13 @@ class GeosChemDay:
         self.t_pause = tpause[0, :, :]
         self.t_gc_o3 = tgco3[:]
         # Convert box height from m to cm:
-        # I obtained an error message for this line and to address this I
-        # changed t_bx_hgt on the rhs to self.t_bx_hgt
         self.t_bx_hgt = self.t_bx_hgt * 1e2
 
         #Get outputs ready here for tidyness:
         self.no2_2d = None
         self.trop_col = None
         self.strat_col = None
-        # Should this be self.gcutno2 = None?
         self.gcutno2 = None
-        # Should this be self.gcutno2 = None?
         self.gascnt = None
 
         self.level_min = None
@@ -587,15 +600,17 @@ class GeosChemDay:
         self.lcld = np.argmin(abs(self.t_cld_hgt[y, x] - tp_mid))
         # Skip if cloud top height ouside pressure range of interest:
         self.level_min, self.level_max = np.amin(lind), np.amax(lind)
-        if (self.lcld <self.level_min) or (self.lcld > self.level_max):
-            # Should this be return rather than pass? This checks for clouds between min and mas pressure. If none, move to next pixel.
-            print("Cloud top outside pressure range in pixel {},{}".format(x,y))
-            return
-        print(self.lcld)
+
+        # moved this to regrid_and_process
+        #if (self.lcld <self.level_min) or (self.lcld > self.level_max):
+        #    # Should this be return rather than pass? This checks for clouds between min and mas pressure. If none, move to next pixel.
+        #    print("Cloud top outside pressure range in pixel {},{}".format(x,y))
+        #    return
+        #print(self.lcld)
         # This error check is probably redundant, but included in case:
-        if self.lcld == 0:
-            print("No cloud detected!!!", flush=True)
-            sys.exit()
+        #if self.lcld == 0:
+        #    print("No cloud detected!!!", flush=True)
+        #    sys.exit()
         # Get partial NO2 column in molec/m2 from cloud top height
         # to highest model level (output up to level 47):
         # print(t_gc_no2[self.level_min:tppind,y,x])
@@ -629,17 +644,18 @@ def get_file_list(gcdir, REGION, YEARS_TO_PROCESS):
 if __name__ == "__main__":
 
     # Decide on region:
-    REGION = 'EU'  # 'NA', 'EU', or 'CH'
+    #REGION = 'EU'  # 'NA', 'EU', or 'CH'
 
     # Define information for grid:
-    STR_RES = '4x5'
+    #STR_RES = '4x5'
 
     parser = argparse.ArgumentParser()
     # Shorten directory name to up to "GC/", then define the subdirectory
     # as 'geosfp' + dirreg + 'iccw/' in get_file_list.
     parser.add_argument("--gc_dir", default='/data/uptrop/Projects/DEFRA-NH3/GC/geosfp_eu_naei_iccw/')
     parser.add_argument("--out_path", default='/home/j/jfr10/eos_library/uptrop_comparison/test.nc2')
-    parser.add_argument('--resolution', default="8x10", help="Can be 8x10, 4x5, 2x25 or 1x1")
+    parser.add_argument('--resolution', default="4x5", help="Can be 8x10, 4x5, 2x25 or 1x1")
+    parser.add_argument('--region', default="EU", help="Can be EU, NA, or CH")
     parser.add_argument("-p", "--plot")
     args = parser.parse_args()
 
@@ -656,6 +672,8 @@ if __name__ == "__main__":
    # Get files (test June 2016 for now)
     # 2016:
     gc_dir = args.gc_dir
+    STR_RES = args.resolution
+    REGION = args.region
     files = get_file_list(gc_dir, REGION, YEARS_TO_PROCESS)
     print('Number of files:', len(files), flush=True)
 
@@ -663,7 +681,7 @@ if __name__ == "__main__":
 
     # Loop over files:
     for file_path in files:
-        rolling_total.process_geochem_day(file_path)
+        rolling_total.process_geoschem_day(file_path)
 
     rolling_total.apply_gaussian_weight()
     rolling_total.print_data_report()

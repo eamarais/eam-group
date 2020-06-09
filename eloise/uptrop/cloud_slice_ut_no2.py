@@ -5,11 +5,11 @@ import glob
 import sys
 import os
 import numpy as np
-from uptrop.bootstrap import rma
+from bootstrap import rma
 
-from uptrop.constants import AVOGADRO as na
-from uptrop.constants import G as g
-from uptrop.constants import MW_AIR as mmair
+from constants import AVOGADRO as na
+from constants import G as g
+from constants import MW_AIR as mmair
 
 
 # TODO: Rework error handling in here a little
