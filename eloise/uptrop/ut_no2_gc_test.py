@@ -198,13 +198,17 @@ class ProcessedData:
                     self.process_grid_square(i, j)
 
     def regrid_and_process(self, x, y, no2):
+
+        # If no valid data, skip:
+        if ( len(no2.askind) == 0 ):
+            return
+
         # Find nearest gridsquare in output grid:
         lon = int(np.argmin(abs(self.out_lon - no2.t_lon[x])))
         lat = int(np.argmin(abs(self.out_lat - no2.t_lat[y])))
 
         self.true_wgt[lon, lat] += np.sum(no2.twgt)
 
-        # Sum up "true" all-sky UT NO2:
         self.g_cut_no2[lon, lat] += np.sum(no2.t_gc_no2[no2.askind, y, x] * no2.twgt * 1e3)
         self.g_as_cnt[lon, lat] += 1.0
 
@@ -552,7 +556,6 @@ class GeosChemDay:
         self.level_max = None
         self.askind = None
 
-
     def prepare_no2_pixel(self, x, y):
 
         # Calculate corresponding mid-pressure values:
@@ -580,7 +583,7 @@ class GeosChemDay:
             self.askind = lind[np.where(lind <= tppind)[0]]
         # If tropopause below 450 hPa, skip entirely:
         if self.t_pause[y, x] > P_MAX:
-            print("Tropopause less than P_MAX in geoschem pixel x:{}, y:{}".format(x,y))
+            #print("Tropopause less than P_MAX in geoschem pixel x:{}, y:{}".format(x,y))
             return  # continue
         # Get Guassian weights that allocated higher weights to points
         # closest to the pressure centre (315 hPa):
