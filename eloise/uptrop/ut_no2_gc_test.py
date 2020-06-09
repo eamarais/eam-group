@@ -625,6 +625,18 @@ class GeosChemDay:
 
 
 def get_file_list(gcdir, REGION, YEARS_TO_PROCESS):
+    # Define target grid:
+    if REGION == 'NA':
+        dirreg = '_na_'
+    elif REGION == 'EU':
+        dirreg = '_eu_naei_'
+    elif REGION == 'CH':
+        dirreg = '_ch_'
+    else:
+        print("Invalid region; valid regions are 'NA','EU','CH'.")
+        raise InvalidRegionException
+        # NOTE FOR LATER: This snippet turns up in fresco_cld_err; a candidate for the library.
+    gcdir=gcdir+'geosfp'+dirreg+'iccw/'
     # TODO: Rework after you've looked at the files
     files = glob.glob(gcdir + 'nc_sat_files_47L/ts_12_15.' + REGION + '.' + YEARS_TO_PROCESS[0] + '06*')
     mon = ["07", "08"]
@@ -652,7 +664,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # Shorten directory name to up to "GC/", then define the subdirectory
     # as 'geosfp' + dirreg + 'iccw/' in get_file_list.
-    parser.add_argument("--gc_dir", default='/data/uptrop/Projects/DEFRA-NH3/GC/geosfp_eu_naei_iccw/')
+    parser.add_argument("--gc_dir", default='/data/uptrop/Projects/DEFRA-NH3/GC/')
     parser.add_argument("--out_path", default='/home/j/jfr10/eos_library/uptrop_comparison/test.nc2')
     parser.add_argument('--resolution', default="4x5", help="Can be 8x10, 4x5, 2x25 or 1x1")
     parser.add_argument('--region', default="EU", help="Can be EU, NA, or CH")
