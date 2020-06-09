@@ -72,7 +72,8 @@ if len(stryr)==2: yrrange='2016-2017'
 
 # Apply temperature correction?
 # (Can be added as an input argument; default is False)
-temperature_correction=True
+temperature_correction=False
+error_weight=False
 
 # Name of log file to output code prorgess:
 log=open("log_"+Reg+"_"+StrRes+"_"+yrrange+"_v4", "w")
@@ -226,7 +227,10 @@ for f in files:
             # Equation is:
             #   w = exp(-(p-315)^2/2*135^2 ) where 315 hPa is the centre and
             #         135 hPa is the standard deviation.
-            twgt=np.exp(np.multiply((-1.0),np.divide((np.square(np.subtract(tpmid[askind],315.))),(np.multiply(2,np.square(135.))))))
+            if ( error_weight ):
+                twgt=np.ones(len(askind))            
+            else:
+                twgt=np.exp(np.multiply((-1.0),np.divide((np.square(np.subtract(tpmid[askind],315.))),(np.multiply(2,np.square(135.))))))
 
             # Sum up "true" all-sky UT NO2:
             gcutno2[p,q]=gcutno2[p,q] + \
@@ -350,8 +354,11 @@ for f in files:
                     # Get mean cloud top pressure:
                     pmean=csval[3]
 
-                    # Calculate Gaussian weight:
-                    gwgt=np.exp(np.multiply((-1.0),np.divide((np.square(np.subtract(pmean,315.))),(np.multiply(2,np.square(135.))))))
+                    # Calculate weights:
+                    if ( error_weight ):
+                        gwgt=1.0/(csval[1]**2)
+                    else:
+                        gwgt=np.exp(np.multiply((-1.0),np.divide((np.square(np.subtract(pmean,315.))),(np.multiply(2,np.square(135.))))))
 
                     # Apply Gaussian weights to cloud-sliced UT NO2:
                     gno2vmr[i,j]=gno2vmr[i,j]+np.multiply(csval[0],gwgt)
@@ -389,8 +396,11 @@ for f in files:
                             # Get mean cloud top pressure:
                             pmean=csval[3]
 
-                            # Calculate Gaussian weight:
-                            gwgt=np.exp(np.multiply((-1.0),np.divide((np.square(np.subtract(pmean,315.))),(np.multiply(2,np.square(135.))))))
+                            # Calculate weights:
+                            if ( error_weight ):
+                                gwgt=1.0/(csval[1]**2)
+                            else:
+                                gwgt=np.exp(np.multiply((-1.0),np.divide((np.square(np.subtract(pmean,315.))),(np.multiply(2,np.square(135.))))))
                         else:
                             
                             # Cloud-slicing:
@@ -399,8 +409,11 @@ for f in files:
                             # Get mean cloud top pressure:
                             pmean=csval[3]
 
-                            # Calculate Gaussian weight:
-                            gwgt=np.exp(np.multiply((-1.0),np.divide((np.square(np.subtract(pmean,315.))),(np.multiply(2,np.square(135.))))))
+                            # Calculate weights:
+                            if ( error_weight ):
+                                gwgt=1.0/(csval[1]**2)
+                            else:
+                                gwgt=np.exp(np.multiply((-1.0),np.divide((np.square(np.subtract(pmean,315.))),(np.multiply(2,np.square(135.))))))
 
                     # Skip if approach didn't work (i.e. cloud-sliced
                     # UT NO2 is NaN):
