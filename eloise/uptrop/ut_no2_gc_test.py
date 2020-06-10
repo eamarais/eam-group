@@ -37,7 +37,7 @@ from constants import G
 from constants import MW_AIR
 
 from bootstrap import rma
-from cloud_slice_ut_no2 import cldslice
+from cloud_slice_ut_no2 import cldslice, CLOUD_SLICE_ERROR_ENUM
 
 
 # Turn off warnings:
@@ -54,15 +54,7 @@ P_MAX=450
 # Define years of interest:
 YEARS_TO_PROCESS=['2016', '2017']
 
-CLOUD_SLICE_ERROR_ENUM = {
-    1: "too_few_points",
-    2: "low_cloud_height_range",
-    3: "low_cloud_height_std",
-    4: "large_error",
-    5: "much_less_than_zero",
-    6: "no2_outlier",
-    7: "non_uni_strat"
-}
+
 
 
 # TODO: Go through code and replace pass statements with exceptions. Add try-catch.
@@ -176,7 +168,7 @@ class ProcessedData:
     def process_geoschem_day(self, file_path):
 
         # I plonked this here to force these arrays to be reinitated each day with each new
-        # file. Please relocate if this could be more eloquently done.
+        # file. Please relocate if this could be more eloquently done. - No, this is good; makes a lot more sense here.
         # Define output data for this day:
         out_shape = (self.xdim, self.ydim)  # This feel gross. A 3-d list of appendable lists.
         self.g_no2 = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
@@ -242,18 +234,8 @@ class ProcessedData:
         t_cld = np.asarray(self.g_cld_p[i][j],dtype=np.float)
         t_mr_no2 = np.asarray(self.g_true_no2[i][j],dtype=np.float)
         t_o3 = np.asarray(self.g_o3[i][j],dtype=np.float)
+
         # Skip if fewer than 10 points:
-
-        # I assume this section isn't needed, now that the arrays are appended.
-        #TODO: Can change this
-            # Trim to remove trailing zeros:
-        #t_col_no2 = np.trim_zeros(t_col_no2,'b')
-        #t_strat_no2 = np.trim_zeros(t_strat_no2,'b')
-        #t_fr_c = np.trim_zeros(t_fr_c,'b')
-        #t_cld = np.trim_zeros(t_cld,'b')
-        #t_mr_no2 = np.trim_zeros(t_mr_no2,'b')
-        #t_o3 = np.trim_zeros(t_o3,'b')
-
         if len(t_col_no2) < 10:
             #print("Grid square {}, {} failed with condition too_few_points".format(i, j))
             self.loss_count["too_few_points"] += 1
@@ -282,19 +264,11 @@ class ProcessedData:
             stride = round(n_pnts / num_slices)
             nloop = list(range(stride))
             for w in nloop:
-                tdata=t_col_no2[w::stride]
                 subset_t_col_no2 = t_col_no2[w::stride]
                 subset_t_cld = t_cld[w::stride]
                 subset_t_mr_no2 = t_mr_no2[w::stride]
                 subset_t_fr_c = t_fr_c[w::stride]
                 self.add_slice(i, j, subset_t_cld, subset_t_col_no2, subset_t_mr_no2, subset_t_fr_c)
-
-        # The "try - except" was causing the code to exit the "for w in stride loop" before
-        # progressing through all iterations. I assume this is because there are multiple
-        # calls to add_slice in the "for w in nloop" loop?
-        #except CloudSliceException:
-        #    print("Moving on to next pixel")
-        #    return
 
     def add_slice(self, i, j, t_cld, t_col_no2, t_mr_no2, t_fr_c):
         """Applies and adds a cloud slice from the given data"""
@@ -310,7 +284,6 @@ class ProcessedData:
             #print("Cloud-slice exception {} in pixel i:{} j:{}".format(
             #    CLOUD_SLICE_ERROR_ENUM[stage_reached], i, j
             #))
-            #raise CloudSliceException
         else:
             # Gaussian-weighted mean for each pass of cldslice:
             gaussian_mean = np.mean(t_mr_no2 * 1e3) * g_wgt
@@ -318,7 +291,7 @@ class ProcessedData:
             self.g_no2_vmr[i, j] += utmrno2 * g_wgt
             self.g_err[i, j] += g_wgt
             self.g_cnt[i, j] += 1
-            self.g_cld_fr[i, j] += np.mean(t_fr_c )
+            self.g_cld_fr[i, j] += np.mean(t_fr_c)
             self.cloud_slice_count += 1
 
     def apply_gaussian_weight(self):
@@ -557,7 +530,6 @@ class GeosChemDay:
         self.askind = None
 
     def prepare_no2_pixel(self, x, y):
-
         # Calculate corresponding mid-pressure values:
         tp_mid = np.zeros(len(self.t_p_edge[:, y, x]))
         # Get mid-pressure values, except for highest layer:
