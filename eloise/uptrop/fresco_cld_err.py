@@ -28,22 +28,24 @@ from gamap_colormap import WhGrYlRd
 
 import pdb
 
+from convert_height_to_press import alt2pres
+
 # Turn off warnings:
 # np.warnings.filterwarnings('ignore')
 
 # TODO: Check with Eloise how constant these are going to be
 # Define constants/maybe parameters?
 FILL_VAL = 9.96921e+36
-# DEFINE GRID:
-# Define model grid:
-MIN_LAT = -88.
-MAX_LAT = 88.
-MIN_LON = -178.
-MAX_LON = 178.
-DELTA_LAT = 2  # 4#0.5#4#0.5
-DELTA_LON = 2.5  # 5#0.5#5#0.5
-OUT_RES = '1x1'
 
+# Define model grid lat and long limits:
+MIN_LAT = -90.
+MAX_LAT = 90.
+MIN_LON = -180.
+MAX_LON = 180.
+
+# Define limits of pressure range of interest (in hPa):
+PMIN = 180.
+PMAX = 450.
 
 class FileMismatchException(Exception):
     """
@@ -103,14 +105,9 @@ class CloudVariableStore:
         """
         # TODO: Make this vectorised
         # Skip where FRESCO cloud product is NAN:
-        if np.isnan(tropomi_data.tffrc[trop_i, trop_j]):
-            #print("FRESCO cloud product is NaN, skipping...")
-            #pdb.set_trace()
-            return
-        # Skip if there is also no valid DLR data due to
-        # poor data quality or missing values:
-        if np.isnan(tropomi_data.tdfrc[trop_i, trop_j]):
-            #print("No DLR data, skipping....")
+        if np.isnan(tropomi_data.tffrc[trop_i, trop_j]) or \
+           np.isnan(tropomi_data.tdfrc[trop_i, trop_j]):
+            #print("No FRESCO or DLR data, skipping....")
             return
 
                 # Find corresponding gridsquare
@@ -160,8 +157,8 @@ class CloudVariableStore:
                                 (tropomi_data.tffrc < (self.cldbin[w] + 0.025)) &
                                 (tropomi_data.tflats >= (self.latbin[n] - 7.5)) &
                                 (tropomi_data.tflats < (self.latbin[n] + 7.5)) &
-                                (tropomi_data.tftop >= 18000) &
-                                (tropomi_data.tftop <= 45000) &
+                                (tropomi_data.tftop >= PMIN*1e2) &
+                                (tropomi_data.tftop <= PMAX*1e2) &
                                 (~np.isnan(tropomi_data.tffrc)))[0]
                 if len(fbin) > 0:
                     self.knmi_cf_freq[n, w] += len(fbin)
@@ -172,8 +169,8 @@ class CloudVariableStore:
                                 (tropomi_data.tdfrc < (self.cldbin[w] + 0.025)) &
                                 (tropomi_data.tdlats >= (self.latbin[n] - 7.5)) &
                                 (tropomi_data.tdlats < (self.latbin[n] + 7.5)) &
-                                (tropomi_data.tdtop >= 18000) &
-                                (tropomi_data.tdtop <= 45000) &
+                                (tropomi_data.tdtop >= PMIN*1e2) &
+                                (tropomi_data.tdtop <= PMAX*1e2) &
                                 (~np.isnan(tropomi_data.tdfrc)))[0]
                 if len(dbin) > 0:
                     self.dlr_cf_freq[n, w] += len(dbin)
@@ -208,8 +205,9 @@ class CloudVariableStore:
     def write_to_netcdf(self, out_dir):
         """Given an out_directory, writes totalled data to netcdf"""
         out_dir = path.abspath(out_dir)
+
         # Write data to file:
-        outfile = out_dir + 'fresco-dlr-cloud-products-' + MMName + '-' + StrYY + '-' + OUT_RES + '-v1.nc'
+        outfile = path.join(out_dir, 'fresco-dlr-cloud-products-' + MMName + '-' + StrYY + '-' + out_res + '-' + file_version + '.nc')
         ncfile = Dataset(outfile, 'w', format='NETCDF4_CLASSIC')
         ncfile.createDimension('xdim', len(out_lon))    # TODO: Make this a member
         ncfile.createDimension('ydim', len(out_lat))
@@ -321,7 +319,7 @@ class CloudVariableStore:
         m.drawcoastlines()
         cbar = m.colorbar(cs, location='bottom', pad="10%")
         plt.title('Difference (FRESCO-DLR)')
-        plt.savefig(path.join(plot_dir, 'fresco-vs-dlr-cloud-frac-' + MMName + '-' + StrYY + '-v2.ps'), \
+        plt.savefig(path.join(plot_dir, 'fresco-vs-dlr-cloud-frac-' + MMName + '-' + StrYY + '-' + file_version + '.ps'), \
                     format='ps')
         # (2) Cloud top pressure:
         plt.figure(2)
@@ -340,7 +338,7 @@ class CloudVariableStore:
         m.drawcoastlines()
         cbar = m.colorbar(cs, location='bottom', pad="10%")
         plt.title('Difference (FRESCO-DLR)')
-        plt.savefig(path.join(plot_dir, 'fresco-vs-dlr-cloud-top-press-' + MMName + '-' + StrYY + '-v1.ps'),
+        plt.savefig(path.join(plot_dir, 'fresco-vs-dlr-cloud-top-press-' + MMName + '-' + StrYY + '-' + file_version + '.ps'),
                     format='ps')
         # (3) Cloud optical depth/albedo (DLR only):
         plt.figure(3)
@@ -348,7 +346,7 @@ class CloudVariableStore:
         m.drawcoastlines()
         cbar = m.colorbar(cs, location='bottom', pad="10%")
         plt.title('DLR cloud optical thickness')
-        plt.savefig(path.join(plot_dir, 'dlr-cloud-optical-depth-' + MMName + '-' + StrYY + '-v1.ps'),
+        plt.savefig(path.join(plot_dir, 'dlr-cloud-optical-depth-' + MMName + '-' + StrYY + '-' + file_version + '.ps'),
                     format='ps')
         # (4) Cloud base pressure (DLR only):
         plt.figure(4)
@@ -356,7 +354,7 @@ class CloudVariableStore:
         m.drawcoastlines()
         cbar = m.colorbar(cs, location='bottom', pad="10%")
         plt.title('DLR base pressure [hPa]')
-        plt.savefig(path.join(plot_dir,'dlr-cloud-base-press-' + MMName + '-' + StrYY + '-v1.ps'),
+        plt.savefig(path.join(plot_dir,'dlr-cloud-base-press-' + MMName + '-' + StrYY + '-' + file_version + '.ps'),
                     format='ps')
         # (5) Number of points (both):
         plt.figure(4)
@@ -370,7 +368,7 @@ class CloudVariableStore:
         m.drawcoastlines()
         cbar = m.colorbar(cs, location='bottom', pad="10%")
         plt.title('DLR No. of obs')
-        plt.savefig(path.join(plot_dir, 'fresco-dlr-number-of-obs-' + MMName + '-' + StrYY + '-v1.ps'),
+        plt.savefig(path.join(plot_dir, 'fresco-dlr-number-of-obs-' + MMName + '-' + StrYY + '-' + file_version + '.ps'),
                     format='ps')
         plt.show()
 
@@ -404,41 +402,57 @@ class TropomiData:
         self.tdlats = dlr_cloud_data.groups['PRODUCT'].variables['latitude'][:].data[0, :, :]
         tfrc = dlr_cloud_data.groups['PRODUCT'].variables['cloud_fraction'][:]
         self.tdfrc = tfrc.data[0, :, :]
-        ttop = dlr_cloud_data.groups['PRODUCT'].variables['cloud_top_pressure'][:]
-        self.tdtop = ttop.data[0, :, :]
+        if ( dlr_cld_top=='height' ):
+            ttop = dlr_cloud_data.groups['PRODUCT'].variables['cloud_top_height'][:]
+            self.tdtop = ttop.data[0, :, :]       
+            # Convert height to pressure (done before counting the number
+            # if valid data points in get_nobs:            
+            self.tdtop = np.where(self.tdtop != FILL_VAL, alt2pres(self.tdtop), FILL_VAL) 
+        else:
+            ttop = dlr_cloud_data.groups['PRODUCT'].variables['cloud_top_pressure'][:]     
+            self.tdtop = ttop.data[0, :, :]
         tbase = dlr_cloud_data.groups['PRODUCT'].variables['cloud_base_pressure'][:]
         self.tdbase = tbase.data[0, :, :]
         tqval = dlr_cloud_data.groups['PRODUCT'].variables['qa_value'][:]
         self.tdqval = tqval.data[0, :, :]  # for more accurate CAL product
         toptd = dlr_cloud_data.groups['PRODUCT'].variables['cloud_optical_thickness'][:]
         self.tdoptd = toptd.data[0, :, :]
-        tsnow = dlr_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA'].variables['snow_ice_flag_nise'][:]
+        tsnow = dlr_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA'].variables['snow_ice_flag'][:]
         self.tdsnow = tsnow.data[0, :, :]
         dlr_cloud_data.close()   # Note to self; does NetCDF have a context manager?
 
     def read_tffile(self, tffile):
         """Read in FRESCO cloud data:"""
-        dlr_cloud_data = Dataset(tffile, mode='r')
+        fresco_cloud_data = Dataset(tffile, mode='r')
         # Extract data of interest:
-        self.tflons = dlr_cloud_data.groups['PRODUCT'].variables['longitude'][:].data[0, :, :]
-        self.tflats = dlr_cloud_data.groups['PRODUCT'].variables['latitude'][:].data[0, :, :]
-        tfrc = dlr_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA'].variables['cloud_fraction_crb'][:]
+        self.tflons = fresco_cloud_data.groups['PRODUCT'].variables['longitude'][:].data[0, :, :]
+        self.tflats = fresco_cloud_data.groups['PRODUCT'].variables['latitude'][:].data[0, :, :]
+        tfrc = fresco_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA'].variables['cloud_fraction_crb'][:]
         self.tffrc = tfrc.data[0, :, :]
-        talb = dlr_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA'].variables['cloud_albedo_crb'][:]
+        talb = fresco_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA'].variables['cloud_albedo_crb'][:]
         self.tfalb = talb.data[0, :, :]
-        ttop = dlr_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA'].variables['cloud_pressure_crb'][:]
+        ttop = fresco_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA'].variables['cloud_pressure_crb'][:]
         self.tftop = ttop.data[0, :, :]
-        tqval = dlr_cloud_data.groups['PRODUCT'].variables['qa_value'][:]
+        tqval = fresco_cloud_data.groups['PRODUCT'].variables['qa_value'][:]
         self.tfqval = tqval.data[0, :, :]
-        tsnow = dlr_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA'].variables['snow_ice_flag'][:]
+        tsnow = fresco_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA'].variables['snow_ice_flag'][:]
         self.tfsnow = tsnow.data[0, :, :]
-        dlr_cloud_data.close()
+        tscenep = fresco_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA'].variables['apparent_scene_pressure'][:]
+        self.tfscenep = tscenep.data[0, :, :]
+        tsurfp = fresco_cloud_data.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA'].variables['surface_pressure'][:]
+        self.tfsurfp = tsurfp.data[0, :, :]
+        fresco_cloud_data.close()
 
     def filter_tdfile(self):
         # Convert all valid snow/ice free flag values (0,255) to 0.
-        self.tdsnow = np.where(self.tdsnow == 255, 0, self.tdsnow)
+        #self.tdsnow = np.where(self.tdsnow == 255, 0, self.tdsnow)
         # Coastlines (listed as potentially "suspect" in the ATBD document p. 67):
-        self.tdsnow = np.where(self.tdsnow == 252, 0, self.tdsnow)
+        #self.tdsnow = np.where(self.tdsnow == 252, 0, self.tdsnow)
+
+        # If necessary, convert heigh to pressure:
+        #if ( dlr_cld_top=='height' ):
+        #    self.tdtop = np.where(self.tdtop != FILL_VAL, \
+        #                          alt2pres(self.tdtop), self.tdtop) 
 
         # Set missing/poor quality/irrelevant data to NAN:
         # Apply cloud fraction filter, but set it to 0.7 rather
@@ -453,7 +467,7 @@ class TropomiData:
         # necessarily the same as the fill values for the other data):
         self.tdfrc = np.where(self.tdfrc == FILL_VAL, np.nan, self.tdfrc)
         self.tdtop = np.where(self.tdtop == FILL_VAL, np.nan, self.tdtop)
-        # Set cloud fraciton to nan for scenes with missing cloud top
+        # Set cloud fraction to nan for scenes with missing cloud top
         # pressure data:
         self.tdfrc = np.where(np.isnan(self.tdtop), np.nan, self.tdfrc)
         # Poor data quality:
@@ -482,6 +496,12 @@ class TropomiData:
         self.tfsnow = np.where(self.tfsnow == 255, 0, self.tfsnow)
         # Coastlines (listed as potential "suspect" in the ATBD document p. 67):
         self.tfsnow = np.where(self.tfsnow == 252, 0, self.tfsnow)
+        # Less then 1% snow/ice cover:
+        self.tfsnow = np.where(self.tfsnow < 1, 0, self.tfsnow)
+        # Snow/ice misclassified as clouds:
+        self.tfsnow = np.where((self.tfsnow > 80) & (self.tfsnow < 104) & \
+                               (self.tfscenep > (np.multiply(0.98,self.tfsurfp))),\
+                               0, self.tfsnow)
 
         # Set missing/poor quality/irrelevant data to NAN:
         # Apply cloud fraction filter, but set it to 0.7 rather
@@ -498,8 +518,8 @@ class TropomiData:
         #   500 hPa and below 150 hPa (more generous than the 450-200 hPa
         #   range to account for variability around this threshold in the
         #   two cloud products:
-        self.tffrc = np.where(self.tftop > (450 * 1e2), np.nan, self.tffrc)
-        self.tffrc = np.where(self.tftop < (180 * 1e2), np.nan, self.tffrc)
+        self.tffrc = np.where(self.tftop > (PMAX * 1e2), np.nan, self.tffrc)
+        self.tffrc = np.where(self.tftop < (PMIN * 1e2), np.nan, self.tffrc)
         # Snow/ice cover:
         self.tffrc = np.where(self.tfsnow != 0, np.nan, self.tffrc)
         # Apply filter to remaining data:
@@ -518,24 +538,22 @@ class TropomiData:
         """
         Returns a tuple of number of valid observations of (dlr product, fresco product)
         """
-        dlr_ind = np.count_nonzero((self.tdqval < 0.5) & (self.tdfrc >= 0.7) & (self.tdtop >= 18000)
-                          & (self.tdtop <= 45000) & (self.tdsnow == 0))
-        fr_ind = np.count_nonzero((self.tfqval < 0.45) & (self.tffrc >= 0.7) & (self.tftop >= 18000)
-                          & (self.tftop <= 45000) & (self.tfsnow == 0))
+        dlr_ind = np.count_nonzero((self.tdqval < 0.5) & (self.tdfrc >= 0.7) & (self.tdtop >= PMIN*1e2) & (self.tdtop <= PMAX*1e2) & (self.tdsnow == 0))
+        fr_ind = np.count_nonzero((self.tfqval < 0.45) & (self.tffrc >= 0.7) & (self.tftop >= PMIN*1e2) & (self.tftop <= PMAX*1e2) & (self.tfsnow == 0))
         # DLR value will be different, fr_ind will be same
         return dlr_ind, fr_ind
 
 
 def process_file(tdfile, tffile, running_total_container):
-    """Processes a paired dtr and fresco product, adds the pixels to the running total in the
+    """Processes a paired dlr and fresco product, adds the pixels to the running total in the
     running_total_container and updates the cloud_fraction"""
     # Track progress:
     print('===> Processing: ', tdfile)
     try:
         file_data_container = TropomiData(tdfile, tffile)
         running_total_container.update_nobs(file_data_container)
-        print("Fresco nobs: {}\nDTR nobs: {}".format(
-            file_data_container.nobs_fresco, file_data_container.nobs_dlr))
+        #print("Fresco nobs: {}\nDLR nobs: {}".format(
+        #    file_data_container.nobs_fresco, file_data_container.nobs_dlr))
         running_total_container.cloud_fraction_filtering(file_data_container)
         # REGRID THE DATA:
         for i in range(file_data_container.shape[0]):
@@ -613,30 +631,37 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Extracts and plots cloud data")
     parser.add_argument("--s5p_data_dir", default='/data/uptrop/nobackup/tropomi/Data/')
-    parser.add_argument("--output_dir", default='~/eos_library/cloud_test_output')
+    parser.add_argument("--output_dir", default='/data/uptrop/Projects/UpTrop/python/Data/')
     parser.add_argument("--month", default="10")
-    parser.add_argument("--plot_dir", default="~/eos_library/cloud_test_plots")
+    parser.add_argument("--plot_dir", default="/data/uptrop/Projects/UpTrop/python/Images/")
     parser.add_argument("--number_of_days", default=31, type=int)
+    parser.add_argument("--out_res", default="1x1")
+    parser.add_argument("--dlr_cld_top", default="height")
+    parser.add_argument("--file_version", default="v1")
     args = parser.parse_args()
 
     s5p_data_dir = path.expanduser(args.s5p_data_dir)
     output_dir = path.expanduser(args.output_dir)
     plot_dir = path.expanduser(args.plot_dir)
+    dlr_cld_top = path.expanduser(args.dlr_cld_top)
+    file_version = path.expanduser(args.file_version)
 
     # TODO: Make this a member of CloudVariableStore
-    if OUT_RES == '1x1':
+    if args.out_res == '1x1':
         DELTA_LAT = 1
         DELTA_LON = 1
-    if OUT_RES == '2x25':
+    if args.out_res == '2x25':
         DELTA_LAT = 2
         DELTA_LON = 2.5
-    if OUT_RES == '4x5':
+    if args.out_res == '4x5':
         DELTA_LAT = 4
         DELTA_LON = 5
-    out_lon = np.arange(MIN_LON, MAX_LON, DELTA_LON)
-    out_lat = np.arange(MIN_LAT, MAX_LAT, DELTA_LAT)
+    out_lon = np.arange(MIN_LON, MAX_LON+DELTA_LON, DELTA_LON)
+    out_lat = np.arange(MIN_LAT, MAX_LAT+DELTA_LAT, DELTA_LAT)
     # Convert output lats and long to 2D:
     X, Y = np.meshgrid(out_lon, out_lat, indexing='ij')
+
+    out_res = path.expanduser(args.out_res)
 
     td_file_list, tf_file_list = get_files_for_month(s5p_data_dir, args.month, args.number_of_days)
     running_cloud_total = CloudVariableStore(X.shape)
