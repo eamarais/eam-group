@@ -639,12 +639,6 @@ def get_file_list(gcdir, REGION, YEARS_TO_PROCESS):
 
 if __name__ == "__main__":
 
-    # Decide on region:
-    #REGION = 'EU'  # 'NA', 'EU', or 'CH'
-
-    # Define information for grid:
-    #STR_RES = '4x5'
-
     parser = argparse.ArgumentParser()
     # Shorten directory name to up to "GC/", then define the subdirectory
     # as 'geosfp' + dirreg + 'iccw/' in get_file_list.
@@ -662,8 +656,7 @@ if __name__ == "__main__":
     if len(YEARS_TO_PROCESS) == 2:
         yrrange = '2016-2017'
 
-   # Get files (test June 2016 for now)
-    # 2016:
+    # Get files:
     gc_dir = args.gc_dir
     STR_RES = args.resolution
     REGION = args.region
