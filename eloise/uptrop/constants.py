@@ -33,7 +33,6 @@ skip_these_vars = ["anchor",
                    "contacts", 
                    "cubed_sphere"]
 
-=======
 """ Physical/chemical constants """
 
 #: Acceleration due to gravity, m/s2

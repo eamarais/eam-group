@@ -71,6 +71,10 @@ class InvalidRegionException(Exception):
 class InvalidResolutionException(Exception):
     pass
 
+class DomainIssueException(Exception):
+    pass
+
+
 
 class ProcessedData:
     # ----Initialisation methods----
@@ -120,26 +124,23 @@ class ProcessedData:
     def define_grid(self, region, str_res):
         # Define target grid:
         if region == 'NA':
-            self.minlat = 6.
-            self.maxlat = 58.
-            self.minlon = -135.
-            self.maxlon = -60.
+            self.minlat = 4.
+            self.maxlat = 60.
+            self.minlon = -137.
+            self.maxlon = -58.
             self.dirreg = '_na_'
-            #self.factor = 40  # used to determine size of g_no2
         elif region == 'EU':
-            self.minlat = 30.
-            self.maxlat = 62.
-            self.minlon = -20.
-            self.maxlon = 40.
+            self.minlat = 28.
+            self.maxlat = 64.
+            self.minlon = -22.
+            self.maxlon = 42.
             self.dirreg = '_eu_naei_'
-            #self.factor = 30
         elif region == 'CH':
-            self.minlat = 10.
-            self.maxlat = 54.
-            self.minlon = 65.
-            self.maxlon = 135.
+            self.minlat = 8.
+            self.maxlat = 58.
+            self.minlon = 63.
+            self.maxlon = 138.
             self.dirreg = '_ch_'
-            #self.factor = 100
         else:
             print("Invalid region; valid regions are 'NA','EU','CH'.")
             raise InvalidRegionException
@@ -163,7 +164,11 @@ class ProcessedData:
         # Dimensions of output data:
         self.xdim = len(self.out_lon)
         self.ydim = len(self.out_lat)
-        #self.nval = int(self.factor * self.dellat * self.dellon)  # Scale array size with resolution
+        # Get maximum possible number of native resolution model gridsquares
+        # in the coarser grid (to use in process_grid_square to check that 
+        # don't exceed this):
+        self.max_limit=(self.dellon/0.3125)*(self.dellat/0.25)
+
 
     # ----Processing methods----
     def process_geoschem_day(self, file_path):
@@ -254,6 +259,12 @@ class ProcessedData:
         if n_pnts > self.maxcnt:
             self.maxcnt = n_pnts
             print(self.maxcnt, flush=True)
+
+        # Check if number of gridsquares exceeds max possible
+        # (indicates error in coarser grid domain):
+        if ( self.maxcnt > self.max_limit ):
+            print('No. of model grids exceeds max possible')
+            raise DomainIssueException
 
         # Use cloud_slice_ut_no2 function to get cloud-sliced
         # UT NO2 mixing ratios.
@@ -696,7 +707,7 @@ if __name__ == "__main__":
 
     # Close the log file:
     #log.close()
-=======
+
 # Define years of interest:
 stryr=['2016','2017']
 if len(stryr)==1: yrrange=stryr[0]
