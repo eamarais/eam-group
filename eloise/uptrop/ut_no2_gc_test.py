@@ -680,8 +680,8 @@ if __name__ == "__main__":
     print('Number of files:', len(files), flush=True)
 
     rolling_total = ProcessedData(REGION, STR_RES,
-                                  do_temperature_correction=args.do_temperature_correction,
-                                  do_error_weighting=args.do_error_weighting)
+                                  do_temperature_correction=args.do_temp_correct,
+                                  do_error_weighting=args.do_error_weight)
 
     # Loop over files:
     for file_path in files:

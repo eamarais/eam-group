@@ -120,30 +120,30 @@ def cldslice(pcolno2,cldtophgt):
             utmrno2err=np.nan
             return (utmrno2, utmrno2err, error_state, mean_cld_pres)
 
-        slope=result[0]
-        #slope=np.multiply(slope,sf)
-        slope_err=result[2]
-        #slope_err=np.multiply(slope_err,sf)
-        # Convert slope to mol/mol:
-        utmrno2=np.multiply(slope,den2mr)
-        # Convert error to mol/mol:
-        utmrno2err=np.multiply(slope_err,den2mr)
-        # Convert UT NO2 from mol/mol to ppt:
-        utmrno2=np.multiply(utmrno2,1e+12)
-        # Convert UT NO2 error from mol/mol to ppt
-        utmrno2err=np.multiply(utmrno2err,1e+12)
-
-        # Finally, remove outliers in the cloud-sliced NO2
-        # 200 pptv threshold is chosen, as far from likely range.
-        # Scale factor applied to TROPOMI UT NO2 to account for
-        # positive bias in free tropospheric NO2:
-        if utmrno2>200:
-            error_state=6
-            utmrno2=np.nan
-            utmrno2err=np.nan
-            return (utmrno2, utmrno2err, error_state, mean_cld_pres)
-
-    # Output goes here:
+    # Proceed with estimating NO2 mixing ratios for retained data:
+    #if not np.isnan(utmrno2):
+    slope=result[0]
+    #slope=np.multiply(slope,sf)
+    slope_err=result[2]
+    #slope_err=np.multiply(slope_err,sf)
+    # Convert slope to mol/mol:
+    utmrno2=np.multiply(slope,den2mr)
+    # Convert error to mol/mol:
+    utmrno2err=np.multiply(slope_err,den2mr)
+    # Convert UT NO2 from mol/mol to ppt:
+    utmrno2=np.multiply(utmrno2,1e+12)
+    # Convert UT NO2 error from mol/mol to ppt
+    utmrno2err=np.multiply(utmrno2err,1e+12)
     return (utmrno2, utmrno2err, error_state, mean_cld_pres)
+
+    # Finally, remove outliers in the cloud-sliced NO2
+    # 200 pptv threshold is chosen, as far from likely range.
+    # Scale factor applied to TROPOMI UT NO2 to account for
+    # positive bias in free tropospheric NO2:
+    if utmrno2>200:
+        error_state=6
+        utmrno2=np.nan
+        utmrno2err=np.nan
+        return (utmrno2, utmrno2err, error_state, mean_cld_pres)
 
     
