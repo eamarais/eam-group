@@ -143,7 +143,7 @@ def readpandora(filename):
 
     # Convert arrays to data frames:
     df=pd.DataFrame({'year':yyyy, 'month':mon, 'day':day, 'hour_utc':utc_hh,\
-                     'minute':mins, 'jday':jday, 'sza':sza, 'no2':no2,\
+                     'minute':mins, 'jday':jday, 'sza':sza, 'self':no2,\
                      'no2err':no2err, 'qaflag':qaflag, 'fitflag':fitflag})
 
     # Convert latitude and longitude to dataframe:
