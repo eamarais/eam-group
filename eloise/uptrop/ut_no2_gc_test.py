@@ -55,9 +55,6 @@ P_MAX=450
 YEARS_TO_PROCESS=['2016', '2017']
 
 
-
-
-# TODO: Go through code and replace pass statements with exceptions. Add try-catch.
 class ProcessingException(Exception):
     pass
 
@@ -276,10 +273,8 @@ class ProcessedData:
         # Calculate Gaussian weight:
         g_wgt = np.exp((-(mean_cld_pres - 315) ** 2) / (2 * 135 ** 2))
         # Skip if approach didn't work (i.e. cloud-sliced UT NO2 is NaN):
-        # TODO: Check with E if we need to carry on with the loop in this case, or drop it
         # Yes, drop out after the reason for data loss is added to loss_count.
         if np.isnan(utmrno2) or np.isnan(utmrno2err):
-            # TODO: Temporary fix; see cloud_slice_ut_no2 note
             self.loss_count[CLOUD_SLICE_ERROR_ENUM[stage_reached]] += 1
             #print("Cloud-slice exception {} in pixel i:{} j:{}".format(
             #    CLOUD_SLICE_ERROR_ENUM[stage_reached], i, j
@@ -430,7 +425,6 @@ class ProcessedData:
         plt.show()
 
     def save_to_netcdf(self, out_path):
-        # TODO: Make variables members
         # Save the data to NetCDF:
         ncout = Dataset(out_path, mode='w', format='NETCDF4')
         # Create data dimensions:
@@ -537,7 +531,6 @@ class GeosChemDay:
             tp_mid[k] = np.multiply(0.5, (self.t_p_edge[k, y, x] + self.t_p_edge[k + 1, y, x]))
         # Estimate mid-pressure for highest value (doesn't need to
         # be accurate, as surpassing the range of interset):
-        # TODO: Check with E why 46. Middle of tpmid?
         # Data output from the model includes 47 vertical layers. This means that only 46 pressure centres can be calculated as the calculation requires pressure edges.
         tp_mid[46] = np.multiply(0.5, (self.t_p_edge[46, y, x] + (self.t_p_edge[46, y, x] - 0.1)))
         # Get model layer of tropopause:
@@ -563,7 +556,6 @@ class GeosChemDay:
         #   w = exp(-(p-315)^2/2*135^2 ) where 315 hPa is the centre and
         #         135 hPa is the standard deviation.
         # The "shorthand" formula (np.exp((-(mean_cld_pres - 315) ** 2) / (2 * 135 ** 2))) can be used here too
-        # TODO: Check tp_mid is what we want
         self.twgt = np.exp((-(tp_mid[self.askind] - 315) ** 2) / (2 * 135 ** 2))
 
         # Find where cloud fraction in UT exceeds 0.7 after calculating
