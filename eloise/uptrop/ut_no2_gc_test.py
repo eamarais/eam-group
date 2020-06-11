@@ -73,7 +73,10 @@ class InvalidResolutionException(Exception):
 
 class ProcessedData:
     # ----Initialisation methods----
-    def __init__(self, region, str_res):
+    def __init__(self, region, str_res, do_temperature_correction=False, do_error_weighting=False):
+
+        self.temperature_correction = do_temperature_correction
+        self.error_weight = do_error_weighting
 
         self.define_grid(region, str_res)
         grid_shape = self.X.shape
@@ -175,7 +178,9 @@ class ProcessedData:
         self.g_cld_p = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
         self.g_true_no2 = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
 
-        this_geoschem_day = GeosChemDay(file_path)
+        this_geoschem_day = GeosChemDay(file_path,
+                                        error_weight=self.error_weight,
+                                        temperature_correction=self.temperature_correction)
         # Get column values:
         for y in range(len(this_geoschem_day.t_lat)):
             for x in range(len(this_geoschem_day.t_lon)):
@@ -271,7 +276,10 @@ class ProcessedData:
         """Applies and adds a cloud slice from the given data"""
         utmrno2, utmrno2err, stage_reached, mean_cld_pres = cldslice(t_col_no2, t_cld)
         # Calculate Gaussian weight:
-        g_wgt = np.exp((-(mean_cld_pres - 315) ** 2) / (2 * 135 ** 2))
+        if self.error_weight:
+            g_wgt = 1.0 / (utmrno2err ** 2)
+        else:
+            g_wgt = np.exp((-(mean_cld_pres - 315) ** 2) / (2 * 135 ** 2))
         # Skip if approach didn't work (i.e. cloud-sliced UT NO2 is NaN):
         # Yes, drop out after the reason for data loss is added to loss_count.
         if np.isnan(utmrno2) or np.isnan(utmrno2err):
@@ -486,19 +494,23 @@ class ProcessedData:
 
 
 class GeosChemDay:
-
-    def __init__(self, file_path):
+    def __init__(self, file_path, error_weight=False, temperature_correction=False):
         print(file_path, flush=True)
+
+        self.error_weight = error_weight
+        self.temperature_correction = temperature_correction
+
         # Read dataset:
         fh = Dataset(file_path, mode='r')
         # Extract data of interest:
         # (Add tropopause height to this in the future)
-        tlon, tlat, tgcno2, tcldfr, tcldhgt, tadn, tbxhgt, tpedge, tpause, tgco3 = \
+        tlon, tlat, tgcno2, tcldfr, tcldhgt, tadn, tbxhgt, tpedge, tpause, tgco3, tdegk = \
             fh.variables['LON'], fh.variables['LAT'], \
             fh.variables['IJ-AVG-S__NO2'], fh.variables['TIME-SER__CF'], \
             fh.variables['TIME-SER__CThgt'], fh.variables['TIME-SER__AIRDEN'], \
             fh.variables['BXHGHT-S__BXHEIGHT'], fh.variables['PEDGE-S__PSURF'], \
-            fh.variables['TR-PAUSE__TP-PRESS'], fh.variables['IJ-AVG-S__O3']
+            fh.variables['TR-PAUSE__TP-PRESS'], fh.variables['IJ-AVG-S__O3'], \
+            fh.variables['DAO-3D-S__TMPU']
         self.t_lon = tlon[:]
         self.t_lat = tlat[:]
         self.t_gc_no2 = tgcno2[:]
@@ -509,6 +521,7 @@ class GeosChemDay:
         self.t_p_edge = tpedge[:]
         self.t_pause = tpause[0, :, :]
         self.t_gc_o3 = tgco3[:]
+        self.t_deg_k = tdegk[:]
         # Convert box height from m to cm:
         self.t_bx_hgt = self.t_bx_hgt * 1e2
 
@@ -556,7 +569,10 @@ class GeosChemDay:
         #   w = exp(-(p-315)^2/2*135^2 ) where 315 hPa is the centre and
         #         135 hPa is the standard deviation.
         # The "shorthand" formula (np.exp((-(mean_cld_pres - 315) ** 2) / (2 * 135 ** 2))) can be used here too
-        self.twgt = np.exp((-(tp_mid[self.askind] - 315) ** 2) / (2 * 135 ** 2))
+        if self.error_weight:
+            self.twgt = np.ones(len(self.askind))
+        else:
+            self.twgt = np.exp((-(tp_mid[self.askind] - 315) ** 2) / (2 * 135 ** 2))
 
         # Find where cloud fraction in UT exceeds 0.7 after calculating
         # true all-sky NO2:
@@ -568,27 +584,32 @@ class GeosChemDay:
         # Skip if cloud top height ouside pressure range of interest:
         self.level_min, self.level_max = np.amin(lind), np.amax(lind)
 
-        # moved this to regrid_and_process
-        #if (self.lcld <self.level_min) or (self.lcld > self.level_max):
-        #    # Should this be return rather than pass? This checks for clouds between min and mas pressure. If none, move to next pixel.
-        #    print("Cloud top outside pressure range in pixel {},{}".format(x,y))
-        #    return
-        #print(self.lcld)
-        # This error check is probably redundant, but included in case:
-        #if self.lcld == 0:
-        #    print("No cloud detected!!!", flush=True)
-        #    sys.exit()
+        if (self.temperature_correction):
+
+            # Equation is from the TROPOMI product ATBD (p. 32, Eqn 18)
+            # (product document abbrevation: S5P-KNMI-L2-0005-RP)
+            self.temp_corr = 1 - (3.16e-3 * (self.t_deg_k[self.level_min:, y, x] - 220.)) + \
+                        (3.39e-6 * ((self.t_deg_k[self.level_min:, y, x] - 220) ** 2))
+        else:
+            # Set to 1 so that no scaling is applied:
+            # (might be a more eloquent way to do this)
+            self.temp_corr = np.ones(len(self.t_gc_no2[self.level_min:, y, x]))
+
         # Get partial NO2 column in molec/m2 from cloud top height
         # to highest model level (output up to level 47):
         # print(t_gc_no2[self.level_min:tppind,y,x])
         # print(t_gc_no2[self.level_min:tppind,y,x]*1.5)
-        self.no2_2d = np.sum(self.t_gc_no2[self.level_min:, y, x] * 1e-5 * self.t_adn[self.level_min:, y, x] *
-                             self.t_bx_hgt[self.level_min:, y, x])
+        self.no2_2d = np.sum(self.t_gc_no2[self.level_min:, y, x]
+                             * 1e-5
+                             * self.temp_corr
+                             * self.t_adn[self.level_min:, y, x]
+                             * self.t_bx_hgt[self.level_min:, y, x])
         # Get stratospheric column from 180 hPa aloft:
         # Previous approach (remove when model simulations done):
         # tppind=np.where(tpmid<180.)[0]
-        self.strat_col = np.sum(self.t_gc_no2[tppind:, y, x] * 1e-5 * self.t_adn[tppind:, y, x] *
-                                self.t_bx_hgt[tppind:, y, x])
+        self.strat_col = np.sum(self.t_gc_no2[tppind:, y, x]
+                                * 1e-5 * self.t_adn[tppind:, y, x]
+                                * self.t_bx_hgt[tppind:, y, x])
 
 
 def get_file_list(gcdir, REGION, YEARS_TO_PROCESS):
@@ -635,7 +656,9 @@ if __name__ == "__main__":
     parser.add_argument("--out_path", default='/home/j/jfr10/eos_library/uptrop_comparison/test.nc2')
     parser.add_argument('--resolution', default="4x5", help="Can be 8x10, 4x5, 2x25 or 1x1")
     parser.add_argument('--region', default="EU", help="Can be EU, NA, or CH")
-    parser.add_argument("-p", "--plot")
+    parser.add_argument("-p", "--plot", type=bool)
+    parser.add_argument("--do_temp_correct", type=bool)
+    parser.add_argument("--do_error_weight", type=bool)
     args = parser.parse_args()
 
     if len(YEARS_TO_PROCESS) == 1:
@@ -656,7 +679,9 @@ if __name__ == "__main__":
     files = get_file_list(gc_dir, REGION, YEARS_TO_PROCESS)
     print('Number of files:', len(files), flush=True)
 
-    rolling_total = ProcessedData(REGION, STR_RES)
+    rolling_total = ProcessedData(REGION, STR_RES,
+                                  do_temperature_correction=args.do_temperature_correction,
+                                  do_error_weighting=args.do_error_weighting)
 
     # Loop over files:
     for file_path in files:
