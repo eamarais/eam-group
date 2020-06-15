@@ -631,7 +631,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Extracts and plots cloud data")
     parser.add_argument("--s5p_data_dir", default='/data/uptrop/nobackup/tropomi/Data/')
-    parser.add_argument("--output_dir", default='/data/uptrop/Projects/UpTrop/python/Data/')
+    parser.add_argument("--output_dir", default='/data/uptrop/Projects/UpTrop/python/Data_v2/')
     parser.add_argument("--month", default="10")
     parser.add_argument("--plot_dir", default="/data/uptrop/Projects/UpTrop/python/Images/")
     parser.add_argument("--number_of_days", default=31, type=int)

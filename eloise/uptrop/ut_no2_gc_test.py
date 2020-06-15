@@ -84,10 +84,11 @@ class ProcessedData:
         self.g_no2_vmr = np.zeros(grid_shape)
         self.g_cld_fr = np.zeros(grid_shape)
         self.g_cld = np.zeros(grid_shape)
-        self.g_err = np.zeros(grid_shape)
+        self.g_slope_err = np.zeros(grid_shape)
+        self.g_gaus_err = np.zeros(grid_shape)
         self.true_o3 = np.zeros(grid_shape)  # ozone mixing ratio coincident with cloud-sliced ut self
         self.true_no2 = np.zeros(grid_shape)  # "true" cloudy UT NO2
-        self.g_cut_no2 = np.zeros(grid_shape)  # "true" all-sky UT NO2
+        self.g_askut_no2 = np.zeros(grid_shape)  # "true" all-sky UT NO2
         self.true_wgt = np.zeros(grid_shape)  # "true" all-sky UT NO2 weights
         self.g_as_cnt = np.zeros(grid_shape)  # Count all-sky
         self.g_cnt = np.zeros(grid_shape)
@@ -117,22 +118,22 @@ class ProcessedData:
     def define_grid(self, region, str_res):
         # Define target grid:
         if region == 'NA':
-            self.minlat = 4.
-            self.maxlat = 60.
-            self.minlon = -137.
-            self.maxlon = -58.
+            self.minlat = 2.
+            self.maxlat = 62.
+            self.minlon = -140.
+            self.maxlon = -55.
             self.dirreg = '_na_'
         elif region == 'EU':
-            self.minlat = 28.
-            self.maxlat = 64.
-            self.minlon = -22.
-            self.maxlon = 42.
+            self.minlat = 26.
+            self.maxlat = 66.
+            self.minlon = -25.
+            self.maxlon = 45.
             self.dirreg = '_eu_naei_'
         elif region == 'CH':
-            self.minlat = 8.
-            self.maxlat = 58.
-            self.minlon = 63.
-            self.maxlon = 138.
+            self.minlat = 6.
+            self.maxlat = 62.
+            self.minlon = 60.
+            self.maxlon = 140.
             self.dirreg = '_ch_'
         else:
             print("Invalid region; valid regions are 'NA','EU','CH'.")
@@ -200,7 +201,7 @@ class ProcessedData:
 
         self.true_wgt[lon, lat] += np.sum(no2.twgt)
 
-        self.g_cut_no2[lon, lat] += np.sum(no2.t_gc_no2[no2.askind, y, x] * no2.twgt * 1e3)
+        self.g_askut_no2[lon, lat] += np.sum(no2.t_gc_no2[no2.askind, y, x] * no2.twgt * 1e3)
         self.g_as_cnt[lon, lat] += 1.0
 
         # Add relevant data to array if there are clouds at 450-180 hPa:
@@ -208,6 +209,12 @@ class ProcessedData:
             # Check for clouds between min and max pressure. If none, move to next pixel.
             #print("Cloud top outside pressure range in pixel {},{}".format(x,y))
             return
+
+        # Find where cloud fraction in UT exceeds 0.7 after calculating
+        # true all-sky NO2:
+        # (Keep for testing effect of thick clouds on cloud-sliced UT NO2):
+        #if np.sum(no2.t_cld_fr[no2.level_min:no2.level_max + 1, y, x]) < 0.7: 
+        #    return
 
         self.g_no2[lon][lat].append(no2.no2_2d)  
         self.strat_no2[lon][lat].append(no2.strat_col)
@@ -273,22 +280,26 @@ class ProcessedData:
         """Applies and adds a cloud slice from the given data"""
         utmrno2, utmrno2err, stage_reached, mean_cld_pres = cldslice(t_col_no2, t_cld)
         # Calculate weights:
-        if self.error_weight:
-            g_wgt = 1.0 / (utmrno2err ** 2)
-        else:
-            g_wgt = np.exp((-(mean_cld_pres - 315) ** 2) / (2 * 135 ** 2))
+        err_wgt = 1.0 / (utmrno2err ** 2)
+        gaus_wgt = np.exp((-(mean_cld_pres - 315) ** 2) / (2 * 135 ** 2))
         # Skip if approach didn't work (i.e. cloud-sliced UT NO2 is NaN):
         # Drop out after the reason for data loss is added to loss_count.
         if np.isnan(utmrno2) or np.isnan(utmrno2err):
+            # Cloud-slicing led to nan, but due to rma regression rather
+            # than data filtering (there are rare):
+            if ( stage_reached==0 ):
+                print("Cloud-sliced NO2 NAN for pixel i:{} j:{}".format(i, j))
+                return
             self.loss_count[CLOUD_SLICE_ERROR_ENUM[stage_reached]] += 1
             #print("Cloud-slice exception {} in pixel i:{} j:{}".format(
             #    CLOUD_SLICE_ERROR_ENUM[stage_reached], i, j))
         else:
             # Weighted mean for each pass of cldslice:
-            weight_mean = np.mean(t_mr_no2 * 1e3) * g_wgt
+            weight_mean = np.mean(t_mr_no2 * 1e3) * gaus_wgt 
             self.true_no2[i, j] += weight_mean
-            self.g_no2_vmr[i, j] += utmrno2 * g_wgt
-            self.g_err[i, j] += g_wgt
+            self.g_no2_vmr[i, j] += utmrno2 * gaus_wgt
+            self.g_slope_err[i, j] += err_wgt
+            self.g_gaus_err[i, j] += gaus_wgt
             self.g_cnt[i, j] += 1
             self.g_cld_fr[i, j] += np.mean(t_fr_c)
             self.cloud_slice_count += 1
@@ -298,17 +309,22 @@ class ProcessedData:
         Get weighted mean of data
         """
 
-        self.g_no2_vmr = np.divide(self.g_no2_vmr, self.g_err, where=self.g_cnt != 0)
+        # Mean physical parameters:
+        self.g_no2_vmr = np.divide(self.g_no2_vmr, self.g_gaus_err, where=self.g_cnt != 0)
         self.g_cld_fr = np.divide(self.g_cld_fr, self.g_cnt, where=self.g_cnt != 0)
-        self.true_no2 = np.divide(self.true_no2, self.g_err, where=self.g_cnt != 0)
-        self.true_o3 = np.divide(self.true_o3, self.g_err, where=self.g_cnt != 0)
+        self.true_no2 = np.divide(self.true_no2, self.g_gaus_err, where=self.g_cnt != 0)
         self.g_cld = np.divide(self.g_cld, self.g_cnt, where=self.g_cnt != 0)
-        self.g_err = np.divide(self.g_err, self.g_cnt, where=self.g_cnt != 0)
-        self.g_cut_no2 = np.divide(self.g_cut_no2, self.true_wgt, where=self.g_as_cnt != 0)
+        self.true_o3 = np.divide(self.true_o3, self.true_wgt, where=self.g_cnt != 0)
+        self.g_askut_no2 = np.divide(self.g_askut_no2, self.true_wgt, where=self.g_as_cnt != 0)
+        # Mean weights:
+        self.g_slope_err = np.divide(self.g_slope_err, self.g_cnt, where=self.g_cnt != 0)
+        self.g_gaus_err = np.divide(self.g_gaus_err, self.g_cnt, where=self.g_cnt != 0)
+        # No data (nan):
         self.true_no2[self.g_cnt == 0] = np.nan
         self.true_o3[self.g_cnt == 0] = np.nan
-        self.g_err[self.g_cnt == 0] = np.nan
-        self.g_cut_no2[self.g_as_cnt == 0] = np.nan
+        self.g_slope_err[self.g_cnt == 0] = np.nan
+        self.g_gaus_err[self.g_cnt == 0] = np.nan
+        self.g_askut_no2[self.g_as_cnt == 0] = np.nan
         self.g_no2_vmr[self.g_cnt == 0] = np.nan
         self.g_cld_fr[self.g_cnt == 0] = np.nan
 
@@ -351,7 +367,7 @@ class ProcessedData:
         cbar = m.colorbar(cs, location='bottom', pad="10%")
         plt.title('True cloudy NO2')
         plt.subplot(2, 3, 3)
-        cs = m.pcolor(xi, yi, np.squeeze(self.g_cut_no2), vmin=0, vmax=80, cmap='jet')
+        cs = m.pcolor(xi, yi, np.squeeze(self.g_askut_no2), vmin=0, vmax=80, cmap='jet')
         m.drawparallels(np.arange(-80., 81., 45.), labels=[1, 0, 0, 0], fontsize=8)
         m.drawmeridians(np.arange(-180., 181., 45.), labels=[0, 0, 0, 1], fontsize=8)
         m.drawcoastlines()
@@ -386,12 +402,12 @@ class ProcessedData:
         plt.text(2, 65, add2plt, fontsize=8,
                  ha='left', va='center')  # , transform=ax.transAxes)
         plt.subplot(2, 3, 5)
-        plt.plot(self.g_cut_no2, self.g_no2_vmr, 'o', color='black', markersize=6)
-        r = stats.pearsonr(self.g_cut_no2[(~np.isnan(self.g_no2_vmr)) & (~np.isnan(self.g_cut_no2))],
-                           self.g_no2_vmr[(~np.isnan(self.g_no2_vmr)) & (~np.isnan(self.g_cut_no2))])
-        result = rma(self.g_cut_no2[(~np.isnan(self.g_no2_vmr)) & (~np.isnan(self.g_cut_no2))],
-                     self.g_no2_vmr[(~np.isnan(self.g_no2_vmr)) & (~np.isnan(self.g_cut_no2))],
-                     len(self.g_cut_no2[(~np.isnan(self.g_no2_vmr)) & (~np.isnan(self.g_cut_no2))]),
+        plt.plot(self.g_askut_no2, self.g_no2_vmr, 'o', color='black', markersize=6)
+        r = stats.pearsonr(self.g_askut_no2[(~np.isnan(self.g_no2_vmr)) & (~np.isnan(self.g_askut_no2))],
+                           self.g_no2_vmr[(~np.isnan(self.g_no2_vmr)) & (~np.isnan(self.g_askut_no2))])
+        result = rma(self.g_askut_no2[(~np.isnan(self.g_no2_vmr)) & (~np.isnan(self.g_askut_no2))],
+                     self.g_no2_vmr[(~np.isnan(self.g_no2_vmr)) & (~np.isnan(self.g_askut_no2))],
+                     len(self.g_askut_no2[(~np.isnan(self.g_no2_vmr)) & (~np.isnan(self.g_askut_no2))]),
                      1000)
         xvals = np.arange(0, 100, 5)
         yvals = result[1] + xvals * result[0]
@@ -408,12 +424,12 @@ class ProcessedData:
         plt.text(2, 65, add2plt, fontsize=8, \
                  ha='left', va='center')  # , transform=ax.transAxes)
         plt.subplot(2, 3, 6)
-        plt.plot(self.g_cut_no2, self.true_no2, 'o', color='black', markersize=6)
-        r = stats.pearsonr(self.g_cut_no2[(~np.isnan(self.true_no2)) & (~np.isnan(self.g_cut_no2))],
-                           self.true_no2[(~np.isnan(self.true_no2)) & (~np.isnan(self.g_cut_no2))])
-        result = rma(self.g_cut_no2[(~np.isnan(self.true_no2)) & (~np.isnan(self.g_cut_no2))],
-                     self.true_no2[(~np.isnan(self.true_no2)) & (~np.isnan(self.g_cut_no2))],
-                     len(self.g_cut_no2[(~np.isnan(self.true_no2)) & (~np.isnan(self.g_cut_no2))]),
+        plt.plot(self.g_askut_no2, self.true_no2, 'o', color='black', markersize=6)
+        r = stats.pearsonr(self.g_askut_no2[(~np.isnan(self.true_no2)) & (~np.isnan(self.g_askut_no2))],
+                           self.true_no2[(~np.isnan(self.true_no2)) & (~np.isnan(self.g_askut_no2))])
+        result = rma(self.g_askut_no2[(~np.isnan(self.true_no2)) & (~np.isnan(self.g_askut_no2))],
+                     self.true_no2[(~np.isnan(self.true_no2)) & (~np.isnan(self.g_askut_no2))],
+                     len(self.g_askut_no2[(~np.isnan(self.true_no2)) & (~np.isnan(self.g_askut_no2))]),
                      1000)
         xvals = np.arange(0, 100, 5)
         yvals = result[1] + xvals * result[0]
@@ -450,11 +466,16 @@ class ProcessedData:
         csutno2.units = 'pptv'
         csutno2.long_name = 'UT NO2 mixing ratio (180-450 hPa) obtained using cloud-slicing'
         csutno2[:] = self.g_no2_vmr
-        # (2) Cloud-sliced NO2 error:
-        utno2err = ncout.createVariable('utno2err', np.float32, ('lon', 'lat'))
-        utno2err.units = 'pptv'
-        utno2err.long_name = 'Standard error of the NO2 mixing ratios in the UT (180-450 hPa) obtained using cloud-slicing'
-        utno2err[:] = self.g_err
+        # (2a) Double-weighting error:
+        utdblerr = ncout.createVariable('utdblerr', np.float32, ('lon', 'lat'))
+        utdblerr.units = 'pptv'
+        utdblerr.long_name = 'Standard error of the NO2 mixing ratios in the UT (180-450 hPa) obtained using cloud-slicing'
+        utdblerr[:] = self.g_slope_err
+        # (2b) Gaussian-weighting error:
+        utgauserr = ncout.createVariable('utgauserr', np.float32, ('lon', 'lat'))
+        utgauserr.units = 'pptv'
+        utgauserr.long_name = 'Standard error of the NO2 mixing ratios in the UT (180-450 hPa) obtained using cloud-slicing'
+        utgauserr[:] = self.g_gaus_err
         # (3) Number of observations in each gridsquare:
         nobs = ncout.createVariable('nobs', np.float32, ('lon', 'lat'))
         nobs.units = 'unitless'
@@ -474,7 +495,7 @@ class ProcessedData:
         askutno2 = ncout.createVariable('askutno2', np.float32, ('lon', 'lat'))
         askutno2.units = 'pptv'
         askutno2.long_name = 'UT NO2 mixing ratio (180-450 hPa) obtained under all conditions (all-sky)'
-        askutno2[:] = self.g_cut_no2
+        askutno2[:] = self.g_askut_no2
         # (7) Cloud fraction:
         utcldfrc = ncout.createVariable('utcldfrc', np.float32, ('lon', 'lat'))
         utcldfrc.units = 'unitless'
@@ -559,21 +580,18 @@ class GeosChemDay:
         if self.t_pause[y, x] > P_MAX:
             #print("Tropopause less than P_MAX in geoschem pixel x:{}, y:{}".format(x,y))
             return  # continue
+
         # Get Guassian weights that allocated higher weights to points
         # closest to the pressure centre (315 hPa):
         # Equation is:
         #   w = exp(-(p-315)^2/2*135^2 ) where 315 hPa is the centre and
         #         135 hPa is the standard deviation.
         # The "shorthand" formula (np.exp((-(mean_cld_pres - 315) ** 2) / (2 * 135 ** 2))) can be used here too
-        if self.error_weight:
-            self.twgt = np.ones(len(self.askind))
-        else:
-            self.twgt = np.exp((-(tp_mid[self.askind] - 315) ** 2) / (2 * 135 ** 2))
+        #if self.error_weight:
+        #self.twgt = np.ones(len(self.askind))
+        #else:
+        self.twgt = np.exp((-(tp_mid[self.askind] - 315) ** 2) / (2 * 135 ** 2))
 
-        # Find where cloud fraction in UT exceeds 0.7 after calculating
-        # true all-sky NO2:
-        # (Keep for testing effect of thick clouds on cloud-sliced UT NO2):
-        # if (np.sum(t_cld_fr[lind,y,x])<=0.7): continue
         # Get model level of cloud top height closest to lowest
         # pressure-altitude of interest (P_MIN):
         self.lcld = np.argmin(abs(self.t_cld_hgt[y, x] - tp_mid))
@@ -606,7 +624,6 @@ class GeosChemDay:
         self.strat_col = np.sum(self.t_gc_no2[tppind:, y, x]
                                 * 1e-5 * self.t_adn[tppind:, y, x]
                                 * self.t_bx_hgt[tppind:, y, x])
-
 
 def get_file_list(gcdir, REGION, YEARS_TO_PROCESS):
     # Define target grid:
