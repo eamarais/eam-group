@@ -24,6 +24,7 @@ from scipy import stats
 import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
 import argparse
+from sklearn.linear_model import LinearRegression
 
 from constants import AVOGADRO
 from constants import G
@@ -35,8 +36,6 @@ from cloud_slice_ut_no2 import cldslice, CLOUD_SLICE_ERROR_ENUM
 
 # Turn off warnings:
 np.warnings.filterwarnings('ignore')
-
-
 
 
 # Define pressure range:
@@ -107,6 +106,8 @@ class ProcessedData:
         # Initialize:
         self.cloud_slice_count = 0
         self.maxcnt = 0
+        self.grad_retain = 0
+        self.grad_remove = 0
 
         # Define string to represent the layer range:
         self.prange = str(P_MIN) + '-' + str(P_MAX)
@@ -170,6 +171,7 @@ class ProcessedData:
         # Define output data for this day:
         out_shape = (self.xdim, self.ydim)  # This feel gross. A 3-d list of appendable lists.
         self.g_no2 = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
+        self.g_grad = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
         self.g_o3 = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
         self.all_cld_fr = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
         self.strat_no2 = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
@@ -217,6 +219,7 @@ class ProcessedData:
         #    return
 
         self.g_no2[lon][lat].append(no2.no2_2d)  
+        self.g_grad[lon][lat].append(no2.grad)          
         self.strat_no2[lon][lat].append(no2.strat_col)
         self.g_cld_p[lon][lat].append(no2.t_cld_hgt[y, x])
         self.g_o3[lon][lat].append(
@@ -236,6 +239,7 @@ class ProcessedData:
         t_cld = np.asarray(self.g_cld_p[i][j],dtype=np.float)
         t_mr_no2 = np.asarray(self.g_true_no2[i][j],dtype=np.float)
         t_o3 = np.asarray(self.g_o3[i][j],dtype=np.float)
+        t_grad_no2 = np.asarray(self.g_grad[i][j],dtype=np.float)
 
         # Skip if fewer than 10 points:
         if len(t_col_no2) < 10:
@@ -252,7 +256,7 @@ class ProcessedData:
         n_pnts = len(t_cld)
         if n_pnts > self.maxcnt:
             self.maxcnt = n_pnts
-            print(self.maxcnt, flush=True)
+            print('Max no. of points in a cluster: ', self.maxcnt, flush=True)
 
         # Check if number of gridsquares exceeds max possible
         # (indicates error in coarser grid domain):
@@ -263,7 +267,7 @@ class ProcessedData:
         # Use cloud_slice_ut_no2 function to get cloud-sliced UT NO2.
         # Treat data differently depending on whether there are 10-99 points:
         if n_pnts >= 10 and n_pnts <100:
-            self.add_slice(i,j,t_cld,t_col_no2, t_mr_no2, t_fr_c)
+            self.add_slice(i,j,t_cld,t_col_no2, t_mr_no2, t_fr_c, t_grad_no2)
         # Or at least 100 points:
         elif n_pnts >= 100:
             num_slices = 40
@@ -274,11 +278,13 @@ class ProcessedData:
                 subset_t_cld = t_cld[w::stride]
                 subset_t_mr_no2 = t_mr_no2[w::stride]
                 subset_t_fr_c = t_fr_c[w::stride]
-                self.add_slice(i, j, subset_t_cld, subset_t_col_no2, subset_t_mr_no2, subset_t_fr_c)
+                subset_t_grad_no2 = t_grad_no2[w::stride]
+                self.add_slice(i, j, subset_t_cld, subset_t_col_no2, subset_t_mr_no2, subset_t_fr_c, subset_t_grad_no2)
 
-    def add_slice(self, i, j, t_cld, t_col_no2, t_mr_no2, t_fr_c):
+    def add_slice(self, i, j, t_cld, t_col_no2, t_mr_no2, t_fr_c, t_grad_no2):
         """Applies and adds a cloud slice from the given data"""
         utmrno2, utmrno2err, stage_reached, mean_cld_pres = cldslice(t_col_no2, t_cld)
+        
         # Calculate weights:
         err_wgt = 1.0 / (utmrno2err ** 2)
         gaus_wgt = np.exp((-(mean_cld_pres - 315) ** 2) / (2 * 135 ** 2))
@@ -286,14 +292,20 @@ class ProcessedData:
         # Drop out after the reason for data loss is added to loss_count.
         if np.isnan(utmrno2) or np.isnan(utmrno2err):
             # Cloud-slicing led to nan, but due to rma regression rather
-            # than data filtering (there are rare):
+            # than data filtering (these are rare):
             if ( stage_reached==0 ):
                 print("Cloud-sliced NO2 NAN for pixel i:{} j:{}".format(i, j))
                 return
             self.loss_count[CLOUD_SLICE_ERROR_ENUM[stage_reached]] += 1
+            # Track non-uniform NO2 removed:
+            grad_ind=np.where(t_grad_no2 >= 0.33)[0]
+            self.grad_remove += len(grad_ind)
             #print("Cloud-slice exception {} in pixel i:{} j:{}".format(
             #    CLOUD_SLICE_ERROR_ENUM[stage_reached], i, j))
         else:
+            # Track non-uniform NO2 retained:
+            grad_ind=np.where(t_grad_no2 >= 0.33)[0]
+            self.grad_retain += len(grad_ind)
             # Weighted mean for each pass of cldslice:
             weight_mean = np.mean(t_mr_no2 * 1e3) * gaus_wgt 
             self.true_no2[i, j] += weight_mean
@@ -330,6 +342,7 @@ class ProcessedData:
 
     # ----Reporting and saving methods----
     def print_data_report(self):
+        # Output code diagnostics:
         # No. of data points:
         # print('No. of valid data points: ',cloud_slice_count,flush=True)
         print('Max no. of data points in a gridsquare: ', np.amax(self.g_cnt), flush=True)
@@ -343,6 +356,8 @@ class ProcessedData:
         print('(7) Non-uniform stratosphere: ', self.loss_count["non_uni_strat"], flush=True)
         print('(8) Successful retrievals: ', self.cloud_slice_count, flush=True)
         print('(9) Total possible points: ', (sum(self.loss_count.values()) + self.cloud_slice_count), flush=True)
+        print('Non-uniform NO2 retained = ', self.grad_retain)
+        print('Non-uniform NO2 removed = ', self.grad_remove)
 
     def plot_data(self):
         # Plot the data:
@@ -548,6 +563,7 @@ class GeosChemDay:
         self.strat_col = None
         self.gcutno2 = None
         self.gascnt = None
+        self.grad = None
 
         self.level_min = None
         self.level_max = None
@@ -608,6 +624,19 @@ class GeosChemDay:
             # Set to 1 so that no scaling is applied:
             # (might be a more eloquent way to do this)
             self.temp_corr = np.ones(len(self.t_gc_no2[self.level_min:, y, x]))
+
+        # Calculate NO2 gradient:
+        regr = LinearRegression()  
+        # Pressure (hPa)
+        x_vals=tp_mid[self.level_min:self.level_max].reshape(-1,1)
+        # NO2 (ppbv)
+        y_vals=self.t_gc_no2[self.level_min:self.level_max, y, x].reshape(-1,1)
+        # NO2 (pptv)
+        y_vals=y_vals*1e3
+        # Perform regression:
+        regr.fit(x_vals,y_vals)
+        # Define gradient from regression slope (pptv/hPa):
+        self.grad = regr.coef_
 
         # Get partial NO2 column in molec/m2 from cloud top height
         # to highest model level (output up to level 47):
