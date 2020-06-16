@@ -24,6 +24,7 @@ Original code on which this is based: GAMAP package bootstrap.pro
 import sys
 from scipy import stats
 import numpy as np
+import random
 
 def rma(x,y,n,ntrials):
 
@@ -50,35 +51,27 @@ def rma(x,y,n,ntrials):
     # Loop over trials:
     for w in range(ntrials):
 
-        # Random selection of data indices:
-        index=np.random.randint(n,size=n)
-        # Avoid having the same index throughout the randomly selected array
-        # leading to Sx=0 and slope=Inf by redoing the random number selection
-        # if this is the case:
-        if ( (len(np.where(index==index[0])[0]))==(len(index)) ):
-            index=np.random.randint(n,size=n)
-        #if ( w==0 ): print('index: ',index)
-        #if ( w==5 ): print('index: ',index)
-
-        # Define randomly selected x and y data:
-        x_rdm=x[index]
-        y_rdm=y[index]
+        # Randomly sample points with replacement. Resample if all points are the same point.
+        pairs = []
+        while len(set(pairs)) <= 1:
+            pairs = [random.choice(list(zip(x, y))) for _ in range(n)]
+        x_rdm, y_rdm = zip(*pairs)
+        x_rdm = np.asarray(x_rdm)
+        y_rdm = np.asarray(y_rdm)
 
         # Get shuffled x and y means:
         xbar=np.mean(x_rdm)
         ybar=np.mean(y_rdm)
 
         # Get the population standard deviation:
-        Sx=np.sqrt(np.divide(np.sum(np.square(np.subtract(x_rdm,xbar))),\
-                             float(n)))
-        Sy=np.sqrt(np.divide(np.sum(np.square(np.subtract(y_rdm,ybar))),\
-                             float(n)))
+        Sx=np.sqrt((np.sum((x_rdm-xbar)**2) / float(n)))
+        Sy=np.sqrt((np.sum((y_rdm-ybar)**2) / float(n)))
 
         if (Sy==0): continue
 
         # Get slope and intercept:
-        grad=np.multiply(fac, np.divide(Sy,Sx))
-        cept=np.subtract(ybar, np.multiply(grad,xbar))
+        grad= fac * (Sy/Sx)
+        cept= ybar - (grad * xbar)
 
         grad_arr[cnt]=grad
         cept_arr[cnt]=cept
