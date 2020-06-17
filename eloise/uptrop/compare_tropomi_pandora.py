@@ -74,6 +74,15 @@ if ( strdiffdeg=='01' ):
 if ( strdiffdeg=='005' ):
     diffdeg=0.05
 
+# Define time range (in minutes) to sample Pandora around TROPOMI overpass:
+strdiffmin='30'    #options are: 60, 30, 15; default is 30 ("30")
+if ( strdiffmin=='30' ):
+    diffhh=30/60
+if ( strdiffmin=='15' ):
+    diffhh=15/60
+if ( strdiffmin=='60' ):
+    diffhh=60/60
+
 # Get Pandora site number:
 if ( SSite=='altzomoni' ):
     SiteNum='65'
@@ -528,8 +537,8 @@ for m, StrMon in enumerate(StrMon):
                 panind=np.argwhere((panyy==Year[m])&(panmon==Month[m])\
                                    &(pandd==(d+1))&(panno2>-8e99)\
                                    &(panqaflag<=11)\
-                                   &(panqaflag!=2)&(pan_hhmm>=hhsite[n]-0.5)\
-                                   &(pan_hhmm<=hhsite[n]+0.5)) 
+                                   &(panqaflag!=2)&(pan_hhmm>=hhsite[n]-diffhh)\
+                                   &(pan_hhmm<=hhsite[n]+diffhh)) 
 
                 # Proceed if there are Pandora data points:
                 if len(panind)==0: continue
@@ -627,8 +636,7 @@ plt.text(0.1, 0.84,add2plt, fontsize=10,\
 plt.show()
 
 # Save the data to NetCDF:
-ncout=Dataset('./Data/tropomi-pandora-comparison-'+SSite+'-'+cldprd+\
-              '-'+no2col+'-'+strdiffdeg+'deg-bias-corr-v1.nc',mode='w',format='NETCDF4') 
+ncout=Dataset('./Data/tropomi-pandora-comparison-'+SSite+'-'+cldprd+'-'+no2col+'-'+strdiffdeg+'deg-'+strdiffmin+'min-bias-corr-v2.nc',mode='w',format='NETCDF4')
 
 # Set array sizes:
 TDim=daycnt
