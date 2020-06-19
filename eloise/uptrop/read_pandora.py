@@ -4,150 +4,117 @@
 import glob
 import sys
 import os
+import re
 
 import numpy as np
 import pandas as pd
 
+
+def get_column_description_index(filename):
+    """
+    Returns a dictionary of {description:column index} for a pandora file
+    """
+    # See https://regex101.com/r/gAjFtL/1 for an in-depth explanation of this regex
+    # Returns two groups; group 1 is the column number, group 2 is the description.
+    searcher = re.compile(r"Column ([0-9]+): (.*)")
+    with open(filename, 'r', encoding="Latin-1") as pandora_file:
+        pandora_text = pandora_file.read()
+    groups = searcher.findall(pandora_text)
+    column_dict = {column_description: int(column_index) for column_index, column_description in groups}
+    return column_dict
+
+
+def get_start_of_data(filepath):
+    """Gets the line number of the start of the data itself"""
+    with open(filepath, encoding="Latin-1") as pandora_file:
+        # Line numbers are 1-indexed....
+        line_number = 1
+        # Look for the dotted line twice
+        while not pandora_file.readline().startswith("-------"):
+            line_number += 1
+        while not pandora_file.readline().startswith("-------"):
+            line_number += 1
+    # Increment one more time to get the index of the first line of actual data
+    line_number += 1
+    return line_number
+
+
+def get_column_from_description(column_dict, description):
+    """Returns the column index matching a substring of description"""
+    index = [value for key, value in column_dict.items() if description in key][0]
+    if index is None:
+        return
+    else:
+        return index
+
+
+def get_lat_lon(filename):
+    """Returns a dictionary of lat, lon extracted from the pandora file """
+    lat = None
+    lon = None
+    with open(filename, 'r', encoding="Latin-1") as pandora_file:
+        while (lat == None or lon == None):
+            current_line = pandora_file.readline()
+            if current_line.startswith("Location latitude [deg]:"):
+                lat = float(current_line.split(":")[1])
+            elif current_line.startswith("Location longitude [deg]:"):
+                lon = float(current_line.split(":")[1])
+            elif current_line.startswith("--------"):
+                # TODO: Maybe change for exception if this might happen
+                print("Lat/lon not found in file {}".format(filename))
+                return
+    return {"lat": lat, "lon": lon}
+
+
 def readpandora(filename):
 
     """
+    Reads a Pandora file to a pandas dataframe
     """
-    
-    # Initialize:
-    nvals=250000
-    yyyy=np.zeros(nvals)
-    mon=np.zeros(nvals)
-    day=np.zeros(nvals)
-    utc_hh=np.zeros(nvals)
-    mins=np.zeros(nvals)
-    jday=np.zeros(nvals)
-    sza=np.zeros(nvals)
-    no2=np.zeros(nvals)
-    no2err=np.zeros(nvals)
-    qaflag=np.zeros(nvals)
-    fitflag=np.zeros(nvals)
 
-    cnt=0    # line counts
+    loc = get_lat_lon(filename)
 
-    #f = open(filename, "rb")
+    column_dict = get_column_description_index(filename)
+    dateind = get_column_from_description(column_dict, 'UT date and time for center of m')
+    jdayind = get_column_from_description(column_dict, 'Fractional days since 1-Jan-2000')
+    # SZA:
+    szaind = get_column_from_description(column_dict,  'Solar zenith angle for center of')
+    # NO2 column:
+    no2ind = get_column_from_description(column_dict,  'Nitrogen dioxide ')
+    # NO2 column error:
+    errind = get_column_from_description(column_dict,  'Uncertainty of nitrogen ')
+    # Data quality flag:
+    qaflagind = get_column_from_description(column_dict,  'L2 data quality flag for nitrog')
 
-    f=open(filename, 'r', encoding='utf8', errors='ignore')
-    #sys.exit()
-    Lines=f.readlines()
+    # Level 2 fit flag:
+    # There are two entries (min and max) of this in the tropospheric
+    # column file. The minimum is being used here.
+    fitflagind = get_column_from_description(column_dict,'Level 2 Fit data quality flag')
 
-    #print(Lines[14:16])
+    data_start = get_start_of_data(filename)
 
-    # Get site latitude:
-    txt=Lines[14]
-    splttxt=txt.split()
-    lat=float(splttxt[3])
+    names = ["ut_date", "jday", "sza", "no2", "no2err", "qaflag", "fitflag"]
+    columns = [dateind, jdayind,szaind,no2ind,errind, qaflagind, fitflagind]
+    columns = [column -1 for column in columns]  # Pandora columns are 1-indexed, Pandas are 0
 
-    # Get site longitude:
-    txt=Lines[15]
-    splttxt=txt.split()
-    lon=float(splttxt[3])
+    df = pd.read_csv(filename,
+                     sep=" ",
+                     skiprows=data_start,
+                     usecols=columns,
+                     names=names,
+                     parse_dates=['ut_date']
+                     )
 
-    print('Pandora lon and lat: ',lon,lat)
+    date_df = pd.DataFrame({
+        "year": df.ut_date.dt.year,
+        "month": df.ut_date.dt.month,
+        "day": df.ut_date.dt.day,
+        "hour_utc": df.ut_date.dt.hour,
+        "minute": df.ut_date.dt.minute
+    })
 
-    # Initialize:
-    First=0
-
-    # Get data:
-    # loop over lines:
-    for w, Lines in enumerate(Lines):
-
-        # Rename line and decode:
-        txt=Lines
-
-        # Find relevant data. This approach seems convoluted, but it's
-        # to account for different data entry locations and descriptions in
-        # the total and tropospheric column data files.
-        # Get entries for relevant data: # Julian Day:
-        if (txt[10:42]=='UT date and time for center of m' ):
-            dateind=int(txt[6:8])-1
-        # Julian Day:
-        if (txt[10:42]=='Fractional days since 1-Jan-2000' ):
-            jdayind=int(txt[6:8])-1
-        # SZA:
-        if (txt[10:42]=='Solar zenith angle for center of' ):
-            szaind=int(txt[6:8])-1
-        # NO2 column:
-        # (a) Total:
-        if (txt[10:42]=='Nitrogen dioxide total vertical ' ):
-            no2ind=int(txt[6:8])-1
-        # (b) Tropospheric:
-        if (txt[10:42]==' Nitrogen dioxide tropospheric v' ):
-            no2ind=int(txt[7:9])-1
-        # NO2 column error:
-        # (a) Total:
-        if (txt[10:51]=='Uncertainty of nitrogen dioxide total ver' ):
-            errind=int(txt[6:8])-1
-        # (b) Tropospheric:
-        if (txt[10:51]==' Uncertainty of nitrogen dioxide troposph' ): 
-            errind=int(txt[7:9])-1
-        # Data quality flag:
-        if (txt[10:42]==' L2 data quality flag for nitrog' ):
-            qaflagind=int(txt[7:9])-1
-        # Level 2 fit flag:
-        # There are two entries (min and max) of this in the tropospheric
-        # column file. The minimum is being used here.
-        if (txt[10:40]==' Level 2 Fit data quality flag' ):
-            fitflagind=int(txt[7:9])-1     
-
-        # Find divide between headers and data:
-        if (txt[:10]=='----------'): 
-            First=First+1
-            continue
-
-        # Skip header lines:
-        if First<2: continue
-
-        # Split line:
-        splttxt=txt.split()
-        # Extract relevant data and recast data type:
-        tdate,tjday,tsza,tno2,tno2err,tqaflag,tfitflag=str(splttxt[dateind]),\
-                     float(splttxt[jdayind]),float(splttxt[szaind]),\
-                     float(splttxt[no2ind]),float(splttxt[errind]),\
-                     float(splttxt[qaflagind]),float(splttxt[fitflagind])
-
-        # Add to final data array:
-        jday[cnt]=float(tjday)
-        sza[cnt]=float(tsza)
-        no2[cnt]=float(tno2)
-        no2err[cnt]=float(tno2err)
-        qaflag[cnt]=float(tqaflag)
-        fitflag[cnt]=float(tfitflag)
-
-        # Split date into YYYY MM DD and UTC HH MIN and add to final array:
-        yyyy[cnt]=float(tdate[0:4])
-        mon[cnt]=float(tdate[4:6])
-        day[cnt]=float(tdate[6:8])
-        utc_hh[cnt]=float(tdate[9:11])
-        mins[cnt]=float(tdate[11:13])
-
-        # Increment:
-        cnt=cnt+1
-    
-    # Trim the arrays to remove trailing zeros:
-    mon=mon[np.nonzero(yyyy)]
-    day=day[np.nonzero(yyyy)]
-    utc_hh=utc_hh[np.nonzero(yyyy)]
-    mins=mins[np.nonzero(yyyy)]
-    jday=jday[np.nonzero(yyyy)]
-    sza=sza[np.nonzero(yyyy)]
-    no2=no2[np.nonzero(yyyy)]
-    no2err=no2err[np.nonzero(yyyy)]
-    qaflag=qaflag[np.nonzero(yyyy)]
-    fitflag=fitflag[np.nonzero(yyyy)]
-    yyyy=yyyy[np.nonzero(yyyy)]
-
-    # Convert arrays to data frames:
-    df=pd.DataFrame({'year':yyyy, 'month':mon, 'day':day, 'hour_utc':utc_hh,\
-                     'minute':mins, 'jday':jday, 'sza':sza, 'no2':no2,\
-                     'no2err':no2err, 'qaflag':qaflag, 'fitflag':fitflag})
-
-    # Convert latitude and longitude to dataframe:
-    loc={'lat':lat, 'lon':lon} 
+    df = pd.concat((date_df, df), axis=1)
+    df = df.drop("ut_date", axis=1)
 
     # Output:
     return (loc, df)
