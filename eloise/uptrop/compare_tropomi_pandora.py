@@ -40,6 +40,7 @@ pan_cnt=np.zeros(nvals)
 s5p_cnt=np.zeros(nvals)
 daycnt=0
 
+# TODO: Change this to datetime. I say this in every single script, but never get around to it....
 # Define strings of months:
 StrMon=['06','07','08','09','10','11','12','01','02','03','04','05']
 NMon=len(StrMon)
@@ -397,7 +398,8 @@ for m, StrMon in enumerate(StrMon):
         
                 # Read data:
                 fh=Dataset(cldfile[f],mode='r')
-                
+
+                # TODO: Watch out for those string indexes. Change when format is understood.
                 # Check that date is the same as the no2 file:
                 strdate=cldfile[f]
                 strdate=strdate[-66:-51]
@@ -503,7 +505,8 @@ for m, StrMon in enumerate(StrMon):
 
             # Skip if no data:
             if (len(tomiind)==0): continue
-                
+
+            # TODO: Here's the total-ing object
             # Add TROPOMI total NO2 to final array of daily means:
             s5p_ml[daycnt]=s5p_ml[daycnt]+\
                             sum(np.divide(no2val[tomiind],\
