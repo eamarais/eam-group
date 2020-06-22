@@ -26,19 +26,7 @@ from constants import DU_TO_MOLECULES_PER_CM2 as du2moleccm2
 # Turn off warnings:
 np.warnings.filterwarnings('ignore')
 
-# Define final array of coincident data for each day at Pandora site:
-# JR: This can be changed to produce an appendable array, as the size
-#     will vary depending on which site is being processed.
-nvals = 366
-pan_ml = np.zeros(nvals)
-s5p_ml = np.zeros(nvals)
-s5p_ch = np.zeros(nvals)
-s5p_cf = np.zeros(nvals)
-pan_wgt = np.zeros(nvals)
-s5p_wgt = np.zeros(nvals)
-pan_cnt = np.zeros(nvals)
-s5p_cnt = np.zeros(nvals)
-daycnt = 0
+
 
 # TODO: Change this to datetime. I say this in every single script, but never get around to it....
 # Define strings of months:
@@ -51,19 +39,201 @@ DayInMon = [30, 31, 31, 30, 31, 30, 31, 31, 29, 31, 30, 31]
 
 # Arguments to input:
 # Apply bias correction?
-apply_bias_correction = False
+APPLY_BIAS_CORRECTION = False
 
 # Define column comparing to:
-no2col = 'Tot'  # Either Tot or Trop; default it Trop
+NO2_COL = 'Tot'  # Either Tot or Trop; default it Trop
 
 # Define cloud product to be used:
-cldprd = 'fresco'  # options are fresco, dlr-ocra; default is fresco
+CLOUD_PRODUCT = 'fresco'  # options are fresco, dlr-ocra; default is fresco
 
 # Define Pandora measurement site to compare to TROPOMI:
-SSite = 'mauna_loa'  # options are izana,mauna_loa,altzomoni; default is izana
+PANDORA_SITE = 'mauna_loa'  # options are izana,mauna_loa,altzomoni; default is izana
 
 # Define degree range to sample TROPOMI around Pandora site:
-strdiffdeg = '02'  # options are: 0.3,0.2,0.1,0.05; default is 0.2 ("02")
+STR_DIFF_DEG = '02'  # options are: 0.3,0.2,0.1,0.05; default is 0.2 ("02")
+
+
+class DataCollector:
+    def __init__(self):
+        # Define final array of coincident data for each day at Pandora site:
+        # JR: This can be changed to produce an appendable array, as the size
+        #     will vary depending on which site is being processed.
+        nvals = 366
+        self.pan_ml = np.zeros(nvals)
+        self.s5p_ml = np.zeros(nvals)
+        self.s5p_ch = np.zeros(nvals)
+        self.s5p_cf = np.zeros(nvals)
+        self.pan_wgt = np.zeros(nvals)
+        self.s5p_wgt = np.zeros(nvals)
+        self.pan_cnt = np.zeros(nvals)
+        self.s5p_cnt = np.zeros(nvals)
+        self.daycnt = 0
+
+    def add_trop_data_to_day(self, daycnt, trop_data, pandora_data):
+        # Find coincident data for this file:
+        difflon = abs(np.subtract(trop_data.lons, pandora_data.panlon))
+        difflat = abs(np.subtract(trop_data.lats, pandora_data.panlat))
+        # Use distanc (degrees) to find coincident data.
+        # For Pandora 'Trop' data, only consider TROPOMI scenes where the
+        # total column exceeds the stratospheric column:
+        # TODO Store NO2_COL in trop_data in
+        if (NO2_COL == 'Tot'):
+            tomiind = np.argwhere((difflon <= DIFF_DEG) & (difflat <= DIFF_DEG)
+                                  & (trop_data.no2val != np.nan) & (trop_data.omi_dd == (d + 1)))
+        if (NO2_COL == 'Trop'):
+            tomiind = np.argwhere((difflon <= DIFF_DEG) & (difflat <= DIFF_DEG) \
+                                  & (trop_data.no2val != np.nan) & (trop_data.omi_dd == (d + 1)) \
+                                  & (trop_data.stratcol < trop_data.totcol))
+        # Skip if no data:
+        if (len(tomiind) == 0):
+            raise NoTropDataException
+
+        # Add TROPOMI total NO2 to final array of daily means:
+        self.s5p_ml[daycnt] += sum(np.divide(trop_data.no2val[tomiind], np.square(trop_data.no2err[tomiind])))
+        self.s5p_wgt[daycnt] += sum(np.divide(1.0, np.square(trop_data.no2err[tomiind])))
+        self.s5p_ch[daycnt] += sum(trop_data.cldpres[tomiind] * 1e-2)
+        self.s5p_cf[daycnt] += sum(trop_data.cldfrac[tomiind])
+        self.s5p_cnt[daycnt] += len(tomiind)
+
+    def add_pandora_data_to_day(self, daycnt, pandora_data):
+        # Find relevant Pandora data for this year, month and day:
+        # Pandora flag threshold selected is from https://www.atmos-meas-tech.net/13/205/2020/amt-13-205-2020.pdf
+        panind = np.argwhere((pandora_data.panyy == Year[m]) & (pandora_data.panmon == Month[m]) \
+                             & (pandora_data.pandd == (d + 1)) & (pandora_data.panno2 > -8e99) \
+                             & (pandora_data.panqaflag <= 11) \
+                             & (pandora_data.panqaflag != 2) & (pandora_data.pan_hhmm >= hhsite[n] - 0.5) \
+                             & (pandora_data.pan_hhmm <= hhsite[n] + 0.5))
+        # Proceed if there are Pandora data points:
+        if len(panind) == 0:
+            raise PanIndException
+        # Create arrays of relevant data and convert from DU to molec/cm2:
+        tno2 = np.multiply(pandora_data.panno2[panind], du2moleccm2)
+        terr = np.multiply(pandora_data.panno2err[panind], du2moleccm2)
+        tqa = pandora_data.panqaflag[panind]
+        # Add Pandora total NO2 to final array:
+        for w in range(len(panind)):
+            self.pan_ml[daycnt] += np.divide(tno2[w], np.square(terr[w]))
+            self.pan_wgt[daycnt] += np.divide(1.0, np.square(terr[w]))
+            self.pan_cnt[daycnt] += len(panind)
+
+
+    def daily_weighted_means(self):
+        # Get daily error-weighted means:
+        daycnt = self.daycnt
+        self.pan_ml[0:daycnt] = self.pan_ml[0:daycnt] / self.pan_wgt[0:daycnt]
+        self.pan_wgt[0:daycnt] = np.divide(1, np.sqrt(self.pan_wgt[0:daycnt]))
+        self.s5p_ml[0:daycnt] = self.s5p_ml[0:daycnt] / self.s5p_wgt[0:daycnt]
+        self.s5p_ch[0:daycnt] = self.s5p_ch[0:daycnt] / self.s5p_cnt[0:daycnt]
+        self.s5p_cf[0:daycnt] = self.s5p_cf[0:daycnt] / self.s5p_cnt[0:daycnt]
+        self.s5p_wgt[0:daycnt] = np.divide(1, np.sqrt(self.s5p_wgt[0:daycnt]))
+        print('Min & max relative errors (Pandora): ', np.nanmin(np.divide(self.pan_wgt, self.pan_ml)),
+              np.nanmax(np.divide(self.pan_wgt, self.pan_ml)))
+        print('Min & max relative errors (TROPOMI): ', np.nanmin(np.divide(self.s5p_wgt, self.s5p_ml)),
+              np.nanmax(np.divide(self.s5p_wgt, self.s5p_ml)))
+
+    def plot_data(self):
+        # Plot time series:
+        plt.figure(1, figsize=(10, 5))
+        x = np.arange(0, self.daycnt, 1)
+        days = x
+        plt.errorbar(x, self.pan_ml[0:daycnt] * 1e-14, yerr=self.pan_wgt[0:daycnt] * 1e-14,
+                     fmt='.k', color='black', capsize=5, capthick=2,
+                     ecolor='black', markersize=12, label='Pandora')
+        plt.errorbar(x, self.s5p_ml[0:daycnt] * 1e-14, yerr=self.s5p_wgt[0:daycnt] * 1e-14,
+                     fmt='.k', color='blue', capsize=5, capthick=2,
+                     ecolor='blue', markeredgecolor='blue',
+                     markerfacecolor='blue', markersize=12, label='TROPOMI')
+        plt.ylim(Y_MIN, Y_MAX)
+        plt.xlabel('Days since 1 June 2019')
+        plt.ylabel('$NO_2$ total VCD [$10^{14}$ molecules $cm^2$]')
+        leg = plt.legend(loc='lower left', fontsize='large')
+        leg.get_frame().set_linewidth(0.0)
+        # plt.savefig('./Images/tropomi-'+PANDORA_SITE+'-pandora-no2-timeseries-v1-jun2019-apr2020.ps', \
+        #            format='ps',transparent=True,bbox_inches='tight',dpi=100)
+        # Plot scatterplot:
+        tx = self.pan_ml[0:daycnt]
+        ty = self.s5p_ml[0:daycnt]
+        nas = np.logical_or(np.isnan(tx), np.isnan(ty))
+        print('No. of coincident points = ', len(tx[~nas]))
+        r = stats.pearsonr(tx[~nas], ty[~nas])
+        print('Correlation: ', r[0])
+        # Get mean difference:
+        Diff = np.subtract(np.mean(ty[~nas]), np.mean(tx[~nas]))
+        print('TROPOMI minus Pandora (10^14) = ', Diff * 1e-14)
+        NMB = 100. * np.divide(Diff, np.mean(tx[~nas]))
+        print('TROPOMI NMB (%) = ', NMB)
+        # RMA regression:
+        result = rma(tx[~nas] * 1e-14, ty[~nas] * 1e-14, len(tx[~nas]), 10000)
+        print('Intercept (10^14): ', result[1])
+        print('Slope: ', result[0])
+        fig = plt.figure(2)
+        plt.figure(2, figsize=(6, 5))
+        ax = fig.add_subplot(1, 1, 1)
+        plt.plot(1e-14 * tx, 1e-14 * ty, 'o', color='black')
+        plt.xlim(0, 60)
+        plt.ylim(0, 60)
+        plt.xlabel('Pandora $NO_2$ total VCD [$10^{14}$ molecules $cm^2$]')
+        plt.ylabel('TROPOMI $NO_2$ total VCD [$10^{14}$ molecules $cm^2$]')
+        xvals = np.arange(0, 60, 2)
+        yvals = result[1] + xvals * result[0]
+        plt.plot(xvals, yvals, '-')
+        add2plt = ("y = {a:.3f}x + {b:.3f}".
+                   format(a=result[0], b=result[1]))
+        plt.text(0.1, 0.9, add2plt, fontsize=10,
+                 ha='left', va='center', transform=ax.transAxes)
+        add2plt = ("r = {a:.3f}".format(a=r[0]))
+        plt.text(0.1, 0.84, add2plt, fontsize=10,
+                 ha='left', va='center', transform=ax.transAxes)
+        # plt.savefig('./Images/tropomi-'+PANDORA_SITE+'-pandora-no2-scatterplot-v1-jun2019-apr2020.ps', \
+        #            format='ps',transparent=True,bbox_inches='tight',dpi=100)
+        plt.show()
+
+    def write_to_netcdf(self, file):
+        # Save the data to NetCDF:
+        ncout = Dataset('./Data/tropomi-pandora-comparison-' + PANDORA_SITE + '-' + CLOUD_PRODUCT + \
+                        '-' + NO2_COL + '-' + STR_DIFF_DEG + 'deg-bias-corr-v1.nc', mode='w', format='NETCDF4')
+        # Set array sizes:
+        TDim = daycnt
+        ncout.createDimension('time', TDim)
+        # create time axis
+        time = ncout.createVariable('time', np.float32, ('time',))
+        time.units = 'days since 2019-06-01'
+        time.long_name = 'time in days since 2019-06-01'
+        time[:] = np.arange(0, self.daycnt, 1)
+        panno2 = ncout.createVariable('panno2', np.float32, ('time',))
+        panno2.units = 'molecules/cm2'
+        panno2.long_name = 'Pandora error-weighted daily mean total column NO2 coincident with TROPOMI overpass'
+        panno2[:] = self.pan_ml[0:daycnt]
+        panerr = ncout.createVariable('panerr', np.float32, ('time',))
+        panerr.units = 'molecules/cm2'
+        panerr.long_name = 'Pandora weighted error of daily mean total columns of NO2 coincident with TROPOMI overpass'
+        panerr[:] = self.pan_wgt[0:daycnt]
+        pancnt = ncout.createVariable('pancnt', np.float32, ('time',))
+        pancnt.units = 'unitless'
+        pancnt.long_name = 'Number of Pandora observations used to obtain weighted mean'
+        pancnt[:] = self.pan_cnt[0:daycnt]
+        satno2 = ncout.createVariable('satno2', np.float32, ('time',))
+        satno2.units = 'molecules/cm2'
+        satno2.long_name = 'S5P/TROPOMI NO2 OFFL error-weighted daily mean total column NO2 coincident with Pandora'
+        satno2[:] = self.s5p_ml[0:daycnt]
+        satcldh = ncout.createVariable('satcldh', np.float32, ('time',))
+        satcldh.units = 'hPa'
+        satcldh.long_name = 'S5P/TROPOMI mean cloud top pressure at Pandora site'
+        satcldh[:] = self.s5p_ch[0:daycnt]
+        satcldf = ncout.createVariable('satcldf', np.float32, ('time',))
+        satcldf.units = 'hPa'
+        satcldf.long_name = 'S5P/TROPOMI mean cloud fraction at Pandora site'
+        satcldf[:] = self.s5p_cf[0:daycnt]
+        saterr = ncout.createVariable('saterr', np.float32, ('time',))
+        saterr.units = 'molecules/cm2'
+        saterr.long_name = 'S5P/TROPOMI NO2 OFFL weighted error of daily mean total columns of NO2 coincident with the Pandora site'
+        saterr[:] = self.s5p_wgt[0:daycnt]
+        satcnt = ncout.createVariable('satcnt', np.float32, ('time',))
+        satcnt.units = 'unitless'
+        satcnt.long_name = 'Number of S5P/TROPOMI observations used to obtain weighted mean'
+        satcnt[:] = self.s5p_cnt[0:daycnt]
+        ncout.close()
 
 
 class TropomiData:
@@ -168,7 +338,7 @@ class TropomiData:
 
     def preprocess(self):
         # Calculate the geometric AMF:
-        self.tamf_geo = np.add((np.reciprocal(np.cos(np.deg2rad(self.sza)))), \
+        self.tamf_geo = np.add((np.reciprocal(np.cos(np.deg2rad(self.sza)))),
                           (np.reciprocal(np.cos(np.deg2rad(self.vza)))))
         # Calculate the total column with a geometric AMF:
         # Step 1: calculate stratospheric SCD (not in data product):
@@ -176,8 +346,9 @@ class TropomiData:
         # Step 2: calculate tropospheric NO2 SCD:
         self.ttropscd = np.subtract(self.tscdno2, self.tscdstrat)
         # Step 3: calculate tropospheric NO2 VCD:
-        self.tgeotropvcd = np.divide(self.ttropscd, self.amf_geo)
-        if (apply_bias_correction):
+        # TODO: Check that this should be tamf_geo.
+        self.tgeotropvcd = np.divide(self.ttropscd, self.tamf_geo)
+        if (APPLY_BIAS_CORRECTION):
             # Correct for bias in the tropospheric column based on
             # assessment of TROPOMI with Pandora
             self.tgeotropvcd = np.divide(self.tgeotropvcd, 2.0)
@@ -198,7 +369,7 @@ class TropomiData:
 
     def apply_cloud_filter(self, no2col, cloud_product):
 
-        # Select which NO2 data to use based on no2col selection:
+        # Select which NO2 data to use based on NO2_COL selection:
         if (no2col == 'Tot'):
             tno2val = self.tgeototvcd
             tno2err = self.ttotvcd_geo_err
@@ -258,10 +429,8 @@ class CloudData:
         strdate = filepath[-66:-51]
         # TODO: Move check elsewhere
         if strdate != tomi_files_on_day[-66:-51]:
-            print('NO2 file, Cloud file: ' + strdate+ ", " + \
-                  strdate, flush=True)
-            print('EXITING: Files are not for the same date!', \
-                  flush=True)
+            print('NO2 file, Cloud file: ' + strdate + ", " + strdate, flush=True)
+            print('EXITING: Files are not for the same date!', flush=True)
             sys.exit()
         # Get cloud fraction and cloud top pressure:
         gcldfrac = fh.groups['PRODUCT'].variables['cloud_fraction'][:]
@@ -327,183 +496,48 @@ class CloudData:
         fh.close()
 
 
-def plot_data():
-    global days
-    # Plot time series:
-    plt.figure(1, figsize=(10, 5))
-    x = np.arange(0, daycnt, 1)
-    days = x
-    plt.errorbar(x, pan_ml[0:daycnt] * 1e-14, yerr=pan_wgt[0:daycnt] * 1e-14, \
-                 fmt='.k', color='black', capsize=5, capthick=2, \
-                 ecolor='black', markersize=12, label='Pandora')
-    plt.errorbar(x, s5p_ml[0:daycnt] * 1e-14, yerr=s5p_wgt[0:daycnt] * 1e-14, \
-                 fmt='.k', color='blue', capsize=5, capthick=2, \
-                 ecolor='blue', markeredgecolor='blue', \
-                 markerfacecolor='blue', markersize=12, label='TROPOMI')
-    plt.ylim(ymin, ymax)
-    plt.xlabel('Days since 1 June 2019')
-    plt.ylabel('$NO_2$ total VCD [$10^{14}$ molecules $cm^2$]')
-    leg = plt.legend(loc='lower left', fontsize='large')
-    leg.get_frame().set_linewidth(0.0)
-    # plt.savefig('./Images/tropomi-'+SSite+'-pandora-no2-timeseries-v1-jun2019-apr2020.ps', \
-    #            format='ps',transparent=True,bbox_inches='tight',dpi=100)
-    # Plot scatterplot:
-    tx = pan_ml[0:daycnt]
-    ty = s5p_ml[0:daycnt]
-    nas = np.logical_or(np.isnan(tx), np.isnan(ty))
-    print('No. of coincident points = ', len(tx[~nas]))
-    r = stats.pearsonr(tx[~nas], ty[~nas])
-    print('Correlation: ', r[0])
-    # Get mean difference:
-    Diff = np.subtract(np.mean(ty[~nas]), np.mean(tx[~nas]))
-    print('TROPOMI minus Pandora (10^14) = ', Diff * 1e-14)
-    NMB = 100. * np.divide(Diff, np.mean(tx[~nas]))
-    print('TROPOMI NMB (%) = ', NMB)
-    # RMA regression:
-    result = rma(tx[~nas] * 1e-14, ty[~nas] * 1e-14, len(tx[~nas]), 10000)
-    print('Intercept (10^14): ', result[1])
-    print('Slope: ', result[0])
-    fig = plt.figure(2)
-    plt.figure(2, figsize=(6, 5))
-    ax = fig.add_subplot(1, 1, 1)
-    plt.plot(1e-14 * tx, 1e-14 * ty, 'o', color='black')
-    plt.xlim(0, 60)
-    plt.ylim(0, 60)
-    plt.xlabel('Pandora $NO_2$ total VCD [$10^{14}$ molecules $cm^2$]')
-    plt.ylabel('TROPOMI $NO_2$ total VCD [$10^{14}$ molecules $cm^2$]')
-    xvals = np.arange(0, 60, 2)
-    yvals = result[1] + xvals * result[0]
-    plt.plot(xvals, yvals, '-')
-    add2plt = ("y = {a:.3f}x + {b:.3f}". \
-               format(a=result[0], b=result[1]))
-    plt.text(0.1, 0.9, add2plt, fontsize=10, \
-             ha='left', va='center', transform=ax.transAxes)
-    add2plt = ("r = {a:.3f}".format(a=r[0]))
-    plt.text(0.1, 0.84, add2plt, fontsize=10, \
-             ha='left', va='center', transform=ax.transAxes)
-    # plt.savefig('./Images/tropomi-'+SSite+'-pandora-no2-scatterplot-v1-jun2019-apr2020.ps', \
-    #            format='ps',transparent=True,bbox_inches='tight',dpi=100)
-    plt.show()
-
-
-def write_to_netcdf():
-    global time
-    # Save the data to NetCDF:
-    ncout = Dataset('./Data/tropomi-pandora-comparison-' + SSite + '-' + cldprd + \
-                    '-' + no2col + '-' + strdiffdeg + 'deg-bias-corr-v1.nc', mode='w', format='NETCDF4')
-    # Set array sizes:
-    TDim = daycnt
-    ncout.createDimension('time', TDim)
-    # create time axis
-    time = ncout.createVariable('time', np.float32, ('time',))
-    time.units = 'days since 2019-06-01'
-    time.long_name = 'time in days since 2019-06-01'
-    time[:] = days
-    panno2 = ncout.createVariable('panno2', np.float32, ('time',))
-    panno2.units = 'molecules/cm2'
-    panno2.long_name = 'Pandora error-weighted daily mean total column NO2 coincident with TROPOMI overpass'
-    panno2[:] = pan_ml[0:daycnt]
-    panerr = ncout.createVariable('panerr', np.float32, ('time',))
-    panerr.units = 'molecules/cm2'
-    panerr.long_name = 'Pandora weighted error of daily mean total columns of NO2 coincident with TROPOMI overpass'
-    panerr[:] = pan_wgt[0:daycnt]
-    pancnt = ncout.createVariable('pancnt', np.float32, ('time',))
-    pancnt.units = 'unitless'
-    pancnt.long_name = 'Number of Pandora observations used to obtain weighted mean'
-    pancnt[:] = pan_cnt[0:daycnt]
-    satno2 = ncout.createVariable('satno2', np.float32, ('time',))
-    satno2.units = 'molecules/cm2'
-    satno2.long_name = 'S5P/TROPOMI NO2 OFFL error-weighted daily mean total column NO2 coincident with Pandora'
-    satno2[:] = s5p_ml[0:daycnt]
-    satcldh = ncout.createVariable('satcldh', np.float32, ('time',))
-    satcldh.units = 'hPa'
-    satcldh.long_name = 'S5P/TROPOMI mean cloud top pressure at Pandora site'
-    satcldh[:] = s5p_ch[0:daycnt]
-    satcldf = ncout.createVariable('satcldf', np.float32, ('time',))
-    satcldf.units = 'hPa'
-    satcldf.long_name = 'S5P/TROPOMI mean cloud fraction at Pandora site'
-    satcldf[:] = s5p_cf[0:daycnt]
-    saterr = ncout.createVariable('saterr', np.float32, ('time',))
-    saterr.units = 'molecules/cm2'
-    saterr.long_name = 'S5P/TROPOMI NO2 OFFL weighted error of daily mean total columns of NO2 coincident with the Pandora site'
-    saterr[:] = s5p_wgt[0:daycnt]
-    satcnt = ncout.createVariable('satcnt', np.float32, ('time',))
-    satcnt.units = 'unitless'
-    satcnt.long_name = 'Number of S5P/TROPOMI observations used to obtain weighted mean'
-    satcnt[:] = s5p_cnt[0:daycnt]
-    ncout.close()
-
-
-def daily_weighted_means():
-    # Get daily error-weighted means:
-    pan_ml[0:daycnt] = pan_ml[0:daycnt] / pan_wgt[0:daycnt]
-    pan_wgt[0:daycnt] = np.divide(1, np.sqrt(pan_wgt[0:daycnt]))
-    s5p_ml[0:daycnt] = s5p_ml[0:daycnt] / s5p_wgt[0:daycnt]
-    s5p_ch[0:daycnt] = s5p_ch[0:daycnt] / s5p_cnt[0:daycnt]
-    s5p_cf[0:daycnt] = s5p_cf[0:daycnt] / s5p_cnt[0:daycnt]
-    s5p_wgt[0:daycnt] = np.divide(1, np.sqrt(s5p_wgt[0:daycnt]))
-    print('Min & max relative errors (Pandora): ', np.nanmin(np.divide(pan_wgt, pan_ml)), \
-          np.nanmax(np.divide(pan_wgt, pan_ml)))
-    print('Min & max relative errors (TROPOMI): ', np.nanmin(np.divide(s5p_wgt, s5p_ml)), \
-          np.nanmax(np.divide(s5p_wgt, s5p_ml)))
-
-
-def add_pandora_to_day():
-    # Find relevant Pandora data for this year, month and day:
-    # Pandora flag threshold selected is from https://www.atmos-meas-tech.net/13/205/2020/amt-13-205-2020.pdf
-    panind = np.argwhere((panyy == Year[m]) & (panmon == Month[m]) \
-                         & (pandd == (d + 1)) & (panno2 > -8e99) \
-                         & (panqaflag <= 11) \
-                         & (panqaflag != 2) & (pan_hhmm >= hhsite[n] - 0.5) \
-                         & (pan_hhmm <= hhsite[n] + 0.5))
-    # Proceed if there are Pandora data points:
-    if len(panind) == 0:
-        raise PanIndException
-    # Create arrays of relevant data and convert from DU to molec/cm2:
-    tno2 = np.multiply(panno2[panind], du2moleccm2)
-    terr = np.multiply(panno2err[panind], du2moleccm2)
-    tqa = panqaflag[panind]
-    # Add Pandora total NO2 to final array:
-    for w in range(len(panind)):
-        pan_ml[daycnt] += np.divide(tno2[w], np.square(terr[w]))
-        pan_wgt[daycnt] += np.divide(1.0, np.square(terr[w]))
-        pan_cnt[daycnt] += len(panind)
-
-
-
-
-def add_trop_data_to_total():
-    global tomiind
-    # Find coincident data for this file:
-    difflon = abs(np.subtract(lons, panlon))
-    difflat = abs(np.subtract(lats, panlat))
-    # Use distanc (degrees) to find coincident data.
-    # For Pandora 'Trop' data, only consider TROPOMI scenes where the
-    # total column exceeds the stratospheric column:
-    if (no2col == 'Tot'):
-        tomiind = np.argwhere((difflon <= diffdeg) & (difflat <= diffdeg) \
-                              & (no2val != np.nan) & (omi_dd == (d + 1)))
-    if (no2col == 'Trop'):
-        tomiind = np.argwhere((difflon <= diffdeg) & (difflat <= diffdeg) \
-                              & (no2val != np.nan) & (omi_dd == (d + 1)) \
-                              & (stratcol < totcol))
-    # Skip if no data:
-    if (len(tomiind) == 0):
-        raise NoTropDataException
-    # TODO: Here's the total-ing object
-    # Add TROPOMI total NO2 to final array of daily means:
-    s5p_ml[daycnt] = s5p_ml[daycnt] + \
-                     sum(np.divide(no2val[tomiind], \
-                                   np.square(no2err[tomiind])))
-    s5p_wgt[daycnt] = s5p_wgt[daycnt] + \
-                      sum(np.divide(1.0, \
-                                    np.square(no2err[tomiind])))
-    s5p_ch[daycnt] = s5p_ch[daycnt] + sum(cldpres[tomiind] * 1e-2)
-    s5p_cf[daycnt] = s5p_cf[daycnt] + sum(cldfrac[tomiind])
-    s5p_cnt[daycnt] = s5p_cnt[daycnt] + len(tomiind)
-
-
-
+class PandoraData:
+    def __init__(self, panfile):
+        # Read Pandora data from external function:
+        p = readpandora(panfile)
+        # Extract latitude and longitude:
+        loc = p[0]
+        self.panlat = loc['lat']
+        self.panlon = loc['lon']
+        # Extract data frame with relevant Pandora data:
+        df = p[1]
+        # Get variables names from column headers:
+        varnames = df.columns.values
+        # Rename Pandora data:
+        self.panyy = df.year.values
+        self.panmon = df.month.values
+        self.pandd = df.day.values
+        self.panhh_utc = df.hour_utc.values
+        self.panmin = df.minute.values
+        # Combine hour and minute into xx.xx format:
+        self.pan_hhmm = self.panhh_utc + np.divide(self.panmin, 60.)
+        # Change data at the date line (0-2 UTC) to (24-26 UTC) to aid sampling 30
+        # minutes around the satellite overpass time at Mauna Loa. This won't
+        # affect sampling over Izana, as it's at about 12 UTC.
+        sind = np.argwhere((self.pan_hhmm >= 0.) & (self.pan_hhmm < 2.))
+        self.pan_hhmm[sind] = self.pan_hhmm[sind] + 24.
+        self.panjday = df.jday.values
+        self.pansza = df.sza.values
+        self.panno2 = df.no2.values
+        self.panno2err = df.no2err.values
+        self.panqaflag = df.qaflag.values
+        self.panfitflag = df.fitflag.values
+        # Create pseudo v1.8 data by decreasing Pandora column value and error by 90%.
+        # Recommendation by Alexander Cede (email exchange) to account for lower
+        # reference temperature at these sites that will be used in the future v1.8
+        # retrieval rather than 254K used for sites that extend to the surface.
+        # V1.8 data will be available in late 2020.
+        self.panno2 = self.panno2 * 0.9
+        self.panno2err = self.panno2err * 0.9
+        # Get data length (i.e., length of each row):
+        npanpnts = len(df)
+        # Confirm processing correct site:
+        print('Pandora Site: ', PANDORA_SITE)
 
 
 def get_nhrs():
@@ -551,96 +585,54 @@ def get_ocra_files_on_day():
     return cldfile
 
 
-def read_pandora_data():
-    global panlat, panlon, panyy, panmon, pandd, pan_hhmm, panno2, panno2err, panqaflag
-    # Read Pdndora data from external function:
-    p = readpandora(panfile[0])
-    # Extract latitude and longitude:
-    loc = p[0]
-    panlat = loc['lat']
-    panlon = loc['lon']
-    # Extract data frame with relevant Pandora data:
-    df = p[1]
-    # Get variables names from column headers:
-    varnames = df.columns.values
-    # Rename Pandora data:
-    panyy = df.year.values
-    panmon = df.month.values
-    pandd = df.day.values
-    panhh_utc = df.hour_utc.values
-    panmin = df.minute.values
-    # Combine hour and minute into xx.xx format:
-    pan_hhmm = panhh_utc + np.divide(panmin, 60.)
-    # Change data at the date line (0-2 UTC) to (24-26 UTC) to aid sampling 30
-    # minutes around the satellite overpass time at Mauna Loa. This won't
-    # affect sampling over Izana, as it's at about 12 UTC.
-    sind = np.argwhere((pan_hhmm >= 0.) & (pan_hhmm < 2.))
-    pan_hhmm[sind] = pan_hhmm[sind] + 24.
-    panjday = df.jday.values
-    pansza = df.sza.values
-    panno2 = df.no2.values
-    panno2err = df.no2err.values
-    panqaflag = df.qaflag.values
-    panfitflag = df.fitflag.values
-    # Create pseudo v1.8 data by decreasing Pandora column value and error by 90%.
-    # Recommendation by Alexander Cede (email exchange) to account for lower
-    # reference temperature at these sites that will be used in the future v1.8
-    # retrieval rather than 254K used for sites that extend to the surface.
-    # V1.8 data will be available in late 2020.
-    panno2 = panno2 * 0.9
-    panno2err = panno2err * 0.9
-    # Get data length (i.e., length of each row):
-    npanpnts = len(df)
-    # Confirm processing correct site:
-    print('Pandora Site: ', SSite)
 
 
 if __name__ == "__main__":
 
 
     # Set degree range based on string entry.
-    if ( strdiffdeg=='02' ):
-        diffdeg=0.2
-    if ( strdiffdeg=='03' ):
-        diffdeg=0.3
-    if ( strdiffdeg=='01' ):
-        diffdeg=0.1
-    if ( strdiffdeg=='005' ):
-        diffdeg=0.05
+    if ( STR_DIFF_DEG== '02'):
+        DIFF_DEG=0.2
+    if ( STR_DIFF_DEG== '03'):
+        DIFF_DEG=0.3
+    if ( STR_DIFF_DEG== '01'):
+        DIFF_DEG=0.1
+    if ( STR_DIFF_DEG== '005'):
+        DIFF_DEG=0.05
 
     # Get Pandora site number:
-    if ( SSite=='altzomoni' ):
-        SiteNum='65'
-        CSite='Altzomoni'
-    if ( SSite=='izana' ):
-        SiteNum='101'
-        CSite='Izana'
-    if ( SSite=='mauna_loa' ):
-        SiteNum='59'
-        CSite='MaunaLoaHI'
+    if ( PANDORA_SITE== 'altzomoni'):
+        SITE_NUM= '65'
+        C_SITE= 'Altzomoni'
+    if ( PANDORA_SITE== 'izana'):
+        SITE_NUM= '101'
+        C_SITE= 'Izana'
+    if ( PANDORA_SITE== 'mauna_loa'):
+        SITE_NUM= '59'
+        C_SITE= 'MaunaLoaHI'
 
     # Conditions for choosing total or tropospheric column:
-    if ( no2col=='Trop' ):
-        fv='rnvh1p1-7'
+    if ( NO2_COL== 'Trop'):
+        FV= 'rnvh1p1-7'
         #maxval=3
-        ymin=0
-        ymax=25
-    if ( no2col=='Tot'  ):
+        Y_MIN=0
+        Y_MAX=25
+    if ( NO2_COL== 'Tot'):
         #maxval=5
-        fv='rnvs1p1-7'
-        ymin=10
-        ymax=50
+        FV= 'rnvs1p1-7'
+        Y_MIN=10
+        Y_MAX=50
 
     # Get Pandora filename (one file per site):
-    pandir='/data/uptrop/nobackup/pandora/'+SSite+'/'
-    panfile=glob.glob(pandir+'Pandora'+SiteNum+'s1_'+CSite+'_L2'+no2col+\
-                      '_'+fv+'.txt')
-
-    read_pandora_data()
-
+    pandir='/data/uptrop/nobackup/pandora/' + PANDORA_SITE + '/'
+    panfile=glob.glob(pandir +'Pandora' + SITE_NUM + 's1_' + C_SITE + '_L2' + NO2_COL +\
+                      '_' + FV + '.txt')
     # Get OMI directory for this month:
     tomidir='/data/uptrop/nobackup/tropomi/Data/'
 
+
+    pandora_data = PandoraData(panfile)
+    data_aggregator = DataCollector()
     # Loop over months:
     for m, StrMon in enumerate(StrMon):
 
@@ -652,13 +644,14 @@ if __name__ == "__main__":
             tomi_files_on_day = get_tropomi_files_on_day(d)
 
             # Get string of S5P TROPOMI cloud product file names:
-            if cldprd=='dlr-ocra':
+            # TODO: Check with Eloise where we get the Fresco data from
+            if CLOUD_PRODUCT== 'dlr-ocra':
                 cloud_files_on_day = get_ocra_files_on_day(d)
 
                 # Check for inconsistent number of files:
-                if len(orca_files_on_day) != len(tomi_files_on_day):
+                if len(cloud_files_on_day) != len(tomi_files_on_day):
                     print('NO2 files = ', len(tomi_files_on_day), flush=True)
-                    print('CLOUD files = ',len(orca_files_on_day),flush=True)
+                    print('CLOUD files = ',len(cloud_files_on_day),flush=True)
                     print('unequal number of files',flush=True)
                     raise UnequalFileException
 
@@ -667,18 +660,17 @@ if __name__ == "__main__":
                     in enumerate(zip(tomi_files_on_day, cloud_files_on_day)):
                 trop_data = TropomiData(tomi_file_on_day)
                 trop_data.preprocess()
-                cloud_data = CloudData(cloud_file_on_day, cldprd)
-                trop_data.apply_cloud_filter(no2col, cloud_data)
-                # TODO: Got this far on Friday
-                add_trop_data_to_total()
+                cloud_data = CloudData(cloud_file_on_day, CLOUD_PRODUCT)
+                trop_data.apply_cloud_filter(NO2_COL, cloud_data)
+                data_aggregator.add_trop_data_to_day(daycnt, trop_data, pandora_data)
                 nhrs = get_nhrs()
                 # loop over TROPOMI hours at site:
                 for n in range(nhrs):
-                    add_pandora_to_day()
+                    data_aggregator.add_pandora_data_to_day(daycnt,pandora_data)
 
-    daily_weighted_means()
-    plot_data()
-    write_to_netcdf()
+    data_aggregator.daily_weighted_means()
+    data_aggregator.plot_data()
+    data_aggregator.write_to_netcdf()
 
 
 
