@@ -536,9 +536,8 @@ for f,files in enumerate(files):
 
                     if np.isnan(csval[0]) or np.isnan(csval[1]):
                         num[csval[2]-1]=num[csval[2]-1]+1
-                        continue
+                        #continue
                     else:
-
                         # Sum Gaussian weighted meann
                         gno2vmr[i,j]=gno2vmr[i,j]+np.multiply(csval[0],gwgt)
                         gerr[i,j]=gerr[i,j]+gwgt
