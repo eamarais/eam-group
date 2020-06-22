@@ -15,6 +15,7 @@ import os
 import netCDF4 as nc4
 from netCDF4 import Dataset
 import numpy as np
+import argparse
 from bootstrap import rma
 
 from read_pandora import readpandora
@@ -37,21 +38,7 @@ StrYY = ['19', '19', '19', '19', '19', '19', '19', '20', '20', '20', '20', '20']
 Year = [2019, 2019, 2019, 2019, 2019, 2019, 2019, 2020, 2020, 2020, 2020, 2020]
 DayInMon = [30, 31, 31, 30, 31, 30, 31, 31, 29, 31, 30, 31]
 
-# Arguments to input:
-# Apply bias correction?
-APPLY_BIAS_CORRECTION = False
 
-# Define column comparing to:
-NO2_COL = 'Tot'  # Either Tot or Trop; default it Trop
-
-# Define cloud product to be used:
-CLOUD_PRODUCT = 'fresco'  # options are fresco, dlr-ocra; default is fresco
-
-# Define Pandora measurement site to compare to TROPOMI:
-PANDORA_SITE = 'mauna_loa'  # options are izana,mauna_loa,altzomoni; default is izana
-
-# Define degree range to sample TROPOMI around Pandora site:
-STR_DIFF_DEG = '02'  # options are: 0.3,0.2,0.1,0.05; default is 0.2 ("02")
 
 
 class DataCollector:
@@ -87,7 +74,8 @@ class DataCollector:
                                   & (trop_data.stratcol < trop_data.totcol))
         # Skip if no data:
         if (len(tomiind) == 0):
-            raise NoTropDataException
+            print("No tropomi data for day {}".format(daycnt))
+            return
 
         # Add TROPOMI total NO2 to final array of daily means:
         self.s5p_ml[daycnt] += sum(np.divide(trop_data.no2val[tomiind], np.square(trop_data.no2err[tomiind])))
@@ -96,17 +84,18 @@ class DataCollector:
         self.s5p_cf[daycnt] += sum(trop_data.cldfrac[tomiind])
         self.s5p_cnt[daycnt] += len(tomiind)
 
-    def add_pandora_data_to_day(self, daycnt, pandora_data):
+    def add_pandora_data_to_day(self, daycnt, hour_count, pandora_data):
         # Find relevant Pandora data for this year, month and day:
         # Pandora flag threshold selected is from https://www.atmos-meas-tech.net/13/205/2020/amt-13-205-2020.pdf
-        panind = np.argwhere((pandora_data.panyy == Year[m]) & (pandora_data.panmon == Month[m]) \
-                             & (pandora_data.pandd == (d + 1)) & (pandora_data.panno2 > -8e99) \
-                             & (pandora_data.panqaflag <= 11) \
-                             & (pandora_data.panqaflag != 2) & (pandora_data.pan_hhmm >= hhsite[n] - 0.5) \
-                             & (pandora_data.pan_hhmm <= hhsite[n] + 0.5))
+        panind = np.argwhere((pandora_data.panyy == Year[month_number])
+                             & (pandora_data.panmon == Month[month_number])
+                             & (pandora_data.pandd == (d + 1)) & (pandora_data.panno2 > -8e99)
+                             & (pandora_data.panqaflag <= 11)
+                             & (pandora_data.panqaflag != 2) & (pandora_data.pan_hhmm >= self.hhsite[hour_count] - 0.5)
+                             & (pandora_data.pan_hhmm <= self.hhsite[hour_count] + 0.5))
         # Proceed if there are Pandora data points:
         if len(panind) == 0:
-            raise PanIndException
+            print("No pandora data for day {}".format(daycnt))
         # Create arrays of relevant data and convert from DU to molec/cm2:
         tno2 = np.multiply(pandora_data.panno2[panind], du2moleccm2)
         terr = np.multiply(pandora_data.panno2err[panind], du2moleccm2)
@@ -336,6 +325,21 @@ class TropomiData:
         self.tstratamf = gstratamf.data[0, :, :]
         fh.close()
 
+    def set_time_axis(self):
+        # Get min and max TROPOMI UTC for this orbit:
+        # Choose min and max time window of TROPOMI 0.2 degrees
+        # around Pandora site:
+        tomiind = self.tomiind
+        minhh = np.nanmin(self.omi_utc_hh[tomiind])
+        maxhh = np.nanmax(self.omi_utc_hh[tomiind])
+        mintime = np.nanmin(self.tomi_hhmm[tomiind])
+        maxtime = np.nanmax(self.tomi_hhmm[tomiind])
+        if (minhh == maxhh):
+            self.hhsite = [mintime]
+        else:
+            self.hhsite = [mintime, maxtime]
+        self.nhrs = len(self.hhsite)
+
     def preprocess(self):
         # Calculate the geometric AMF:
         self.tamf_geo = np.add((np.reciprocal(np.cos(np.deg2rad(self.sza)))),
@@ -358,13 +362,13 @@ class TropomiData:
         self.tgeototvcd = np.add(self.tgeotropvcd, self.tstratno2)
         # Calculate total VCD column error by adding in quadrature
         # individual contributions:
-        self.ttotvcd_geo_err = np.sqrt(np.add(np.square(self.stratno2err), \
+        self.ttotvcd_geo_err = np.sqrt(np.add(np.square(self.stratno2err),
                                          np.square(self.tscdno2err)))
         # Estimate the tropospheric NO2 error as the total error
         # weighted by the relative contribution of the troposphere
         # to the total column. This can be done as components that
         # contribute to the error are the same:
-        self.ttropvcd_geo_err = np.multiply(self.ttotvcd_geo_err, \
+        self.ttropvcd_geo_err = np.multiply(self.ttotvcd_geo_err,
                                        (np.divide(self.tgeotropvcd, self.tgeototvcd)))
 
     def apply_cloud_filter(self, no2col, cloud_product):
@@ -486,6 +490,7 @@ class CloudData:
         # Less then 1% snow/ice cover:
         self.tsnow = np.where(self.tsnow < 1, 0, self.tsnow)
         # Snow/ice misclassified as clouds:
+        # TODO: Check with Eloise where tsurfp comes from - or if FRESCO data is used at all
         self.tsnow = np.where(((self.tsnow > 80) & (self.tsnow < 104)
                                & (self.tscenep > (0.98 * self.tsurfp))),
                                 0, self.tsnow)
@@ -540,31 +545,14 @@ class PandoraData:
         print('Pandora Site: ', PANDORA_SITE)
 
 
-def get_nhrs():
-    global hhsite
-    # Get min and max TROPOMI UTC for this orbit:
-    # Choose min and max time window of TROPOMI 0.2 degrees
-    # around Pandora site:
-    minhh = np.nanmin(omi_utc_hh[tomiind])
-    maxhh = np.nanmax(omi_utc_hh[tomiind])
-    mintime = np.nanmin(tomi_hhmm[tomiind])
-    maxtime = np.nanmax(tomi_hhmm[tomiind])
-    if (minhh == maxhh):
-        hhsite = [mintime]
-    else:
-        hhsite = [mintime, maxtime]
-    nhrs = len(hhsite)
-    return nhrs
-
-
-def get_tropomi_files_on_day(d):
+def get_tropomi_files_on_day(tomidir, day):
     # Get string of day:
-    StrDD = str(d + 1)
-    if (d + 1) <= 9:
+    StrDD = str(day + 1)
+    if (day + 1) <= 9:
         StrDD = '0' + StrDD
     # Get string of files for this day:
-    tomi_files_on_day = glob.glob(tomidir + 'NO2_OFFL/20' + StrYY[m] + '/' + StrMon + '/' + \
-                                  'S5P_OFFL_L2__NO2____20' + StrYY[m] + StrMon + StrDD + '*')
+    tomi_files_on_day = glob.glob(tomidir + 'NO2_OFFL/20' + StrYY[month_number] + '/' + StrMon + '/' + \
+                                  'S5P_OFFL_L2__NO2____20' + StrYY[month_number] + StrMon + StrDD + '*')
     # Track progress:
     print('Processing day in month: ', StrDD)
     # Order the files:
@@ -572,14 +560,14 @@ def get_tropomi_files_on_day(d):
     return tomi_files_on_day
 
 
-def get_ocra_files_on_day():
+def get_ocra_files_on_day(tomidir,day):
     # Get string of day:
-    StrDD = str(d + 1)
-    if (d + 1) <= 9:
+    StrDD = str(day + 1)
+    if (day + 1) <= 9:
         StrDD = '0' + StrDD
-    clddir = tomidir + 'CLOUD_OFFL/20' + StrYY[m] + '/'
+    clddir = tomidir + 'CLOUD_OFFL/20' + StrYY[month_number] + '/'
     cldfile = glob.glob(clddir + StrMon + '/' + 'S5P_OFFL_L2__CLOUD__20' + \
-                        StrYY[m] + StrMon + StrDD + '*')
+                        StrYY[month_number] + StrMon + StrDD + '*')
     # Order the files:
     cldfile = sorted(cldfile)
     return cldfile
@@ -589,64 +577,72 @@ def get_ocra_files_on_day():
 
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("tomi_dir")
+    parser.add_argument("cloud_dir")
+    parser.add_argument("pandir")
+    parser.add_argument("no2_col", default="Trop", help="Either Tot or Trop; default is Trop")
+    parser.add_argument("cloud_product", default="fresco", help="options are fresco, dlr-ocra; default is fresco")
+    parser.add_argument("pandora_site", default="mauna_loa", help="ptions are izana,mauna_loa,altzomoni; default is izana")
+    parser.add_argument("str_diff_deg", default="02", help="options are: 03,02,01,005; default is 02")
+    parser.add_argument("apply_bias_correction", default=False)
+    args = parser.parse_args()
+
 
     # Set degree range based on string entry.
-    if ( STR_DIFF_DEG== '02'):
+    if ( args.str_diff_deg== '02'):
         DIFF_DEG=0.2
-    if ( STR_DIFF_DEG== '03'):
+    if ( args.str_diff_deg== '03'):
         DIFF_DEG=0.3
-    if ( STR_DIFF_DEG== '01'):
+    if ( args.str_diff_deg== '01'):
         DIFF_DEG=0.1
-    if ( STR_DIFF_DEG== '005'):
+    if ( args.str_diff_deg== '005'):
         DIFF_DEG=0.05
 
     # Get Pandora site number:
-    if ( PANDORA_SITE== 'altzomoni'):
+    if ( args.pandora_site== 'altzomoni'):
         SITE_NUM= '65'
         C_SITE= 'Altzomoni'
-    if ( PANDORA_SITE== 'izana'):
+    if ( args.pandora_site== 'izana'):
         SITE_NUM= '101'
         C_SITE= 'Izana'
-    if ( PANDORA_SITE== 'mauna_loa'):
+    if ( args.pandora_site== 'mauna_loa'):
         SITE_NUM= '59'
         C_SITE= 'MaunaLoaHI'
 
     # Conditions for choosing total or tropospheric column:
-    if ( NO2_COL== 'Trop'):
+    if ( args.no2_col== 'Trop'):
         FV= 'rnvh1p1-7'
         #maxval=3
         Y_MIN=0
         Y_MAX=25
-    if ( NO2_COL== 'Tot'):
+    if ( args.no2_col== 'Tot'):
         #maxval=5
         FV= 'rnvs1p1-7'
         Y_MIN=10
         Y_MAX=50
 
     # Get Pandora filename (one file per site):
-    pandir='/data/uptrop/nobackup/pandora/' + PANDORA_SITE + '/'
-    panfile=glob.glob(pandir +'Pandora' + SITE_NUM + 's1_' + C_SITE + '_L2' + NO2_COL +\
+    panfile=glob.glob(args.pandir +'Pandora' + SITE_NUM + 's1_' + C_SITE + '_L2' + args.no2_col +\
                       '_' + FV + '.txt')
-    # Get OMI directory for this month:
-    tomidir='/data/uptrop/nobackup/tropomi/Data/'
 
 
     pandora_data = PandoraData(panfile)
     data_aggregator = DataCollector()
     # Loop over months:
-    for m, StrMon in enumerate(StrMon):
+    for month_number, StrMon in enumerate(StrMon):
 
         # Track progress:
         print('Processing month: ',StrMon)
 
-        for daycnt, d in enumerate(range(DayInMon[m])):
+        for daycnt, d in enumerate(range(DayInMon[month_number])):
 
-            tomi_files_on_day = get_tropomi_files_on_day(d)
+            tomi_files_on_day = get_tropomi_files_on_day(args.tomi_dir, d)
 
             # Get string of S5P TROPOMI cloud product file names:
             # TODO: Check with Eloise where we get the Fresco data from
-            if CLOUD_PRODUCT== 'dlr-ocra':
-                cloud_files_on_day = get_ocra_files_on_day(d)
+            if args.cloud_product== 'dlr-ocra':
+                cloud_files_on_day = get_ocra_files_on_day(args.tomi_dir, d)
 
                 # Check for inconsistent number of files:
                 if len(cloud_files_on_day) != len(tomi_files_on_day):
@@ -660,13 +656,13 @@ if __name__ == "__main__":
                     in enumerate(zip(tomi_files_on_day, cloud_files_on_day)):
                 trop_data = TropomiData(tomi_file_on_day)
                 trop_data.preprocess()
-                cloud_data = CloudData(cloud_file_on_day, CLOUD_PRODUCT)
-                trop_data.apply_cloud_filter(NO2_COL, cloud_data)
+                trop_data.set_time_axis()
+                cloud_data = CloudData(cloud_file_on_day, args.cloud_product)
+                trop_data.apply_cloud_filter(args.no2_col, cloud_data)
                 data_aggregator.add_trop_data_to_day(daycnt, trop_data, pandora_data)
-                nhrs = get_nhrs()
                 # loop over TROPOMI hours at site:
-                for n in range(nhrs):
-                    data_aggregator.add_pandora_data_to_day(daycnt,pandora_data)
+                for n in range(trop_data.nhrs):
+                    data_aggregator.add_pandora_data_to_day(daycnt, n, pandora_data)
 
     data_aggregator.daily_weighted_means()
     data_aggregator.plot_data()
