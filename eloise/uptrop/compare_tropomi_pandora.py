@@ -337,16 +337,7 @@ for m, StrMon in enumerate(StrMon):
             # Step 3: calculate tropospheric NO2 VCD:
             tgeotropvcd=np.divide(ttropscd,tamf_geo)
 
-            if ( apply_bias_correction ):
-                # Correct for bias in the tropospheric column based on
-                # assessment of TROPOMI with Pandora
-                tgeotropvcd=np.divide(tgeotropvcd,2.0)
-                # Apply bias correction to stratosphere (underestimated by 10%):
-                tstratno2=np.multiply(tstratno2,0.9)
-
-            # Step 4: sum up stratospheric and tropospheric NO2 VCDs:
-            tgeototvcd=np.add(tgeotropvcd,tstratno2)
-
+            # Step4 : calculate errors on the geometric columns:
             # Calculate total VCD column error by adding in quadrature 
             # individual contributions:
             ttotvcd_geo_err=np.sqrt(np.add(np.square(stratno2err),\
@@ -357,6 +348,29 @@ for m, StrMon in enumerate(StrMon):
             # contribute to the error are the same:
             ttropvcd_geo_err=np.multiply(ttotvcd_geo_err,\
                                          (np.divide(tgeotropvcd,tgeototvcd)))
+
+            if ( apply_bias_correction ):
+                # Preserve original stratosphere for error adjustment:
+                tstratno2_og = tstratno2
+                # Apply correction to stratosphere based on comparison
+                # to Pandora Mauna Loa total columns:
+                tstratno2=np.where(tstratno2!=fillval, ((tstratno2-(7.3e14/no2sfac))/0.82), np.nan)
+                # Apply bias correction to troposphere based on comparison
+                # to Pandora Izana tropospheric columns:
+                tgeotropvcd=np.where(tgeotropvcd!=fillval, tgeotropvcd/2, np.nan)
+                # Bias correct the error estimates by the same amount as
+                # the absolute columns:
+                tstratno2err=np.where(tstratno2err!=fillval, \
+                                      np.multiply(tstratno2err,np.divide(tstratno2,tsratno2_og)),np.nan)
+                ttropvcd_geo_err=np.where(ttropvcd_geo_err!=fillval, \
+                                          ttropvcd_geo_err/2,,np.nan)
+                # Calculate total column error by adding in quadrature 
+                # individual contributions:
+                ttotvcd_geo_err=np.sqrt(np.add(np.square(tstratno2err),\
+                                               np.square(tscdno2err)))
+
+            # Step 4: sum up stratospheric and tropospheric NO2 VCDs:
+            tgeototvcd=np.add(tgeotropvcd,tstratno2)
 
             # Cloud input data if fresco cloud product is being used:
             if ( cldprd=='fresco' ):
