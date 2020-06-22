@@ -104,13 +104,13 @@ tomidir='/data/uptrop/nobackup/tropomi/Data/'
 no2type='OFFL'
 no2dir=tomidir+'NO2_'+no2type+'/'+stryr[0]+'/'
 files=glob.glob(no2dir+strmon[0]+'/'+'S5P_'+no2type+'_L2__NO2____'+\
-                stryr[0]+strmon[0]+'01*')
+                stryr[0]+strmon[0]+'*')
 mon=[strmon[1],strmon[2]]
 yy=[stryr[1],stryr[2]]
 for i,mon in enumerate(mon):
     no2dir='/data/uptrop/nobackup/tropomi/Data/NO2_'+no2type+'/'+yy[i]+'/'
     for filename in glob.glob(no2dir+mon+'/'+'S5P_'+no2type+'_L2__NO2____'+\
-                              yy[i]+mon+'01*'):
+                              yy[i]+mon+'*'):
         files.append(filename)
 files=sorted(files)
 
@@ -118,13 +118,13 @@ files=sorted(files)
 if cldprd=='dlr-ocra':   
     clddir=tomidir+'CLOUD_OFFL/'+stryr[0]+'/'
     cldfiles=glob.glob(clddir+strmon[0]+'/'+'S5P_OFFL_L2__CLOUD__'+\
-                    stryr[0]+strmon[0]+'01*')
+                    stryr[0]+strmon[0]+'*')
     mon=[strmon[1],strmon[2]]
     yy=[stryr[1],stryr[2]]
     for i,mon in enumerate(mon):
         clddir=tomidir+'CLOUD_OFFL/'+yy[i]+'/'
         for filename in glob.glob(clddir+mon+'/'+'S5P_OFFL_L2__CLOUD__'+\
-                                  yy[i]+mon+'01*'):
+                                  yy[i]+mon+'*'):
             cldfiles.append(filename)
             cldfiles=sorted(cldfiles)
     print('No. of cloud files: ',len(cldfiles),flush=True)
@@ -569,9 +569,8 @@ gerr[gcnt==0]=np.nan
 gcnt[gcnt==0]=np.nan
 
 # Save the data to NetCDF:
-ncout=Dataset('./test.nc',mode='w',format='NETCDF4') 
-#ncout=Dataset('./Data/tropomi-ut-no2-'+cldprd+'-'+strcldthld+'-'+StrRes+'-'+\
-#              seas+'-'+yrrange+'-v7.nc',mode='w',format='NETCDF4') 
+ncout=Dataset('./Data/tropomi-ut-no2-'+cldprd+'-'+strcldthld+'-'+StrRes+'-'+\
+              seas+'-'+yrrange+'-v7.nc',mode='w',format='NETCDF4') 
  
 ncout.createDimension('lat', ydim) 
 ncout.createDimension('lon', xdim) 
