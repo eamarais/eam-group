@@ -64,7 +64,7 @@ class DataCollector:
         # Use distanc (degrees) to find coincident data.
         # For Pandora 'Trop' data, only consider TROPOMI scenes where the
         # total column exceeds the stratospheric column:
-        # TODO Store NO2_COL in trop_data in
+        # TODO Store NO2_COL in trop_data
         if (NO2_COL == 'Tot'):
             tomiind = np.argwhere((difflon <= DIFF_DEG) & (difflat <= DIFF_DEG)
                                   & (trop_data.no2val != np.nan) & (trop_data.omi_dd == (d + 1)))
@@ -180,8 +180,7 @@ class DataCollector:
 
     def write_to_netcdf(self, file):
         # Save the data to NetCDF:
-        ncout = Dataset('./Data/tropomi-pandora-comparison-' + PANDORA_SITE + '-' + CLOUD_PRODUCT + \
-                        '-' + NO2_COL + '-' + STR_DIFF_DEG + 'deg-bias-corr-v1.nc', mode='w', format='NETCDF4')
+        ncout = Dataset(file, mode='w', format='NETCDF4')
         # Set array sizes:
         TDim = daycnt
         ncout.createDimension('time', TDim)
@@ -226,9 +225,10 @@ class DataCollector:
 
 
 class TropomiData:
-    def __init__(self, filepath):
+    def __init__(self, filepath, apply_bias_correction):
         # Read file:
         fh = Dataset(filepath, mode='r')
+        self.apply_bias = apply_bias_correction
         # Extract data of interest (lon, lat, clouds, NO2 total column & error):
         glons = fh.groups['PRODUCT'].variables['longitude'][:]
         self.tlons = glons.data[0, :, :]
@@ -352,7 +352,7 @@ class TropomiData:
         # Step 3: calculate tropospheric NO2 VCD:
         # TODO: Check that this should be tamf_geo.
         self.tgeotropvcd = np.divide(self.ttropscd, self.tamf_geo)
-        if (APPLY_BIAS_CORRECTION):
+        if (self.apply_bias):
             # Correct for bias in the tropospheric column based on
             # assessment of TROPOMI with Pandora
             self.tgeotropvcd = np.divide(self.tgeotropvcd, 2.0)
@@ -579,8 +579,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("tomi_dir")
-    parser.add_argument("cloud_dir")
     parser.add_argument("pandir")
+    parser.add_argument("outdir")
     parser.add_argument("no2_col", default="Trop", help="Either Tot or Trop; default is Trop")
     parser.add_argument("cloud_product", default="fresco", help="options are fresco, dlr-ocra; default is fresco")
     parser.add_argument("pandora_site", default="mauna_loa", help="ptions are izana,mauna_loa,altzomoni; default is izana")
@@ -625,6 +625,8 @@ if __name__ == "__main__":
     # Get Pandora filename (one file per site):
     panfile=glob.glob(args.pandir +'Pandora' + SITE_NUM + 's1_' + C_SITE + '_L2' + args.no2_col +\
                       '_' + FV + '.txt')
+    outfile = os.path.join('outdir','tropomi-pandora-comparison-' + args.pandora_site + '-' + args.cloud_product +
+                        '-' + args.no2_col + '-' + args.str_diff_deg + 'deg-bias-corr-v1.nc')
 
 
     pandora_data = PandoraData(panfile)
@@ -647,8 +649,8 @@ if __name__ == "__main__":
                 # Check for inconsistent number of files:
                 if len(cloud_files_on_day) != len(tomi_files_on_day):
                     print('NO2 files = ', len(tomi_files_on_day), flush=True)
-                    print('CLOUD files = ',len(cloud_files_on_day),flush=True)
-                    print('unequal number of files',flush=True)
+                    print('CLOUD files = ', len(cloud_files_on_day),flush=True)
+                    print('unequal number of files', flush=True)
                     raise UnequalFileException
 
             # Loop over files:
