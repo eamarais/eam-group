@@ -623,9 +623,9 @@ if __name__ == "__main__":
         Y_MAX=50
 
     # Get Pandora filename (one file per site):
-    panfile=glob.glob(args.pandir +'Pandora' + SITE_NUM + 's1_' + C_SITE + '_L2' + args.no2_col +\
-                      '_' + FV + '.txt')
-    outfile = os.path.join('outdir','tropomi-pandora-comparison-' + args.pandora_site + '-' + args.cloud_product +
+    panfile=glob.glob(os.path.join(args.pandir,
+        'Pandora' + SITE_NUM + 's1_' + C_SITE + '_L2' + args.no2_col +'_' + FV + '.txt'))
+    outfile = os.path.join(args.outdir, 'tropomi-pandora-comparison-' + args.pandora_site + '-' + args.cloud_product +
                         '-' + args.no2_col + '-' + args.str_diff_deg + 'deg-bias-corr-v1.nc')
 
 
