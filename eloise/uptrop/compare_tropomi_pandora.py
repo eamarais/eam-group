@@ -542,7 +542,7 @@ class PandoraData:
         # Get data length (i.e., length of each row):
         npanpnts = len(df)
         # Confirm processing correct site:
-        print('Pandora Site: ', PANDORA_SITE)
+        print('Pandora Site: ', panfile)
 
 
 def get_tropomi_files_on_day(tomidir, day):
@@ -623,8 +623,8 @@ if __name__ == "__main__":
         Y_MAX=50
 
     # Get Pandora filename (one file per site):
-    panfile=glob.glob(os.path.join(args.pandir,
-        'Pandora' + SITE_NUM + 's1_' + C_SITE + '_L2' + args.no2_col +'_' + FV + '.txt'))
+    panfile=glob.glob(os.path.join(args.pandir, args.pandora_site,
+        'Pandora' + SITE_NUM + 's1_' + C_SITE + '_L2' + args.no2_col +'_' + FV + '.txt'))[0]
     outfile = os.path.join(args.outdir, 'tropomi-pandora-comparison-' + args.pandora_site + '-' + args.cloud_product +
                         '-' + args.no2_col + '-' + args.str_diff_deg + 'deg-bias-corr-v1.nc')
 
