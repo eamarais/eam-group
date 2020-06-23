@@ -581,11 +581,11 @@ if __name__ == "__main__":
     parser.add_argument("tomi_dir")
     parser.add_argument("pandir")
     parser.add_argument("outdir")
-    parser.add_argument("no2_col", default="Trop", help="Either Tot or Trop; default is Trop")
-    parser.add_argument("cloud_product", default="fresco", help="options are fresco, dlr-ocra; default is fresco")
-    parser.add_argument("pandora_site", default="mauna_loa", help="ptions are izana,mauna_loa,altzomoni; default is izana")
-    parser.add_argument("str_diff_deg", default="02", help="options are: 03,02,01,005; default is 02")
-    parser.add_argument("apply_bias_correction", default=False)
+    parser.add_argument("--no2_col", default="Trop", help="Either Tot or Trop; default is Trop")
+    parser.add_argument("--cloud_product", default="fresco", help="options are fresco, dlr-ocra; default is fresco")
+    parser.add_argument("--pandora_site", default="mauna_loa", help="ptions are izana,mauna_loa,altzomoni; default is izana")
+    parser.add_argument("--str_diff_deg", default="02", help="options are: 03,02,01,005; default is 02")
+    parser.add_argument("--apply_bias_correction", default=False)
     args = parser.parse_args()
 
 
@@ -669,11 +669,4 @@ if __name__ == "__main__":
     data_aggregator.daily_weighted_means()
     data_aggregator.plot_data()
     data_aggregator.write_to_netcdf()
-
-
-
-
-
-
-
 
