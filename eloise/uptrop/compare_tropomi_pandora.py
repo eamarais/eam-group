@@ -51,7 +51,7 @@ class DataCollector:
         # JR: This can be changed to produce an appendable array, as the size
         #     will vary depending on which site is being processed.
         nvals = 366
-        self.pan_ml = np.zeros(nvals)
+        self.pan_no2 = np.zeros(nvals)
         self.s5p_ml = np.zeros(nvals)
         self.s5p_ch = np.zeros(nvals)
         self.s5p_cf = np.zeros(nvals)
@@ -61,7 +61,7 @@ class DataCollector:
         self.s5p_cnt = np.zeros(nvals)
         self.daycnt = 0
 
-    def add_trop_data_to_day(self, daycnt, trop_data, pandora_data):
+    def add_trop_data_to_day(self, daycnt, trop_data):
 
         tomiind = self.tomiind
 
@@ -92,7 +92,7 @@ class DataCollector:
         # Skip if no data:
         pdb.set_trace()
         if (len(tomiind) == 0):
-            print("No tropomi data for day {}".format(daycnt))
+            print("No tropomi data for orbit {}, }".format(trop_data.xdim, trop_data.ydim))
             raise NoDataException
         self.tomiind = tomiind
 
@@ -122,7 +122,7 @@ class DataCollector:
                              & (pandora_data.pandd == (d + 1)) & (pandora_data.panno2 > -8e99)
                              & (pandora_data.panqaflag <= 11)
                              & (pandora_data.panqaflag != 2) & (pandora_data.pan_hhmm >= self.hhsite[hour_count] - 0.5)
-                   & (pandora_data.pan_hhmm <= self.hhsite[hour_count] + 0.5))
+                             & (pandora_data.pan_hhmm <= self.hhsite[hour_count] + 0.5))
         # Proceed if there are Pandora data points:
         if len(panind) == 0:
             print("No pandora data for day {}".format(daycnt))
@@ -132,22 +132,21 @@ class DataCollector:
         tqa = pandora_data.panqaflag[panind]
         # Add Pandora total NO2 to final array:
         for w in range(len(panind)):
-            self.pan_ml[daycnt] += np.divide(tno2[w], np.square(terr[w]))
+            self.pan_no2[daycnt] += np.divide(tno2[w], np.square(terr[w]))
             self.pan_wgt[daycnt] += np.divide(1.0, np.square(terr[w]))
             self.pan_cnt[daycnt] += len(panind)
 
 
-    def daily_weighted_means(self):
+    def daily_weighted_means(self, daycnt):
         # Get daily error-weighted means:
-        daycnt = self.daycnt
-        self.pan_ml[0:daycnt] = self.pan_ml[0:daycnt] / self.pan_wgt[0:daycnt]
+        self.pan_no2[0:daycnt] = self.pan_no2[0:daycnt] / self.pan_wgt[0:daycnt]
         self.pan_wgt[0:daycnt] = np.divide(1, np.sqrt(self.pan_wgt[0:daycnt]))
         self.s5p_ml[0:daycnt] = self.s5p_ml[0:daycnt] / self.s5p_wgt[0:daycnt]
         self.s5p_ch[0:daycnt] = self.s5p_ch[0:daycnt] / self.s5p_cnt[0:daycnt]
         self.s5p_cf[0:daycnt] = self.s5p_cf[0:daycnt] / self.s5p_cnt[0:daycnt]
         self.s5p_wgt[0:daycnt] = np.divide(1, np.sqrt(self.s5p_wgt[0:daycnt]))
-        print('Min & max relative errors (Pandora): ', np.nanmin(np.divide(self.pan_wgt, self.pan_ml)),
-              np.nanmax(np.divide(self.pan_wgt, self.pan_ml)))
+        print('Min & max relative errors (Pandora): ', np.nanmin(np.divide(self.pan_wgt, self.pan_no2)),
+              np.nanmax(np.divide(self.pan_wgt, self.pan_no2)))
         print('Min & max relative errors (TROPOMI): ', np.nanmin(np.divide(self.s5p_wgt, self.s5p_ml)),
               np.nanmax(np.divide(self.s5p_wgt, self.s5p_ml)))
 
@@ -156,7 +155,7 @@ class DataCollector:
         plt.figure(1, figsize=(10, 5))
         x = np.arange(0, self.daycnt, 1)
         days = x
-        plt.errorbar(x, self.pan_ml[0:daycnt] * 1e-14, yerr=self.pan_wgt[0:daycnt] * 1e-14,
+        plt.errorbar(x, self.pan_no2[0:daycnt] * 1e-14, yerr=self.pan_wgt[0:daycnt] * 1e-14,
                      fmt='.k', color='black', capsize=5, capthick=2,
                      ecolor='black', markersize=12, label='Pandora')
         plt.errorbar(x, self.s5p_ml[0:daycnt] * 1e-14, yerr=self.s5p_wgt[0:daycnt] * 1e-14,
@@ -171,7 +170,7 @@ class DataCollector:
         # plt.savefig('./Images/tropomi-'+PANDORA_SITE+'-pandora-no2-timeseries-v1-jun2019-apr2020.ps', \
         #            format='ps',transparent=True,bbox_inches='tight',dpi=100)
         # Plot scatterplot:
-        tx = self.pan_ml[0:daycnt]
+        tx = self.pan_no2[0:daycnt]
         ty = self.s5p_ml[0:daycnt]
         nas = np.logical_or(np.isnan(tx), np.isnan(ty))
         print('No. of coincident points = ', len(tx[~nas]))
@@ -222,7 +221,7 @@ class DataCollector:
         panno2 = ncout.createVariable('panno2', np.float32, ('time',))
         panno2.units = 'molecules/cm2'
         panno2.long_name = 'Pandora error-weighted daily mean total column NO2 coincident with TROPOMI overpass'
-        panno2[:] = self.pan_ml[0:daycnt]
+        panno2[:] = self.pan_no2[0:daycnt]
         panerr = ncout.createVariable('panerr', np.float32, ('time',))
         panerr.units = 'molecules/cm2'
         panerr.long_name = 'Pandora weighted error of daily mean total columns of NO2 coincident with TROPOMI overpass'
@@ -602,7 +601,7 @@ if __name__ == "__main__":
     parser.add_argument("outdir")
     parser.add_argument("--no2_col", default="Trop", help="Either Tot or Trop; default is Trop")
     parser.add_argument("--cloud_product", default="fresco", help="options are fresco, dlr-ocra; default is fresco")
-    parser.add_argument("--pandora_site", default="mauna_loa", help="ptions are izana,mauna_loa,altzomoni; default is izana")
+    parser.add_argument("--pandora_site", default="izana", help="ptions are izana,mauna_loa,altzomoni; default is izana")
     parser.add_argument("--str_diff_deg", default="02", help="options are: 03,02,01,005; default is 02")
     parser.add_argument("--apply_bias_correction", default=False)
     args = parser.parse_args()
@@ -656,29 +655,30 @@ if __name__ == "__main__":
         # Track progress:
         print('Processing month: ',StrMon)
 
-        for daycnt, d in enumerate(range(DayInMon[month_number])):
-            try:
-                tomi_files_on_day = get_tropomi_files_on_day(args.tomi_dir, d)
+        for daycnt, d in enumerate(DayInMon[month_number]):
+
+            tomi_files_on_day = get_tropomi_files_on_day(args.tomi_dir, d)
 
             # Get string of S5P TROPOMI cloud product file names:
             # TODO: Check with Eloise where we get the Fresco data from
-                if args.cloud_product== 'dlr-ocra':
-                    cloud_files_on_day = get_ocra_files_on_day(args.tomi_dir, d)
+            if args.cloud_product== 'dlr-ocra':
+                cloud_files_on_day = get_ocra_files_on_day(args.tomi_dir, d)
 
-                    # Check for inconsistent number of files:
-                    if len(cloud_files_on_day) != len(tomi_files_on_day):
-                        print('NO2 files = ', len(tomi_files_on_day), flush=True)
-                        print('CLOUD files = ', len(cloud_files_on_day),flush=True)
-                        print('unequal number of files', flush=True)
-                        raise UnequalFileException
+                # Check for inconsistent number of files:
+                if len(cloud_files_on_day) != len(tomi_files_on_day):
+                    print('NO2 files = ', len(tomi_files_on_day), flush=True)
+                    print('CLOUD files = ', len(cloud_files_on_day),flush=True)
+                    print('unequal number of files', flush=True)
+                    raise UnequalFileException
 
-                elif args.cloud_product == "fresco":
-                    cloud_files_on_day = tomi_files_on_day
-                else:
-                    raise InvalidCloudProductException
+            elif args.cloud_product == "fresco":
+                cloud_files_on_day = tomi_files_on_day
+            else:
+                raise InvalidCloudProductException
 
-                # Loop over files:
-                for tomi_file_on_day, cloud_file_on_day in zip(tomi_files_on_day, cloud_files_on_day):
+            # Loop over files:
+            for tomi_file_on_day, cloud_file_on_day in zip(tomi_files_on_day, cloud_files_on_day):
+                try:
                     trop_data = TropomiData(tomi_file_on_day, args.apply_bias_correction, args.no2_col)
                     trop_data.preprocess()
                     cloud_data = CloudData(cloud_file_on_day, args.cloud_product, trop_data)
@@ -689,8 +689,9 @@ if __name__ == "__main__":
                     # loop over TROPOMI hours at site:
                     for hour in range(data_aggregator.nhrs):
                         data_aggregator.add_pandora_data_to_day(daycnt, hour, pandora_data)
-            except NoDataException:
-                continue
+                except NoDataException:
+                    print("No data in tomi file: ".format(tomi_file_on_day))
+                    continue
 
         data_aggregator.daily_weighted_means()
     data_aggregator.plot_data()
