@@ -71,6 +71,8 @@ class DataCollector:
         self.s5p_ch[daycnt] += sum(trop_data.cldpres[tomiind] * 1e-2)
         self.s5p_cf[daycnt] += sum(trop_data.cldfrac[tomiind])
         self.s5p_cnt[daycnt] += len(tomiind)
+         
+        print('Values for first day of Jun 2019 should be s5p_ml=5.08e-13 and s5p_wgt=1.20e-28')
 
     def set_trop_ind_for_day(self, daycnt, trop_data, pandora_data, day_number):
 
@@ -85,12 +87,16 @@ class DataCollector:
         if (trop_data.no2_col == 'Tot'):
             tomiind = np.argwhere((self.difflon <= DIFF_DEG) & (self.difflat <= DIFF_DEG) & (trop_data.no2val != np.nan) & (trop_data.omi_dd == (day_number + 1)))
         if (trop_data.no2_col == 'Trop'):
-            tomiind = np.argwhere((self.difflon <= DIFF_DEG) & (self.difflat <= DIFF_DEG) & (trop_data.no2val != np.nan) & (trop_data.omi_dd == (day_number + 1)) & (trop_data.stratcol < trop_data.totcol))
+            tomiind = np.argwhere((self.difflon <= DIFF_DEG) & (self.difflat <= DIFF_DEG)
+                                  & (trop_data.no2val != np.nan) & (trop_data.omi_dd == (d + 1))
+                                  & (trop_data.stratcol < trop_data.totcol))
         # Skip if no data:
         if (len(tomiind) == 0):
             raise NoDataException
         self.tomiind = tomiind
-
+      
+        print('len(tomiind) gt 0 on first day of Jun 2019 for file named S5P_OFFL_L2__NO2____20190601T130900_20190601T145030_08458_01_010301_20190611T093157.nc')
+        print('len(tomiind) for first day of Jun 2019 should be: 51')
 
         # Get min and max TROPOMI UTC for this orbit:
         # Choose min and max time window of TROPOMI 0.2 degrees
@@ -121,6 +127,9 @@ class DataCollector:
         # Proceed if there are Pandora data points:
         if len(panind) == 0:
             print("No pandora data for day {}".format(daycnt))
+            
+        print('len(panind) for first day of Jun 2019 should be: 11')    
+        
         # Create arrays of relevant data and convert from DU to molec/cm2:
         tno2 = np.multiply(pandora_data.panno2[panind], du2moleccm2)
         terr = np.multiply(pandora_data.panno2err[panind], du2moleccm2)
@@ -131,7 +140,8 @@ class DataCollector:
             self.pan_wgt[daycnt] += np.divide(1.0, np.square(terr[w]))
             self.pan_cnt[daycnt] += len(panind)
 
-
+        print('Values for first day of Jun 2019 should be pan_no2=1.62e-11 and pan_wgt=4.92e-27')
+      
     def daily_weighted_means(self, daycnt):
         # Get daily error-weighted means:
         self.pan_no2[0:daycnt] = self.pan_no2[0:daycnt] / self.pan_wgt[0:daycnt]
