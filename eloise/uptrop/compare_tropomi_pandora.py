@@ -72,7 +72,7 @@ class DataCollector:
         self.s5p_cf[daycnt] += sum(trop_data.cldfrac[tomiind])
         self.s5p_cnt[daycnt] += len(tomiind)
 
-    def set_trop_ind_for_day(self, daycnt, trop_data, pandora_data):
+    def set_trop_ind_for_day(self, daycnt, trop_data, pandora_data, day_number):
 
         # Find coincident data for this file:
         self.difflon = abs(np.subtract(trop_data.lons, pandora_data.panlon))
@@ -83,16 +83,11 @@ class DataCollector:
         # total column exceeds the stratospheric column:
         # TODO Store NO2_COL in trop_data
         if (trop_data.no2_col == 'Tot'):
-            tomiind = np.argwhere((self.difflon <= DIFF_DEG) & (self.difflat <= DIFF_DEG)
-                                  & (trop_data.no2val != np.nan) & (trop_data.omi_dd == (d + 1)))
+            tomiind = np.argwhere((self.difflon <= DIFF_DEG) & (self.difflat <= DIFF_DEG) & (trop_data.no2val != np.nan) & (trop_data.omi_dd == (day_number + 1)))
         if (trop_data.no2_col == 'Trop'):
-            tomiind = np.argwhere((self.difflon <= DIFF_DEG) & (self.difflat <= DIFF_DEG)
-                                  & (trop_data.no2val != np.nan) & (trop_data.omi_dd == (d + 1))
-                                  & (trop_data.stratcol < trop_data.totcol))
+            tomiind = np.argwhere((self.difflon <= DIFF_DEG) & (self.difflat <= DIFF_DEG) & (trop_data.no2val != np.nan) & (trop_data.omi_dd == (day_number + 1)) & (trop_data.stratcol < trop_data.totcol))
         # Skip if no data:
-        pdb.set_trace()
         if (len(tomiind) == 0):
-            print("No tropomi data for orbit {}, }".format(trop_data.xdim, trop_data.ydim))
             raise NoDataException
         self.tomiind = tomiind
 
@@ -599,7 +594,7 @@ if __name__ == "__main__":
     parser.add_argument("tomi_dir")
     parser.add_argument("pandir")
     parser.add_argument("outdir")
-    parser.add_argument("--no2_col", default="Trop", help="Either Tot or Trop; default is Trop")
+    parser.add_argument("--no2_col", default="Tot", help="Either Tot or Trop; default is Tot")
     parser.add_argument("--cloud_product", default="fresco", help="options are fresco, dlr-ocra; default is fresco")
     parser.add_argument("--pandora_site", default="izana", help="ptions are izana,mauna_loa,altzomoni; default is izana")
     parser.add_argument("--str_diff_deg", default="02", help="options are: 03,02,01,005; default is 02")
@@ -655,7 +650,8 @@ if __name__ == "__main__":
         # Track progress:
         print('Processing month: ',StrMon)
 
-        for daycnt, d in enumerate(DayInMon[month_number]):
+        # Daycount is day in year
+        for daycnt, d in enumerate(range(DayInMon[month_number])):
 
             tomi_files_on_day = get_tropomi_files_on_day(args.tomi_dir, d)
 
@@ -684,13 +680,12 @@ if __name__ == "__main__":
                     cloud_data = CloudData(cloud_file_on_day, args.cloud_product, trop_data)
                     trop_data.apply_cloud_filter(args.no2_col, cloud_data)
                     data_aggregator.set_trop_ind_for_day(daycnt, trop_data, pandora_data)
-                    data_aggregator.add_trop_data_to_day(daycnt, trop_data, pandora_data)
-
+                    data_aggregator.add_trop_data_to_day(daycnt, trop_data)
                     # loop over TROPOMI hours at site:
                     for hour in range(data_aggregator.nhrs):
                         data_aggregator.add_pandora_data_to_day(daycnt, hour, pandora_data)
                 except NoDataException:
-                    print("No data in tomi file: ".format(tomi_file_on_day))
+                    print("No data in tomi file: {}".format(tomi_file_on_day))
                     continue
 
         data_aggregator.daily_weighted_means()
