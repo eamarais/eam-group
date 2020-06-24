@@ -58,24 +58,11 @@ class DataCollector:
         self.daycnt = 0
 
     def add_trop_data_to_day(self, daycnt, trop_data, pandora_data):
+
         # Find coincident data for this file:
-        difflon = abs(np.subtract(trop_data.lons, pandora_data.panlon))
-        difflat = abs(np.subtract(trop_data.lats, pandora_data.panlat))
-        # Use distanc (degrees) to find coincident data.
-        # For Pandora 'Trop' data, only consider TROPOMI scenes where the
-        # total column exceeds the stratospheric column:
-        # TODO Store NO2_COL in trop_data
-        if (NO2_COL == 'Tot'):
-            tomiind = np.argwhere((difflon <= DIFF_DEG) & (difflat <= DIFF_DEG)
-                                  & (trop_data.no2val != np.nan) & (trop_data.omi_dd == (d + 1)))
-        if (NO2_COL == 'Trop'):
-            tomiind = np.argwhere((difflon <= DIFF_DEG) & (difflat <= DIFF_DEG) \
-                                  & (trop_data.no2val != np.nan) & (trop_data.omi_dd == (d + 1)) \
-                                  & (trop_data.stratcol < trop_data.totcol))
-        # Skip if no data:
-        if (len(tomiind) == 0):
-            print("No tropomi data for day {}".format(daycnt))
-            return
+        self.difflon = abs(np.subtract(trop_data.lons, pandora_data.panlon))
+        self.difflat = abs(np.subtract(trop_data.lats, pandora_data.panlat))
+        tomiind = self.tomiind
 
         # Add TROPOMI total NO2 to final array of daily means:
         self.s5p_ml[daycnt] += sum(np.divide(trop_data.no2val[tomiind], np.square(trop_data.no2err[tomiind])))
@@ -84,7 +71,39 @@ class DataCollector:
         self.s5p_cf[daycnt] += sum(trop_data.cldfrac[tomiind])
         self.s5p_cnt[daycnt] += len(tomiind)
 
+    def set_trop_ind_for_day(self, daycnt, trop_data):
+        # Use distanc (degrees) to find coincident data.
+        # For Pandora 'Trop' data, only consider TROPOMI scenes where the
+        # total column exceeds the stratospheric column:
+        # TODO Store NO2_COL in trop_data
+        if (trop_data.no2_col == 'Tot'):
+            tomiind = np.argwhere((self.difflon <= DIFF_DEG) & (self.difflat <= DIFF_DEG)
+                                  & (trop_data.no2val != np.nan) & (trop_data.omi_dd == (d + 1)))
+        if (trop_data.no2_col == 'Trop'):
+            tomiind = np.argwhere((self.difflon <= DIFF_DEG) & (self.difflat <= DIFF_DEG)
+                                  & (trop_data.no2val != np.nan) & (trop_data.omi_dd == (d + 1))
+                                  & (trop_data.stratcol < trop_data.totcol))
+        # Skip if no data:
+        if (len(tomiind) == 0):
+            print("No tropomi data for day {}".format(daycnt))
+            raise NoDataException
+        self.tomiind = tomiind
+
     def add_pandora_data_to_day(self, daycnt, hour_count, pandora_data):
+        tomiind = self.tomiind()
+        # Get min and max TROPOMI UTC for this orbit:
+        # Choose min and max time window of TROPOMI 0.2 degrees
+        # around Pandora site:
+        minhh = np.nanmin(trop_data.omi_utc_hh[tomiind])
+        maxhh = np.nanmax(trop_data.omi_utc_hh[tomiind])
+        mintime = np.nanmin(trop_data.tomi_hhmm[tomiind])
+        maxtime = np.nanmax(trop_data.tomi_hhmm[tomiind])
+        if (minhh == maxhh):
+            self.hhsite = [mintime]
+        else:
+            self.hhsite = [mintime, maxtime]
+        self.nhrs = len(self.hhsite)
+
         # Find relevant Pandora data for this year, month and day:
         # Pandora flag threshold selected is from https://www.atmos-meas-tech.net/13/205/2020/amt-13-205-2020.pdf
         panind = np.argwhere((pandora_data.panyy == Year[month_number])
@@ -92,7 +111,7 @@ class DataCollector:
                              & (pandora_data.pandd == (d + 1)) & (pandora_data.panno2 > -8e99)
                              & (pandora_data.panqaflag <= 11)
                              & (pandora_data.panqaflag != 2) & (pandora_data.pan_hhmm >= self.hhsite[hour_count] - 0.5)
-                             & (pandora_data.pan_hhmm <= self.hhsite[hour_count] + 0.5))
+                   & (pandora_data.pan_hhmm <= self.hhsite[hour_count] + 0.5))
         # Proceed if there are Pandora data points:
         if len(panind) == 0:
             print("No pandora data for day {}".format(daycnt))
@@ -225,10 +244,11 @@ class DataCollector:
 
 
 class TropomiData:
-    def __init__(self, filepath, apply_bias_correction):
+    def __init__(self, filepath, apply_bias_correction, no2_col):
         # Read file:
         fh = Dataset(filepath, mode='r')
         self.apply_bias = apply_bias_correction
+        self.no2_col = no2_col
         # Extract data of interest (lon, lat, clouds, NO2 total column & error):
         glons = fh.groups['PRODUCT'].variables['longitude'][:]
         self.tlons = glons.data[0, :, :]
@@ -325,20 +345,6 @@ class TropomiData:
         self.tstratamf = gstratamf.data[0, :, :]
         fh.close()
 
-    def set_time_axis(self):
-        # Get min and max TROPOMI UTC for this orbit:
-        # Choose min and max time window of TROPOMI 0.2 degrees
-        # around Pandora site:
-        tomiind = self.tomiind
-        minhh = np.nanmin(self.omi_utc_hh[tomiind])
-        maxhh = np.nanmax(self.omi_utc_hh[tomiind])
-        mintime = np.nanmin(self.tomi_hhmm[tomiind])
-        maxtime = np.nanmax(self.tomi_hhmm[tomiind])
-        if (minhh == maxhh):
-            self.hhsite = [mintime]
-        else:
-            self.hhsite = [mintime, maxtime]
-        self.nhrs = len(self.hhsite)
 
     def preprocess(self):
         # Calculate the geometric AMF:
@@ -402,8 +408,8 @@ class TropomiData:
         self.tno2val = np.multiply(tno2val, self.no2sfac)
         self.tno2err = np.multiply(tno2err, self.no2sfac)
         # Trim to remove data where relevant NO2 data is not NAN:
-        lons = self.tlons[~np.isnan(tno2val)]
-        lats = self.tlats[~np.isnan(tno2val)]
+        self.lons = self.tlons[~np.isnan(tno2val)]
+        self.lats = self.tlats[~np.isnan(tno2val)]
         self.no2err = tno2err[~np.isnan(tno2val)]
         self.omi_utc_hh = self.tomi_utc_hh[~np.isnan(tno2val)]
         self.omi_min = self.tomi_min[~np.isnan(tno2val)]
@@ -419,13 +425,13 @@ class TropomiData:
 
 
 class CloudData:
-    def __init__(self, filepath, product_type):
+    def __init__(self, filepath, product_type, tropomi_data=None):
         if product_type == "dlr-ocra":
             self.read_ocra_data(filepath)
         elif product_type == "fresco":
-            self.read_fresco_data(filepath)
+            self.read_fresco_data(filepath, tropomi_data)
 
-    def read_ocra_data(self,filepath):
+    def read_ocra_data(self, filepath):
         # Read data:
         fh = Dataset(filepath, mode='r')
         # TODO: Watch out for those string indexes. Change when format is understood.
@@ -457,14 +463,15 @@ class CloudData:
         # Check that data shapes are equal:
         if self.tcldfrac.shape != sza.shape:
             print('Cloud product and NO2 indices ne!', flush=True)
-            print(tcldfrac.shape, sza.shape, flush=True)
+            print(self.tcldfrac.shape, sza.shape, flush=True)
             print('Skipping this swath', flush=True)
             fh.close()
             raise BadCloudShapeException
         # Close file:
         fh.close()
 
-    def read_fresco_data(self,filepath):
+    def read_fresco_data(self, filepath, tropomi_data):
+        # FRESCO product is in NO2 file
         fh = Dataset(filepath, mode='r')
         # Cloud input data (cldfrac, cldalb, cldpres):
         gcldfrac = fh.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA']. \
@@ -492,7 +499,7 @@ class CloudData:
         # Snow/ice misclassified as clouds:
         # TODO: Check with Eloise where tsurfp comes from - or if FRESCO data is used at all
         self.tsnow = np.where(((self.tsnow > 80) & (self.tsnow < 104)
-                               & (self.tscenep > (0.98 * self.tsurfp))),
+                               & (self.tscenep > (0.98 * tropomi_data.tsurfp))),
                                 0, self.tsnow)
         # Set clouds over snow/ice scenes to nan:
         self.tcldfrac = np.where(self.tsnow != 0, np.nan, self.tcldfrac)
@@ -653,18 +660,22 @@ if __name__ == "__main__":
                     print('unequal number of files', flush=True)
                     raise UnequalFileException
 
+            elif args.cloud_product == "fresco":
+                cloud_files_on_day = tomi_files_on_day
+            else:
+                raise InvalidCloudProductException
+
             # Loop over files:
-            for f, tomi_file_on_day, cloud_file_on_day \
-                    in enumerate(zip(tomi_files_on_day, cloud_files_on_day)):
-                trop_data = TropomiData(tomi_file_on_day)
+            for tomi_file_on_day, cloud_file_on_day in zip(tomi_files_on_day, cloud_files_on_day):
+                trop_data = TropomiData(tomi_file_on_day, args.apply_bias_correction, args.no2_col)
                 trop_data.preprocess()
-                trop_data.set_time_axis()
-                cloud_data = CloudData(cloud_file_on_day, args.cloud_product)
+                cloud_data = CloudData(cloud_file_on_day, args.cloud_product, trop_data)
                 trop_data.apply_cloud_filter(args.no2_col, cloud_data)
+                data_aggregator.set_trop_ind_for_day(daycnt, trop_data)
                 data_aggregator.add_trop_data_to_day(daycnt, trop_data, pandora_data)
                 # loop over TROPOMI hours at site:
-                for n in range(trop_data.nhrs):
-                    data_aggregator.add_pandora_data_to_day(daycnt, n, pandora_data)
+                for hour in range(data_aggregator.nhrs):
+                    data_aggregator.add_pandora_data_to_day(daycnt, hour, pandora_data)
 
     data_aggregator.daily_weighted_means()
     data_aggregator.plot_data()
