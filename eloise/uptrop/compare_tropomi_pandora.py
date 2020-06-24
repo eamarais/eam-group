@@ -24,8 +24,10 @@ import matplotlib as mpl
 from scipy import stats
 from constants import DU_TO_MOLECULES_PER_CM2 as du2moleccm2
 
+import pdb
+
 # Turn off warnings:
-np.warnings.filterwarnings('ignore')
+#np.warnings.filterwarnings('ignore')
 
 
 
@@ -39,6 +41,8 @@ Year = [2019, 2019, 2019, 2019, 2019, 2019, 2019, 2020, 2020, 2020, 2020, 2020]
 DayInMon = [30, 31, 31, 30, 31, 30, 31, 31, 29, 31, 30, 31]
 
 
+class NoDataException(Exception):
+    pass
 
 
 class DataCollector:
@@ -59,9 +63,6 @@ class DataCollector:
 
     def add_trop_data_to_day(self, daycnt, trop_data, pandora_data):
 
-        # Find coincident data for this file:
-        self.difflon = abs(np.subtract(trop_data.lons, pandora_data.panlon))
-        self.difflat = abs(np.subtract(trop_data.lats, pandora_data.panlat))
         tomiind = self.tomiind
 
         # Add TROPOMI total NO2 to final array of daily means:
@@ -71,7 +72,12 @@ class DataCollector:
         self.s5p_cf[daycnt] += sum(trop_data.cldfrac[tomiind])
         self.s5p_cnt[daycnt] += len(tomiind)
 
-    def set_trop_ind_for_day(self, daycnt, trop_data):
+    def set_trop_ind_for_day(self, daycnt, trop_data, pandora_data):
+
+        # Find coincident data for this file:
+        self.difflon = abs(np.subtract(trop_data.lons, pandora_data.panlon))
+        self.difflat = abs(np.subtract(trop_data.lats, pandora_data.panlat))
+
         # Use distanc (degrees) to find coincident data.
         # For Pandora 'Trop' data, only consider TROPOMI scenes where the
         # total column exceeds the stratospheric column:
@@ -84,13 +90,13 @@ class DataCollector:
                                   & (trop_data.no2val != np.nan) & (trop_data.omi_dd == (d + 1))
                                   & (trop_data.stratcol < trop_data.totcol))
         # Skip if no data:
+        pdb.set_trace()
         if (len(tomiind) == 0):
             print("No tropomi data for day {}".format(daycnt))
             raise NoDataException
         self.tomiind = tomiind
 
-    def add_pandora_data_to_day(self, daycnt, hour_count, pandora_data):
-        tomiind = self.tomiind()
+
         # Get min and max TROPOMI UTC for this orbit:
         # Choose min and max time window of TROPOMI 0.2 degrees
         # around Pandora site:
@@ -103,6 +109,11 @@ class DataCollector:
         else:
             self.hhsite = [mintime, maxtime]
         self.nhrs = len(self.hhsite)
+
+
+    def add_pandora_data_to_day(self, daycnt, hour_count, pandora_data):
+        tomiind = self.tomiind
+
 
         # Find relevant Pandora data for this year, month and day:
         # Pandora flag threshold selected is from https://www.atmos-meas-tech.net/13/205/2020/amt-13-205-2020.pdf
@@ -558,8 +569,9 @@ def get_tropomi_files_on_day(tomidir, day):
     if (day + 1) <= 9:
         StrDD = '0' + StrDD
     # Get string of files for this day:
-    tomi_files_on_day = glob.glob(tomidir + 'NO2_OFFL/20' + StrYY[month_number] + '/' + StrMon + '/' + \
+    tomi_glob_string = os.path.join(tomidir, 'NO2_OFFL/20' + StrYY[month_number] + '/' + StrMon + '/' + \
                                   'S5P_OFFL_L2__NO2____20' + StrYY[month_number] + StrMon + StrDD + '*')
+    tomi_files_on_day = glob.glob(tomi_glob_string)
     # Track progress:
     print('Processing day in month: ', StrDD)
     # Order the files:
@@ -645,39 +657,42 @@ if __name__ == "__main__":
         print('Processing month: ',StrMon)
 
         for daycnt, d in enumerate(range(DayInMon[month_number])):
-
-            tomi_files_on_day = get_tropomi_files_on_day(args.tomi_dir, d)
+            try:
+                tomi_files_on_day = get_tropomi_files_on_day(args.tomi_dir, d)
 
             # Get string of S5P TROPOMI cloud product file names:
             # TODO: Check with Eloise where we get the Fresco data from
-            if args.cloud_product== 'dlr-ocra':
-                cloud_files_on_day = get_ocra_files_on_day(args.tomi_dir, d)
+                if args.cloud_product== 'dlr-ocra':
+                    cloud_files_on_day = get_ocra_files_on_day(args.tomi_dir, d)
 
-                # Check for inconsistent number of files:
-                if len(cloud_files_on_day) != len(tomi_files_on_day):
-                    print('NO2 files = ', len(tomi_files_on_day), flush=True)
-                    print('CLOUD files = ', len(cloud_files_on_day),flush=True)
-                    print('unequal number of files', flush=True)
-                    raise UnequalFileException
+                    # Check for inconsistent number of files:
+                    if len(cloud_files_on_day) != len(tomi_files_on_day):
+                        print('NO2 files = ', len(tomi_files_on_day), flush=True)
+                        print('CLOUD files = ', len(cloud_files_on_day),flush=True)
+                        print('unequal number of files', flush=True)
+                        raise UnequalFileException
 
-            elif args.cloud_product == "fresco":
-                cloud_files_on_day = tomi_files_on_day
-            else:
-                raise InvalidCloudProductException
+                elif args.cloud_product == "fresco":
+                    cloud_files_on_day = tomi_files_on_day
+                else:
+                    raise InvalidCloudProductException
 
-            # Loop over files:
-            for tomi_file_on_day, cloud_file_on_day in zip(tomi_files_on_day, cloud_files_on_day):
-                trop_data = TropomiData(tomi_file_on_day, args.apply_bias_correction, args.no2_col)
-                trop_data.preprocess()
-                cloud_data = CloudData(cloud_file_on_day, args.cloud_product, trop_data)
-                trop_data.apply_cloud_filter(args.no2_col, cloud_data)
-                data_aggregator.set_trop_ind_for_day(daycnt, trop_data)
-                data_aggregator.add_trop_data_to_day(daycnt, trop_data, pandora_data)
-                # loop over TROPOMI hours at site:
-                for hour in range(data_aggregator.nhrs):
-                    data_aggregator.add_pandora_data_to_day(daycnt, hour, pandora_data)
+                # Loop over files:
+                for tomi_file_on_day, cloud_file_on_day in zip(tomi_files_on_day, cloud_files_on_day):
+                    trop_data = TropomiData(tomi_file_on_day, args.apply_bias_correction, args.no2_col)
+                    trop_data.preprocess()
+                    cloud_data = CloudData(cloud_file_on_day, args.cloud_product, trop_data)
+                    trop_data.apply_cloud_filter(args.no2_col, cloud_data)
+                    data_aggregator.set_trop_ind_for_day(daycnt, trop_data, pandora_data)
+                    data_aggregator.add_trop_data_to_day(daycnt, trop_data, pandora_data)
 
-    data_aggregator.daily_weighted_means()
+                    # loop over TROPOMI hours at site:
+                    for hour in range(data_aggregator.nhrs):
+                        data_aggregator.add_pandora_data_to_day(daycnt, hour, pandora_data)
+            except NoDataException:
+                continue
+
+        data_aggregator.daily_weighted_means()
     data_aggregator.plot_data()
     data_aggregator.write_to_netcdf()
 
