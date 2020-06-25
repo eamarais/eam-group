@@ -420,11 +420,11 @@ class TropomiData:
 
         # Select which NO2 data to use based on NO2_COL selection:
         if (no2col == 'Tot'):
-            tno2val = self.tgeototvcd
-            tno2err = self.ttotvcd_geo_err
+            self.tno2val = self.tgeototvcd
+            self.tno2err = self.ttotvcd_geo_err
         elif (no2col == 'Trop'):
-            tno2val = self.tgeotropvcd
-            tno2err = self.ttropvcd_geo_err
+            self.tno2val = self.tgeotropvcd
+            self.tno2err = self.ttropvcd_geo_err
             stratcol = self.tstratno2
             totcol = self.tgeototvcd
         else:
@@ -453,7 +453,7 @@ class TropomiData:
         self.tno2val = np.where(cloud_product.tsnow != 0, np.nan, self.tno2val)
         # Convert NO2 from mol/m3 to molec/cm2:
         self.tno2val = np.multiply(self.tno2val, self.no2sfac)
-        self.tno2err = np.multiply(tno2err, self.no2sfac)
+        self.tno2err = np.multiply(self.tno2err, self.no2sfac)
         # Trim to remove data where relevant NO2 data is not NAN:
         self.lons = self.tlons[~np.isnan(self.tno2val)]
         self.lats = self.tlats[~np.isnan(self.tno2val)]
