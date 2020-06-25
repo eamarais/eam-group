@@ -17,13 +17,16 @@ from netCDF4 import Dataset
 import numpy as np
 import argparse
 import datetime as dt
-from uptrop.bootstrap import rma
 from dateutil import rrule as rr
 from dateutil.relativedelta import relativedelta as rd
-from uptrop.read_pandora import readpandora
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scipy import stats
+
+# Silly import hack for ALICE
+sys.path.append(os.path.dirname(__file__))
+from uptrop.read_pandora import readpandora
+from uptrop.bootstrap import rma
 from uptrop.constants import DU_TO_MOLECULES_PER_CM2 as du2moleccm2
 
 import pdb
