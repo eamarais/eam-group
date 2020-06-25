@@ -592,7 +592,7 @@ def get_tropomi_files_on_day(tomidir, date):
     year = date.strftime(r"%Y")
     month = date.strftime(r"%m")
     datestamp = date.strftime(r"%Y%m%dT")
-    tomi_glob_string = os.path.join(tomidir, 'NO2_OFFL,', year, month,'S5P_OFFL_L2__NO2____'+ datestamp + '*')
+    tomi_glob_string = os.path.join(tomidir, 'NO2_OFFL', year, month,'S5P_OFFL_L2__NO2____'+ datestamp + '*')
     tomi_files_on_day = glob.glob(tomi_glob_string)
     print('Found {} tropomi files for {}: '.format(len(tomi_files_on_day), date))
     tomi_files_on_day = sorted(tomi_files_on_day)
@@ -620,7 +620,7 @@ def get_pandora_file(pandir, pandora_site, site_num, c_site, no2_col, fv):
 
 def get_days_since_data_start(date, data_start = None):
     if not data_start:
-        data_start = dt.date(year=2019, month=6, day=1)
+        data_start = dt.date(year=2019, month=5, day=1)
     delta = date - data_start
     return delta.days
 
@@ -683,8 +683,8 @@ if __name__ == "__main__":
     # They are generated using dateutil's rrule (relative rule) and rdelta(relaitve delta) functions:
     # https://dateutil.readthedocs.io/en/stable/rrule.html
     # https://dateutil.readthedocs.io/en/stable/relativedelta.html
-    start_date = dt.date(year=2019, month=6, day=1)
-    end_date = dt.date(year=2020, month=5, day=31)
+    start_date = dt.date(year=2019, month=5, day=1)
+    end_date = dt.date(year=2020, month=4, day=31)
     # For every month in the year
     for dt_month in rr.rrule(freq=rr.MONTHLY, dtstart=start_date, until=end_date):
         print('Processing month: ', dt_month.month)
