@@ -24,7 +24,7 @@ import matplotlib as mpl
 from scipy import stats
 
 # Silly import hack for ALICE
-sys.path.append(os.path.dirname(__file__))
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from uptrop.read_pandora import readpandora
 from uptrop.bootstrap import rma
 from uptrop.constants import DU_TO_MOLECULES_PER_CM2 as du2moleccm2
