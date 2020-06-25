@@ -683,8 +683,8 @@ if __name__ == "__main__":
     # They are generated using dateutil's rrule (relative rule) and rdelta(relaitve delta) functions:
     # https://dateutil.readthedocs.io/en/stable/rrule.html
     # https://dateutil.readthedocs.io/en/stable/relativedelta.html
-    start_date = dt.date(year=2019, month=6, day=1)
-    end_date = dt.date(year=2020, month=5, day=31)
+    start_date = dt.date(year=2019, month=5, day=1)
+    end_date = dt.date(year=2020, month=4, day=31)
     # For every month in the year
     for dt_month in rr.rrule(freq=rr.MONTHLY, dtstart=start_date, until=end_date):
         print('Processing month: ', dt_month.month)
