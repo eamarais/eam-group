@@ -355,7 +355,7 @@ class TropomiData:
                         variables['nitrogendioxide_stratospheric_column'][:]
         self.tstratno2 = gstratno2.data[0, :, :]
         # Statospheric column error:
-        self.stratno2err = fh.groups['PRODUCT']['SUPPORT_DATA']['DETAILED_RESULTS']. \
+        self.tstratno2err = fh.groups['PRODUCT']['SUPPORT_DATA']['DETAILED_RESULTS']. \
                           variables['nitrogendioxide_stratospheric_column_precision'][0, :, :]
         # Surface pressure:
         gsurfp = fh.groups['PRODUCT']['SUPPORT_DATA']['INPUT_DATA']. \
@@ -391,7 +391,7 @@ class TropomiData:
         self.tgeototvcd = np.add(self.tgeotropvcd, self.tstratno2)
         # Calculate total VCD column error by adding in quadrature
         # individual contributions:
-        self.ttotvcd_geo_err = np.sqrt(np.add(np.square(self.stratno2err),
+        self.ttotvcd_geo_err = np.sqrt(np.add(np.square(self.tstratno2err),
                                          np.square(self.tscdno2err)))
         # Estimate the tropospheric NO2 error as the total error
         # weighted by the relative contribution of the troposphere
