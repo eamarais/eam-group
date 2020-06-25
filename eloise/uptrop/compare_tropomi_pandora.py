@@ -144,8 +144,7 @@ class DataCollector:
         # Proceed if there are Pandora data points:
         if len(panind) == 0:
             print("No pandora data for day {}".format(date))
-            
-        print('len(panind) for first day of Jun 2019 should be: 11')    
+            raise NoPandoraException     
         
         # Create arrays of relevant data and convert from DU to molec/cm2:
         tno2 = np.multiply(pandora_data.panno2[panind], du2moleccm2)
