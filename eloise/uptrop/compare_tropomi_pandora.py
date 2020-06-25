@@ -139,12 +139,13 @@ class DataCollector:
                              & (pandora_data.panno2 > -8e99)
                              & (pandora_data.panqaflag <= 11)
                              & (pandora_data.panqaflag != 2)
-                             & (pandora_data.pan_hhmm >= self.hhsite[hour] - 0.5)
-                             & (pandora_data.pan_hhmm <= self.hhsite[hour] + 0.5))
+                             & (pandora_data.pan_hhmm >= self.hhsite[hour] - DIFF_HH)
+                             & (pandora_data.pan_hhmm <= self.hhsite[hour] + DIFF_HH))
         # Proceed if there are Pandora data points:
         if len(panind) == 0:
             print("No pandora data for day {}".format(date))
-            raise NoPandoraException     
+            pass
+            #raise NoPandoraException     
         
         # Create arrays of relevant data and convert from DU to molec/cm2:
         tno2 = np.multiply(pandora_data.panno2[panind], du2moleccm2)
@@ -646,6 +647,7 @@ if __name__ == "__main__":
     parser.add_argument("--cloud_product", default="fresco", help="options are fresco, dlr-ocra; default is fresco")
     parser.add_argument("--pandora_site", default="izana", help="options are izana,mauna_loa,altzomoni; default is izana")
     parser.add_argument("--str_diff_deg", default="02", help="options are: 03,02,01,005; default is 02")
+    parser.add_argument("--str_diff_min", default="30", help="options are: 60,30,15; default is 30")
     parser.add_argument("--apply_bias_correction", default=False)
     parser.add_argument("--start_date", default="2019-06-01", help="Start date of processing window (yyyy-mm-dd)")
     parser.add_argument("--end_date", default="2020-05-30", help="End date of processing window (yyyy-mm-dd)")
@@ -663,6 +665,14 @@ if __name__ == "__main__":
         DIFF_DEG=0.1
     if ( args.str_diff_deg== '005'):
         DIFF_DEG=0.05
+
+    # Define time range (in minutes) to sample Pandora around TROPOMI overpass:
+    if ( args.str_diff_min=='30' ):
+        DIFF_HH=30/60
+    if ( args.str_diff_min=='15' ):
+        DIFF_HH=15/60
+    if ( args.str_diff_min=='60' ):
+        DIFF_HH=60/60
 
     # Get Pandora site number:
     if ( args.pandora_site== 'altzomoni'):
@@ -689,8 +699,10 @@ if __name__ == "__main__":
 
     # Get Pandora filename (one file per site):
     panfile= get_pandora_file(args.pandir, args.pandora_site, SITE_NUM, C_SITE, args.no2_col, FV)
-    outfile = os.path.join(args.outdir, 'tropomi-pandora-comparison-' + args.pandora_site + '-' + args.cloud_product +
-                        '-' + args.no2_col + '-' + args.str_diff_deg + 'deg-bias-corr-v1.nc')
+    if ( args.apply_bias_correction ):
+        outfile = os.path.join(args.outdir, 'tropomi-pandora-comparison-' + args.pandora_site + '-' + args.cloud_product + '-' + args.no2_col + '-' + args.str_diff_deg + 'deg-' + args.str_diff_min + 'min-bias-corr-v2.nc')
+    else:
+        outfile = os.path.join(args.outdir, 'tropomi-pandora-comparison-' + args.pandora_site + '-' + args.cloud_product + '-' + args.no2_col + '-' + args.str_diff_deg + 'deg-' + args.str_diff_min + 'min-v2.nc')
 
     pandora_data = PandoraData(panfile)
     data_aggregator = DataCollector(start_date, end_date)
