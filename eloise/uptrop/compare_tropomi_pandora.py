@@ -32,7 +32,6 @@ from uptrop.read_pandora import readpandora
 from uptrop.bootstrap import rma
 from uptrop.constants import DU_TO_MOLECULES_PER_CM2 as du2moleccm2
 
-import pdb
 
 # Turn off warnings:
 #np.warnings.filterwarnings('ignore')
@@ -86,11 +85,6 @@ class DataCollector:
         self.s5p_ch[day_index] += sum(trop_data.cldpres[tomiind] * 1e-2)
         self.s5p_cf[day_index] += sum(trop_data.cldfrac[tomiind])
         self.s5p_cnt[day_index] += len(tomiind)
-         
-        print('Values for first day of Jun 2019 should be s5p_ml=5.08e-13 and s5p_wgt=1.20e-28')
-        print("This is still off: s5p_ml: {}  s5p_wgt: {}".format(self.s5p_ml[0], self.s5p_wgt[0]))
-        # pdb.set_trace()
-        # TODO: Find out why this is off: when checked mid-process, s5p_ml = 30597636 and s5p_wgt = 4.35298566e+11
 
     def set_trop_ind_for_day(self, date, trop_data, pandora_data):
         # Find coincident data for this file:
@@ -163,9 +157,6 @@ class DataCollector:
             self.pan_no2[day_of_year] += np.divide(tno2[w], np.square(terr[w]))
             self.pan_wgt[day_of_year] += np.divide(1.0, np.square(terr[w]))
             self.pan_cnt[day_of_year] += len(panind)
-
-        # print('Values for first day of Jun 2019 should be pan_no2=1.62e-11 and pan_wgt=4.92e-27')
-        # This looks good to me        
 
     def apply_weight_to_means(self):
         # Get daily error-weighted means:
@@ -643,8 +634,8 @@ if __name__ == "__main__":
     parser.add_argument("--pandora_site", default="izana", help="options are izana,mauna_loa,altzomoni; default is izana")
     parser.add_argument("--str_diff_deg", default="02", help="options are: 03,02,01,005; default is 02")
     parser.add_argument("--apply_bias_correction", default=False)
-    parser.add_argument("--start_date", default="2019-05-01", help="Start date of processing window (yyyy-mm-dd)")
-    parser.add_argument("--end_date", default="2020-04-01", help="End date of processing window (yyyy-mm-dd)")
+    parser.add_argument("--start_date", default="2019-06-01", help="Start date of processing window (yyyy-mm-dd)")
+    parser.add_argument("--end_date", default="2020-05-30", help="End date of processing window (yyyy-mm-dd)")
     args = parser.parse_args()
 
     start_date = dt.datetime.strptime(args.start_date, "%Y-%m-%d")
@@ -727,7 +718,6 @@ if __name__ == "__main__":
                     for hour in range(data_aggregator.nhrs):
                         data_aggregator.add_pandora_data_to_day(processing_day, hour, pandora_data)
                 except NoDataException:
-                    print("No data in tomi file: {}".format(tomi_file_on_day))
                     continue
 
     data_aggregator.apply_weight_to_means()
