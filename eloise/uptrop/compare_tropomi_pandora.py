@@ -88,6 +88,7 @@ class DataCollector:
         self.s5p_cnt[day_index] += len(tomiind)
          
         print('Values for first day of Jun 2019 should be s5p_ml=5.08e-13 and s5p_wgt=1.20e-28')
+        # TODO: Find out why this is off: when checked mid-process, s5p_ml = 30597636 and s5p_wgt = 4.35298566e+11
         pdb.set_trace()
 
     def set_trop_ind_for_day(self, date, trop_data, pandora_data):
@@ -120,6 +121,7 @@ class DataCollector:
         print('len(tomiind) for first day of Jun 2019 should be: 51')
         pdb.set_trace()
 
+
         # Get min and max TROPOMI UTC for this orbit:
         # Choose min and max time window of TROPOMI 0.2 degrees
         # around Pandora site:
@@ -133,13 +135,12 @@ class DataCollector:
             self.hhsite = [mintime, maxtime]
         self.nhrs = len(self.hhsite)
 
-
     def add_pandora_data_to_day(self, date, hour, pandora_data):
         # Find relevant Pandora data for this year, month and day:
         # Pandora flag threshold selected is from https://www.atmos-meas-tech.net/13/205/2020/amt-13-205-2020.pdf
         panind = np.argwhere((pandora_data.panyy == date.year)
                              & (pandora_data.panmon == date.month)
-                             & (pandora_data.pandd == date.day)  # TODO: Look in Pandora file to find why the offset
+                             & (pandora_data.pandd == date.day)
                              & (pandora_data.panno2 > -8e99)
                              & (pandora_data.panqaflag <= 11)
                              & (pandora_data.panqaflag != 2)
@@ -437,34 +438,34 @@ class TropomiData:
 
         # Account for files where mask is missing (only appears to be one):
         if len(self.gtotno2.mask.shape) == 0:
-            tno2val = np.where(tno2val == self.fillval, np.nan, tno2val)
+            self.tno2val = np.where(self.tno2val == self.fillval, np.nan, self.tno2val)
         else:
-            tno2val[self.gtotno2.mask[0, :, :]] = float("nan")
+            self.tno2val[self.gtotno2.mask[0, :, :]] = float("nan")
         # Find relevant data only:
         # Filter out low quality retrieval scenes (0.45 suggested
         # by Henk Eskes at KNMI):
-        tno2val = np.where(self.qaval < 0.45, np.nan, tno2val)
+        self.tno2val = np.where(self.qaval < 0.45, np.nan, self.tno2val)
 
         # Also set scenes with snow/ice to nan. Not likely for the tropical
         # sites selected for this comparison, but included this here in
         # case of future comparisons that in midlatitudes or poles:
-        tno2val = np.where(cloud_product.tsnow != 0, np.nan, tno2val)
+        self.tno2val = np.where(cloud_product.tsnow != 0, np.nan, self.tno2val)
         # Convert NO2 from mol/m3 to molec/cm2:
-        self.tno2val = np.multiply(tno2val, self.no2sfac)
+        self.tno2val = np.multiply(self.tno2val, self.no2sfac)
         self.tno2err = np.multiply(tno2err, self.no2sfac)
         # Trim to remove data where relevant NO2 data is not NAN:
-        self.lons = self.tlons[~np.isnan(tno2val)]
-        self.lats = self.tlats[~np.isnan(tno2val)]
-        self.no2err = tno2err[~np.isnan(tno2val)]
-        self.omi_utc_hh = self.tomi_utc_hh[~np.isnan(tno2val)]
-        self.omi_min = self.tomi_min[~np.isnan(tno2val)]
-        self.omi_dd = self.tomi_dd[~np.isnan(tno2val)]
-        self.cldfrac = cloud_product.tcldfrac[~np.isnan(tno2val)]
-        self.cldpres = cloud_product.tcldpres[~np.isnan(tno2val)]
-        self.no2val = tno2val[~np.isnan(tno2val)]
+        self.lons = self.tlons[~np.isnan(self.tno2val)]
+        self.lats = self.tlats[~np.isnan(self.tno2val)]
+        self.no2err = self.tno2err[~np.isnan(self.tno2val)]
+        self.omi_utc_hh = self.tomi_utc_hh[~np.isnan(self.tno2val)]
+        self.omi_min = self.tomi_min[~np.isnan(self.tno2val)]
+        self.omi_dd = self.tomi_dd[~np.isnan(self.tno2val)]
+        self.cldfrac = cloud_product.tcldfrac[~np.isnan(self.tno2val)]
+        self.cldpres = cloud_product.tcldpres[~np.isnan(self.tno2val)]
+        self.no2val = self.tno2val[~np.isnan(self.tno2val)]
         if (no2col == 'Trop'):
-            self.stratcol = stratcol[~np.isnan(tno2val)]
-            self.totcol = totcol[~np.isnan(tno2val)]
+            self.stratcol = stratcol[~np.isnan(self.tno2val)]
+            self.totcol = totcol[~np.isnan(self.tno2val)]
         # Combine hour and minute into xx.xx format:
         self.tomi_hhmm = self.omi_utc_hh + np.divide(self.omi_min, 60.)
 
@@ -698,6 +699,7 @@ if __name__ == "__main__":
     for dt_month in rr.rrule(freq=rr.MONTHLY, dtstart=start_date, until=end_date):
         print('Processing month: ', dt_month.month)
         # For every day in the month (probably a better way to express this)
+        # TODO: Known bug; this will fail if end_date is not the last day of a month
         for processing_day in rr.rrule(freq=rr.DAILY, dtstart=dt_month, until=dt_month + rd(months=1, days=-1)):
             tomi_files_on_day = get_tropomi_files_on_day(args.tomi_dir, processing_day)
 
