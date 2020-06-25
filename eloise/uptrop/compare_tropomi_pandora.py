@@ -16,13 +16,15 @@ import netCDF4 as nc4
 from netCDF4 import Dataset
 import numpy as np
 import argparse
-from bootstrap import rma
-
-from read_pandora import readpandora
+import datetime as dt
+from uptrop.bootstrap import rma
+from dateutil import rrule as rr
+from dateutil.relativedelta import relativedelta as rd
+from uptrop.read_pandora import readpandora
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scipy import stats
-from constants import DU_TO_MOLECULES_PER_CM2 as du2moleccm2
+from uptrop.constants import DU_TO_MOLECULES_PER_CM2 as du2moleccm2
 
 import pdb
 
@@ -30,19 +32,22 @@ import pdb
 #np.warnings.filterwarnings('ignore')
 
 
-
-# TODO: Change this to datetime. I say this in every single script, but never get around to it....
-# Define strings of months:
-StrMon = ['06', '07', '08', '09', '10', '11', '12', '01', '02', '03', '04', '05']
-NMon = len(StrMon)
-Month = [6, 7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5]
-StrYY = ['19', '19', '19', '19', '19', '19', '19', '20', '20', '20', '20', '20']
-Year = [2019, 2019, 2019, 2019, 2019, 2019, 2019, 2020, 2020, 2020, 2020, 2020]
-DayInMon = [30, 31, 31, 30, 31, 30, 31, 31, 29, 31, 30, 31]
-
-
 class NoDataException(Exception):
     pass
+
+class UnequalFileException(Exception):
+    pass
+
+class BadNo2ColException(Exception):
+    pass
+
+class BadCloudShapeException(Exception):
+    pass
+
+class InvalidCloudProductException(Exception):
+    pass
+
+
 
 
 class DataCollector:
@@ -50,7 +55,8 @@ class DataCollector:
         # Define final array of coincident data for each day at Pandora site:
         # JR: This can be changed to produce an appendable array, as the size
         #     will vary depending on which site is being processed.
-        nvals = 366
+        # REPLY: That's fine; in this case, we know how many days there are in a year
+        nvals = 365
         self.pan_no2 = np.zeros(nvals)
         self.s5p_ml = np.zeros(nvals)
         self.s5p_ch = np.zeros(nvals)
@@ -59,37 +65,43 @@ class DataCollector:
         self.s5p_wgt = np.zeros(nvals)
         self.pan_cnt = np.zeros(nvals)
         self.s5p_cnt = np.zeros(nvals)
-        self.daycnt = 0
+        self.n_days = nvals
 
-    def add_trop_data_to_day(self, daycnt, trop_data):
+    def add_trop_data_to_day(self, date, trop_data):
 
         tomiind = self.tomiind
+        day_index = get_days_since_data_start(date)
 
         # Add TROPOMI total NO2 to final array of daily means:
-        self.s5p_ml[daycnt] += sum(np.divide(trop_data.no2val[tomiind], np.square(trop_data.no2err[tomiind])))
-        self.s5p_wgt[daycnt] += sum(np.divide(1.0, np.square(trop_data.no2err[tomiind])))
-        self.s5p_ch[daycnt] += sum(trop_data.cldpres[tomiind] * 1e-2)
-        self.s5p_cf[daycnt] += sum(trop_data.cldfrac[tomiind])
-        self.s5p_cnt[daycnt] += len(tomiind)
+        self.s5p_ml[day_index] += sum(np.divide(trop_data.no2val[tomiind], np.square(trop_data.no2err[tomiind])))
+        self.s5p_wgt[day_index] += sum(np.divide(1.0, np.square(trop_data.no2err[tomiind])))
+        self.s5p_ch[day_index] += sum(trop_data.cldpres[tomiind] * 1e-2)
+        self.s5p_cf[day_index] += sum(trop_data.cldfrac[tomiind])
+        self.s5p_cnt[day_index] += len(tomiind)
          
         print('Values for first day of Jun 2019 should be s5p_ml=5.08e-13 and s5p_wgt=1.20e-28')
 
-    def set_trop_ind_for_day(self, daycnt, trop_data, pandora_data, day_number):
-
+    def set_trop_ind_for_day(self, date, trop_data, pandora_data):
         # Find coincident data for this file:
         self.difflon = abs(np.subtract(trop_data.lons, pandora_data.panlon))
         self.difflat = abs(np.subtract(trop_data.lats, pandora_data.panlat))
 
+
         # Use distanc (degrees) to find coincident data.
         # For Pandora 'Trop' data, only consider TROPOMI scenes where the
         # total column exceeds the stratospheric column:
-        # TODO Store NO2_COL in trop_data
         if (trop_data.no2_col == 'Tot'):
-            tomiind = np.argwhere((self.difflon <= DIFF_DEG) & (self.difflat <= DIFF_DEG) & (trop_data.no2val != np.nan) & (trop_data.omi_dd == (day_number + 1)))
+            tomiind = np.argwhere((self.difflon <= DIFF_DEG)
+                                  & (self.difflat <= DIFF_DEG)
+                                  & (trop_data.no2val != np.nan)
+                                  & (trop_data.omi_dd == date.day))
         if (trop_data.no2_col == 'Trop'):
-            tomiind = np.argwhere((self.difflon <= DIFF_DEG) & (self.difflat <= DIFF_DEG)
-                                  & (trop_data.no2val != np.nan) & (trop_data.omi_dd == (d + 1))
+            tomiind = np.argwhere((self.difflon <= DIFF_DEG)
+                                  & (self.difflat <= DIFF_DEG)
+                                  & (trop_data.no2val != np.nan)
+                                  & (trop_data.omi_dd == date.day)
                                   & (trop_data.stratcol < trop_data.totcol))
+      
         # Skip if no data:
         if (len(tomiind) == 0):
             raise NoDataException
@@ -112,21 +124,20 @@ class DataCollector:
         self.nhrs = len(self.hhsite)
 
 
-    def add_pandora_data_to_day(self, daycnt, hour_count, pandora_data):
-        tomiind = self.tomiind
-
-
+    def add_pandora_data_to_day(self, date, hour, pandora_data):
         # Find relevant Pandora data for this year, month and day:
         # Pandora flag threshold selected is from https://www.atmos-meas-tech.net/13/205/2020/amt-13-205-2020.pdf
-        panind = np.argwhere((pandora_data.panyy == Year[month_number])
-                             & (pandora_data.panmon == Month[month_number])
-                             & (pandora_data.pandd == (d + 1)) & (pandora_data.panno2 > -8e99)
+        panind = np.argwhere((pandora_data.panyy == date.year)
+                             & (pandora_data.panmon == date.month)
+                             & (pandora_data.pandd == date.day)  # TODO: Look in Pandora file to find why the offset
+                             & (pandora_data.panno2 > -8e99)
                              & (pandora_data.panqaflag <= 11)
-                             & (pandora_data.panqaflag != 2) & (pandora_data.pan_hhmm >= self.hhsite[hour_count] - 0.5)
-                             & (pandora_data.pan_hhmm <= self.hhsite[hour_count] + 0.5))
+                             & (pandora_data.panqaflag != 2)
+                             & (pandora_data.pan_hhmm >= self.hhsite[hour] - 0.5)
+                             & (pandora_data.pan_hhmm <= self.hhsite[hour] + 0.5))
         # Proceed if there are Pandora data points:
         if len(panind) == 0:
-            print("No pandora data for day {}".format(daycnt))
+            print("No pandora data for day {}".format(date))
             
         print('len(panind) for first day of Jun 2019 should be: 11')    
         
@@ -135,21 +146,22 @@ class DataCollector:
         terr = np.multiply(pandora_data.panno2err[panind], du2moleccm2)
         tqa = pandora_data.panqaflag[panind]
         # Add Pandora total NO2 to final array:
+        day_of_year = get_days_since_data_start(date)
         for w in range(len(panind)):
-            self.pan_no2[daycnt] += np.divide(tno2[w], np.square(terr[w]))
-            self.pan_wgt[daycnt] += np.divide(1.0, np.square(terr[w]))
-            self.pan_cnt[daycnt] += len(panind)
+            self.pan_no2[day_of_year] += np.divide(tno2[w], np.square(terr[w]))
+            self.pan_wgt[day_of_year] += np.divide(1.0, np.square(terr[w]))
+            self.pan_cnt[day_of_year] += len(panind)
 
         print('Values for first day of Jun 2019 should be pan_no2=1.62e-11 and pan_wgt=4.92e-27')
       
-    def daily_weighted_means(self, daycnt):
+    def apply_weight_to_means(self):
         # Get daily error-weighted means:
-        self.pan_no2[0:daycnt] = self.pan_no2[0:daycnt] / self.pan_wgt[0:daycnt]
-        self.pan_wgt[0:daycnt] = np.divide(1, np.sqrt(self.pan_wgt[0:daycnt]))
-        self.s5p_ml[0:daycnt] = self.s5p_ml[0:daycnt] / self.s5p_wgt[0:daycnt]
-        self.s5p_ch[0:daycnt] = self.s5p_ch[0:daycnt] / self.s5p_cnt[0:daycnt]
-        self.s5p_cf[0:daycnt] = self.s5p_cf[0:daycnt] / self.s5p_cnt[0:daycnt]
-        self.s5p_wgt[0:daycnt] = np.divide(1, np.sqrt(self.s5p_wgt[0:daycnt]))
+        self.pan_no2 = self.pan_no2 / self.pan_wgt
+        self.pan_wgt = np.divide(1, np.sqrt(self.pan_wgt))
+        self.s5p_ml = self.s5p_ml / self.s5p_wgt
+        self.s5p_ch = self.s5p_ch / self.s5p_cnt
+        self.s5p_cf = self.s5p_cf / self.s5p_cnt
+        self.s5p_wgt = np.divide(1, np.sqrt(self.s5p_wgt))
         print('Min & max relative errors (Pandora): ', np.nanmin(np.divide(self.pan_wgt, self.pan_no2)),
               np.nanmax(np.divide(self.pan_wgt, self.pan_no2)))
         print('Min & max relative errors (TROPOMI): ', np.nanmin(np.divide(self.s5p_wgt, self.s5p_ml)),
@@ -158,12 +170,11 @@ class DataCollector:
     def plot_data(self):
         # Plot time series:
         plt.figure(1, figsize=(10, 5))
-        x = np.arange(0, self.daycnt, 1)
-        days = x
-        plt.errorbar(x, self.pan_no2[0:daycnt] * 1e-14, yerr=self.pan_wgt[0:daycnt] * 1e-14,
+        x = np.arange(0, self.n_days, 1)
+        plt.errorbar(x, self.pan_no2 * 1e-14, yerr=self.pan_wgt * 1e-14,
                      fmt='.k', color='black', capsize=5, capthick=2,
                      ecolor='black', markersize=12, label='Pandora')
-        plt.errorbar(x, self.s5p_ml[0:daycnt] * 1e-14, yerr=self.s5p_wgt[0:daycnt] * 1e-14,
+        plt.errorbar(x, self.s5p_ml* 1e-14, yerr=self.s5p_wgt * 1e-14,
                      fmt='.k', color='blue', capsize=5, capthick=2,
                      ecolor='blue', markeredgecolor='blue',
                      markerfacecolor='blue', markersize=12, label='TROPOMI')
@@ -175,8 +186,8 @@ class DataCollector:
         # plt.savefig('./Images/tropomi-'+PANDORA_SITE+'-pandora-no2-timeseries-v1-jun2019-apr2020.ps', \
         #            format='ps',transparent=True,bbox_inches='tight',dpi=100)
         # Plot scatterplot:
-        tx = self.pan_no2[0:daycnt]
-        ty = self.s5p_ml[0:daycnt]
+        tx = self.pan_no2
+        ty = self.s5p_ml
         nas = np.logical_or(np.isnan(tx), np.isnan(ty))
         print('No. of coincident points = ', len(tx[~nas]))
         r = stats.pearsonr(tx[~nas], ty[~nas])
@@ -216,45 +227,45 @@ class DataCollector:
         # Save the data to NetCDF:
         ncout = Dataset(file, mode='w', format='NETCDF4')
         # Set array sizes:
-        TDim = daycnt
+        TDim = self.n_days
         ncout.createDimension('time', TDim)
         # create time axis
         time = ncout.createVariable('time', np.float32, ('time',))
         time.units = 'days since 2019-06-01'
         time.long_name = 'time in days since 2019-06-01'
-        time[:] = np.arange(0, self.daycnt, 1)
+        time[:] = np.arange(0, self.n_days, 1)
         panno2 = ncout.createVariable('panno2', np.float32, ('time',))
         panno2.units = 'molecules/cm2'
         panno2.long_name = 'Pandora error-weighted daily mean total column NO2 coincident with TROPOMI overpass'
-        panno2[:] = self.pan_no2[0:daycnt]
+        panno2[:] = self.pan_no2
         panerr = ncout.createVariable('panerr', np.float32, ('time',))
         panerr.units = 'molecules/cm2'
         panerr.long_name = 'Pandora weighted error of daily mean total columns of NO2 coincident with TROPOMI overpass'
-        panerr[:] = self.pan_wgt[0:daycnt]
+        panerr[:] = self.pan_wgt
         pancnt = ncout.createVariable('pancnt', np.float32, ('time',))
         pancnt.units = 'unitless'
         pancnt.long_name = 'Number of Pandora observations used to obtain weighted mean'
-        pancnt[:] = self.pan_cnt[0:daycnt]
+        pancnt[:] = self.pan_cnt
         satno2 = ncout.createVariable('satno2', np.float32, ('time',))
         satno2.units = 'molecules/cm2'
         satno2.long_name = 'S5P/TROPOMI NO2 OFFL error-weighted daily mean total column NO2 coincident with Pandora'
-        satno2[:] = self.s5p_ml[0:daycnt]
+        satno2[:] = self.s5p_ml
         satcldh = ncout.createVariable('satcldh', np.float32, ('time',))
         satcldh.units = 'hPa'
         satcldh.long_name = 'S5P/TROPOMI mean cloud top pressure at Pandora site'
-        satcldh[:] = self.s5p_ch[0:daycnt]
+        satcldh[:] = self.s5p_ch
         satcldf = ncout.createVariable('satcldf', np.float32, ('time',))
         satcldf.units = 'hPa'
         satcldf.long_name = 'S5P/TROPOMI mean cloud fraction at Pandora site'
-        satcldf[:] = self.s5p_cf[0:daycnt]
+        satcldf[:] = self.s5p_cf
         saterr = ncout.createVariable('saterr', np.float32, ('time',))
         saterr.units = 'molecules/cm2'
         saterr.long_name = 'S5P/TROPOMI NO2 OFFL weighted error of daily mean total columns of NO2 coincident with the Pandora site'
-        saterr[:] = self.s5p_wgt[0:daycnt]
+        saterr[:] = self.s5p_wgt
         satcnt = ncout.createVariable('satcnt', np.float32, ('time',))
         satcnt.units = 'unitless'
         satcnt.long_name = 'Number of S5P/TROPOMI observations used to obtain weighted mean'
-        satcnt[:] = self.s5p_cnt[0:daycnt]
+        satcnt[:] = self.s5p_cnt
         ncout.close()
 
 
@@ -405,6 +416,14 @@ class TropomiData:
             totcol = self.tgeototvcd
         else:
             raise BadNo2ColException
+
+        # Check that data shapes are equal:
+        if cloud_product.tcldfrac.shape != self.sza.shape:
+            print('Cloud product and NO2 indices ne!', flush=True)
+            print(cloud_product.tcldfrac.shape, self.sza.shape, flush=True)
+            print('Skipping this swath', flush=True)
+            raise BadCloudShapeException
+
         # Account for files where mask is missing (only appears to be one):
         if len(self.gtotno2.mask.shape) == 0:
             tno2val = np.where(tno2val == self.fillval, np.nan, tno2val)
@@ -474,14 +493,7 @@ class CloudData:
         # Set clouds over snow/ice scenes to nan:
         self.tcldfrac = np.where(self.tsnow != 0, np.nan, self.tcldfrac)
         self.tcldpres = np.where(self.tsnow != 0, np.nan, self.tcldpres)
-        # TODO: Move check elsewhere
-        # Check that data shapes are equal:
-        if self.tcldfrac.shape != sza.shape:
-            print('Cloud product and NO2 indices ne!', flush=True)
-            print(self.tcldfrac.shape, sza.shape, flush=True)
-            print('Skipping this swath', flush=True)
-            fh.close()
-            raise BadCloudShapeException
+
         # Close file:
         fh.close()
 
@@ -567,35 +579,44 @@ class PandoraData:
         print('Pandora Site: ', panfile)
 
 
-def get_tropomi_files_on_day(tomidir, day):
-    # Get string of day:
-    StrDD = str(day + 1)
-    if (day + 1) <= 9:
-        StrDD = '0' + StrDD
-    # Get string of files for this day:
-    tomi_glob_string = os.path.join(tomidir, 'NO2_OFFL/20' + StrYY[month_number] + '/' + StrMon + '/' + \
-                                  'S5P_OFFL_L2__NO2____20' + StrYY[month_number] + StrMon + StrDD + '*')
+def get_tropomi_files_on_day(tomidir, date):
+    # Converts the python date object to a set string representation of time
+    # In this case, zero-padded year, month and a datestamp of the Sentinel format
+    # See https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes
+    year = date.strftime(r"%Y")
+    month = date.strftime(r"%m")
+    datestamp = date.strftime(r"%Y%m%dT")
+    tomi_glob_string = os.path.join(tomidir, 'NO2_OFFL,', year, month,'S5P_OFFL_L2__NO2____'+ datestamp + '*')
     tomi_files_on_day = glob.glob(tomi_glob_string)
-    # Track progress:
-    print('Processing day in month: ', StrDD)
-    # Order the files:
+    print('Found {} tropomi files for {}: '.format(len(tomi_files_on_day), date))
     tomi_files_on_day = sorted(tomi_files_on_day)
     return tomi_files_on_day
 
 
-def get_ocra_files_on_day(tomidir,day):
+def get_ocra_files_on_day(tomidir,date):
     # Get string of day:
-    StrDD = str(day + 1)
-    if (day + 1) <= 9:
-        StrDD = '0' + StrDD
-    clddir = tomidir + 'CLOUD_OFFL/20' + StrYY[month_number] + '/'
-    cldfile = glob.glob(clddir + StrMon + '/' + 'S5P_OFFL_L2__CLOUD__20' + \
-                        StrYY[month_number] + StrMon + StrDD + '*')
+    year = date.strftime(r"%Y")
+    month = date.strftime(r"%m")
+    datestamp = date.strftime(r"%Y%m%dT")
+    cld_glob_string = os.path.join(tomidir, "CLOUD_OFFL", year, month,
+                                   'S5P_OFFL_L2__CLOUD__' + datestamp + '*')
+    cldfile = glob.glob(cld_glob_string)[0]
     # Order the files:
     cldfile = sorted(cldfile)
     return cldfile
 
 
+def get_pandora_file(pandir, pandora_site, site_num, c_site, no2_col, fv):
+    pandora_glob_string = os.path.join(pandir, pandora_site,
+                         'Pandora' + site_num + 's1_' + c_site + '_L2' + no2_col + '_' + fv + '.txt')
+    return glob.glob(pandora_glob_string)[0]
+
+
+def get_days_since_data_start(date, data_start = None):
+    if not data_start:
+        data_start = dt.date(year=2019, month=6, day=1)
+    delta = date - data_start
+    return delta.days
 
 
 if __name__ == "__main__":
@@ -610,7 +631,6 @@ if __name__ == "__main__":
     parser.add_argument("--str_diff_deg", default="02", help="options are: 03,02,01,005; default is 02")
     parser.add_argument("--apply_bias_correction", default=False)
     args = parser.parse_args()
-
 
     # Set degree range based on string entry.
     if ( args.str_diff_deg== '02'):
@@ -646,59 +666,54 @@ if __name__ == "__main__":
         Y_MAX=50
 
     # Get Pandora filename (one file per site):
-    panfile=glob.glob(os.path.join(args.pandir, args.pandora_site,
-        'Pandora' + SITE_NUM + 's1_' + C_SITE + '_L2' + args.no2_col +'_' + FV + '.txt'))[0]
+    panfile= get_pandora_file(args.pandir, args.pandora_site, SITE_NUM, C_SITE, args.no2_col, FV)
     outfile = os.path.join(args.outdir, 'tropomi-pandora-comparison-' + args.pandora_site + '-' + args.cloud_product +
                         '-' + args.no2_col + '-' + args.str_diff_deg + 'deg-bias-corr-v1.nc')
 
-
     pandora_data = PandoraData(panfile)
     data_aggregator = DataCollector()
-    # Loop over months:
-    for month_number, StrMon in enumerate(StrMon):
 
-        # Track progress:
-        print('Processing month: ',StrMon)
+    # In the below code, dt_month and processing_day are Python date objects
+    # They are generated using dateutil's rrule (relative rule) and rdelta(relaitve delta) functions:
+    # https://dateutil.readthedocs.io/en/stable/rrule.html
+    # https://dateutil.readthedocs.io/en/stable/relativedelta.html
+    start_date = dt.date(year=2019, month=6, day=1)
+    end_date = dt.date(year=2020, month=5, day=31)
+    # For every month in the year
+    for dt_month in rr.rrule(freq=rr.MONTHLY, dtstart=start_date, until=end_date):
+        print('Processing month: ', dt_month.month)
+        # For every day in the month (probably a better way to express this)
+        for processing_day in rr.rrule(freq=rr.DAILY, dtstart=dt_month, until=dt_month + rd(months=1, days=-1)):
+            tomi_files_on_day = get_tropomi_files_on_day(args.tomi_dir, processing_day)
 
-        # Daycount is day in year
-        for daycnt, d in enumerate(range(DayInMon[month_number])):
-
-            tomi_files_on_day = get_tropomi_files_on_day(args.tomi_dir, d)
-
-            # Get string of S5P TROPOMI cloud product file names:
-            # TODO: Check with Eloise where we get the Fresco data from
             if args.cloud_product== 'dlr-ocra':
-                cloud_files_on_day = get_ocra_files_on_day(args.tomi_dir, d)
-
+                cloud_files_on_day = get_ocra_files_on_day(args.tomi_dir, processing_day)
                 # Check for inconsistent number of files:
                 if len(cloud_files_on_day) != len(tomi_files_on_day):
                     print('NO2 files = ', len(tomi_files_on_day), flush=True)
-                    print('CLOUD files = ', len(cloud_files_on_day),flush=True)
+                    print('CLOUD files = ', len(cloud_files_on_day), flush=True)
                     print('unequal number of files', flush=True)
                     raise UnequalFileException
-
             elif args.cloud_product == "fresco":
                 cloud_files_on_day = tomi_files_on_day
             else:
                 raise InvalidCloudProductException
 
-            # Loop over files:
             for tomi_file_on_day, cloud_file_on_day in zip(tomi_files_on_day, cloud_files_on_day):
                 try:
                     trop_data = TropomiData(tomi_file_on_day, args.apply_bias_correction, args.no2_col)
                     trop_data.preprocess()
                     cloud_data = CloudData(cloud_file_on_day, args.cloud_product, trop_data)
                     trop_data.apply_cloud_filter(args.no2_col, cloud_data)
-                    data_aggregator.set_trop_ind_for_day(daycnt, trop_data, pandora_data)
-                    data_aggregator.add_trop_data_to_day(daycnt, trop_data)
-                    # loop over TROPOMI hours at site:
+                    data_aggregator.set_trop_ind_for_day(processing_day, trop_data, pandora_data)
+                    data_aggregator.add_trop_data_to_day(processing_day, trop_data)
                     for hour in range(data_aggregator.nhrs):
-                        data_aggregator.add_pandora_data_to_day(daycnt, hour, pandora_data)
+                        data_aggregator.add_pandora_data_to_day(processing_day, hour, pandora_data)
                 except NoDataException:
                     print("No data in tomi file: {}".format(tomi_file_on_day))
                     continue
 
-        data_aggregator.daily_weighted_means()
+    data_aggregator.apply_weight_to_means()
     data_aggregator.plot_data()
-    data_aggregator.write_to_netcdf()
+    data_aggregator.write_to_netcdf(outfile)
 
