@@ -386,14 +386,7 @@ class TropomiData:
         # Step 2: calculate tropospheric NO2 SCD:
         self.ttropscd = np.subtract(self.tscdno2, self.tscdstrat)
         # Step 3: calculate tropospheric NO2 VCD:
-        # TODO: Check that this should be tamf_geo.
         self.tgeotropvcd = np.divide(self.ttropscd, self.tamf_geo)
-        if (self.apply_bias):
-            # Correct for bias in the tropospheric column based on
-            # assessment of TROPOMI with Pandora
-            self.tgeotropvcd = np.divide(self.tgeotropvcd, 2.0)
-            # Apply bias correction to stratosphere (underestimated by 10%):
-            self.tstratno2 = np.multiply(self.tstratno2, 0.9)
         # Step 4: sum up stratospheric and tropospheric NO2 VCDs:
         self.tgeototvcd = np.add(self.tgeotropvcd, self.tstratno2)
         # Calculate total VCD column error by adding in quadrature
@@ -405,7 +398,28 @@ class TropomiData:
         # to the total column. This can be done as components that
         # contribute to the error are the same:
         self.ttropvcd_geo_err = np.multiply(self.ttotvcd_geo_err,
-                                       (np.divide(self.tgeotropvcd, self.tgeototvcd)))
+                                    (np.divide(self.tgeotropvcd, self.tgeototvcd)))
+
+        if (self.apply_bias):
+            # Preserve original stratosphere for error adjustment:
+            self.tstratno2_og = self.tstratno2
+            # Apply correction to stratosphere based on comparison
+            # to Pandora Mauna Loa total columns:
+            self.tstratno2 = np.where(self.tstratno2 != self.fillval,
+                                      ((self.tstratno2 - (7.3e14 / self.no2sfac)) / 0.82), np.nan)
+            # Apply bias correction to troposphere based on comparison
+            # to Pandora Izana tropospheric columns:
+            self.tgeotropvcd = np.where(self.tgeotropvcd != self.fillval, self.tgeotropvcd / 2, np.nan)
+            # Bias correct the error estimates by the same amount as
+            # the absolute columns:
+            self.tstratno2err = np.where(self.tstratno2err != self.fillval,
+                                    np.multiply(self.tstratno2err, np.divide(self.tstratno2, self.tstratno2_og)), np.nan)
+            self.ttropvcd_geo_err = np.where(self.ttropvcd_geo_err != self.fillval,
+                                        self.ttropvcd_geo_err / 2, np.nan)
+            # Calculate total column error by adding in quadrature
+            # individual contributions:
+            self.ttotvcd_geo_err = np.sqrt(np.add(np.square(self.tstratno2err),
+                                             np.square(self.tscdno2err)))
 
     def apply_cloud_filter(self, no2col, cloud_product):
 
