@@ -57,12 +57,14 @@ class InvalidCloudProductException(Exception):
 
 
 class DataCollector:
-    def __init__(self):
+    def __init__(self, start_date, end_date):
         # Define final array of coincident data for each day at Pandora site:
         # JR: This can be changed to produce an appendable array, as the size
         #     will vary depending on which site is being processed.
         # REPLY: That's fine; in this case, we know how many days there are in a year
-        nvals = 365
+        self.start_date = start_date
+        self.end_date = end_date
+        nvals = get_days_since_data_start(end_date, start_date)
         self.pan_no2 = np.zeros(nvals)
         self.s5p_ml = np.zeros(nvals)
         self.s5p_ch = np.zeros(nvals)
@@ -76,7 +78,7 @@ class DataCollector:
     def add_trop_data_to_day(self, date, trop_data):
 
         tomiind = self.tomiind
-        day_index = get_days_since_data_start(date)
+        day_index = get_days_since_data_start(date, self.start_date)
 
         # Add TROPOMI total NO2 to final array of daily means:
         self.s5p_ml[day_index] += sum(np.divide(trop_data.no2val[tomiind], np.square(trop_data.no2err[tomiind])))
@@ -86,6 +88,7 @@ class DataCollector:
         self.s5p_cnt[day_index] += len(tomiind)
          
         print('Values for first day of Jun 2019 should be s5p_ml=5.08e-13 and s5p_wgt=1.20e-28')
+        pdb.set_trace()
 
     def set_trop_ind_for_day(self, date, trop_data, pandora_data):
         # Find coincident data for this file:
@@ -115,6 +118,7 @@ class DataCollector:
       
         print('len(tomiind) gt 0 on first day of Jun 2019 for file named S5P_OFFL_L2__NO2____20190601T130900_20190601T145030_08458_01_010301_20190611T093157.nc')
         print('len(tomiind) for first day of Jun 2019 should be: 51')
+        pdb.set_trace()
 
         # Get min and max TROPOMI UTC for this orbit:
         # Choose min and max time window of TROPOMI 0.2 degrees
@@ -152,13 +156,14 @@ class DataCollector:
         terr = np.multiply(pandora_data.panno2err[panind], du2moleccm2)
         tqa = pandora_data.panqaflag[panind]
         # Add Pandora total NO2 to final array:
-        day_of_year = get_days_since_data_start(date)
+        day_of_year = get_days_since_data_start(date, self.start_date)
         for w in range(len(panind)):
             self.pan_no2[day_of_year] += np.divide(tno2[w], np.square(terr[w]))
             self.pan_wgt[day_of_year] += np.divide(1.0, np.square(terr[w]))
             self.pan_cnt[day_of_year] += len(panind)
 
         print('Values for first day of Jun 2019 should be pan_no2=1.62e-11 and pan_wgt=4.92e-27')
+        pdb.set_trace()
       
     def apply_weight_to_means(self):
         # Get daily error-weighted means:
@@ -633,10 +638,15 @@ if __name__ == "__main__":
     parser.add_argument("outdir")
     parser.add_argument("--no2_col", default="Tot", help="Either Tot or Trop; default is Tot")
     parser.add_argument("--cloud_product", default="fresco", help="options are fresco, dlr-ocra; default is fresco")
-    parser.add_argument("--pandora_site", default="izana", help="ptions are izana,mauna_loa,altzomoni; default is izana")
+    parser.add_argument("--pandora_site", default="izana", help="options are izana,mauna_loa,altzomoni; default is izana")
     parser.add_argument("--str_diff_deg", default="02", help="options are: 03,02,01,005; default is 02")
     parser.add_argument("--apply_bias_correction", default=False)
+    parser.add_argument("--start_date", default="2019-05-01", help="Start date of processing window (yyyy-mm-dd)")
+    parser.add_argument("--end_date", default="2020-04-01", help="End date of processing window (yyyy-mm-dd)")
     args = parser.parse_args()
+
+    start_date = dt.datetime.strptime(args.start_date, "%Y-%m-%d")
+    end_date = dt.datetime.strptime(args.end_date, "%Y-%m-%d")
 
     # Set degree range based on string entry.
     if ( args.str_diff_deg== '02'):
@@ -677,14 +687,12 @@ if __name__ == "__main__":
                         '-' + args.no2_col + '-' + args.str_diff_deg + 'deg-bias-corr-v1.nc')
 
     pandora_data = PandoraData(panfile)
-    data_aggregator = DataCollector()
+    data_aggregator = DataCollector(start_date, end_date)
 
     # In the below code, dt_month and processing_day are Python date objects
     # They are generated using dateutil's rrule (relative rule) and rdelta(relaitve delta) functions:
     # https://dateutil.readthedocs.io/en/stable/rrule.html
     # https://dateutil.readthedocs.io/en/stable/relativedelta.html
-    start_date = dt.date(year=2019, month=5, day=1)
-    end_date = dt.date(year=2020, month=4, day=30)
     # For every month in the year
     for dt_month in rr.rrule(freq=rr.MONTHLY, dtstart=start_date, until=end_date):
         print('Processing month: ', dt_month.month)
