@@ -64,7 +64,7 @@ class DataCollector:
         # REPLY: That's fine; in this case, we know how many days there are in a year
         self.start_date = start_date
         self.end_date = end_date
-        nvals = get_days_since_data_start(end_date, start_date)
+        nvals = get_days_since_data_start(end_date, start_date) + 1
         self.pan_no2 = np.zeros(nvals)
         self.s5p_ml = np.zeros(nvals)
         self.s5p_ch = np.zeros(nvals)
@@ -88,7 +88,8 @@ class DataCollector:
         self.s5p_cnt[day_index] += len(tomiind)
          
         print('Values for first day of Jun 2019 should be s5p_ml=5.08e-13 and s5p_wgt=1.20e-28')
-        pdb.set_trace()
+        print("This is still off: s5p_ml: {}  s5p_wgt: {}".format(self.s5p_ml[0], self.s5p_wgt[0]))
+        # pdb.set_trace()
 
     def set_trop_ind_for_day(self, date, trop_data, pandora_data):
         # Find coincident data for this file:
@@ -116,9 +117,9 @@ class DataCollector:
             raise NoDataException
         self.tomiind = tomiind
       
-        print('len(tomiind) gt 0 on first day of Jun 2019 for file named S5P_OFFL_L2__NO2____20190601T130900_20190601T145030_08458_01_010301_20190611T093157.nc')
-        print('len(tomiind) for first day of Jun 2019 should be: 51')
-        pdb.set_trace()
+        #print('len(tomiind) gt 0 on first day of Jun 2019 for file named S5P_OFFL_L2__NO2____20190601T130900_20190601T145030_08458_01_010301_20190611T093157.nc')
+        #print('len(tomiind) for first day of Jun 2019 should be: 51')
+        # Looks good
 
         # Get min and max TROPOMI UTC for this orbit:
         # Choose min and max time window of TROPOMI 0.2 degrees
@@ -162,9 +163,9 @@ class DataCollector:
             self.pan_wgt[day_of_year] += np.divide(1.0, np.square(terr[w]))
             self.pan_cnt[day_of_year] += len(panind)
 
-        print('Values for first day of Jun 2019 should be pan_no2=1.62e-11 and pan_wgt=4.92e-27')
-        pdb.set_trace()
-      
+        # print('Values for first day of Jun 2019 should be pan_no2=1.62e-11 and pan_wgt=4.92e-27')
+        # This looks good to me        
+
     def apply_weight_to_means(self):
         # Get daily error-weighted means:
         self.pan_no2 = self.pan_no2 / self.pan_wgt
