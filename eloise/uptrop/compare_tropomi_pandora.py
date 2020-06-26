@@ -40,27 +40,30 @@ from uptrop.constants import DU_TO_MOLECULES_PER_CM2 as du2moleccm2
 class NoDataException(Exception):
     pass
 
+
 class UnequalFileException(Exception):
     pass
+
 
 class BadNo2ColException(Exception):
     pass
 
+
 class BadCloudShapeException(Exception):
     pass
+
 
 class InvalidCloudProductException(Exception):
     pass
 
 
+class NoPandoraException(Exception):
+    pass
 
 
 class DataCollector:
     def __init__(self, start_date, end_date):
         # Define final array of coincident data for each day at Pandora site:
-        # JR: This can be changed to produce an appendable array, as the size
-        #     will vary depending on which site is being processed.
-        # REPLY: That's fine; in this case, we know how many days there are in a year
         self.start_date = start_date
         self.end_date = end_date
         nvals = get_days_since_data_start(end_date, start_date) + 1
@@ -112,11 +115,6 @@ class DataCollector:
             raise NoDataException
         self.tomiind = tomiind
       
-        #print('len(tomiind) gt 0 on first day of Jun 2019 for file named S5P_OFFL_L2__NO2____20190601T130900_20190601T145030_08458_01_010301_20190611T093157.nc')
-        #print('len(tomiind) for first day of Jun 2019 should be: 51')
-        # Looks good
-
-
         # Get min and max TROPOMI UTC for this orbit:
         # Choose min and max time window of TROPOMI 0.2 degrees
         # around Pandora site:
@@ -144,8 +142,7 @@ class DataCollector:
         # Proceed if there are Pandora data points:
         if len(panind) == 0:
             print("No pandora data for day {}".format(date))
-            pass
-            #raise NoPandoraException     
+            raise NoPandoraException
         
         # Create arrays of relevant data and convert from DU to molec/cm2:
         tno2 = np.multiply(pandora_data.panno2[panind], du2moleccm2)
@@ -542,7 +539,6 @@ class CloudData:
         # Less then 1% snow/ice cover:
         self.tsnow = np.where(self.tsnow < 1, 0, self.tsnow)
         # Snow/ice misclassified as clouds:
-        # TODO: Check with Eloise where tsurfp comes from - or if FRESCO data is used at all
         self.tsnow = np.where(((self.tsnow > 80) & (self.tsnow < 104)
                                & (self.tscenep > (0.98 * tropomi_data.tsurfp))),
                                 0, self.tsnow)
@@ -743,6 +739,8 @@ if __name__ == "__main__":
                     for hour in range(data_aggregator.nhrs):
                         data_aggregator.add_pandora_data_to_day(processing_day, hour, pandora_data)
                 except NoDataException:
+                    continue
+                except NoPandoraException:
                     continue
 
     data_aggregator.apply_weight_to_means()
