@@ -269,7 +269,7 @@ class TropomiData:
 
     #This time, I'm not putting the read in the init - this is _just_ for member initialisation
     def __init__(self, file_path, pmax, pmin):
-
+        
         self.file_name = path.basename(file_path)
         self.date = self.get_date()
         self.pmax = pmax
@@ -703,8 +703,14 @@ if __name__ == "__main__":
 
     grid_aggregator = GridAggregator(dellat, dellon)
 
+    # Define pressure ranges (max is at highest altitude/lowest pressure):
+    PMAX=180
+    PMIN=450
+
     for trop_file, cloud_file in zip(trop_files, cloud_files):
-        trop_data = TropomiData(trop_file)
+        # Looks like this is currently set to process a string of files as 
+        # opposed to a single file:
+        trop_data = TropomiData(trop_file,PMAX,PMIN)
         cloud_data = CloudData(cloud_file)
 
         trop_data.calc_geo_column()
