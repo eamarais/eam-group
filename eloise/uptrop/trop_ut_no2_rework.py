@@ -703,9 +703,9 @@ if __name__ == "__main__":
 
     grid_aggregator = GridAggregator(dellat, dellon)
 
-    # Define pressure ranges (max is at highest altitude/lowest pressure):
-    PMAX=180
-    PMIN=450
+    # Define pressure ranges:
+    PMIN=180
+    PMAX=450
 
     for trop_file, cloud_file in zip(trop_files, cloud_files):
         # Looks like this is currently set to process a string of files as 
