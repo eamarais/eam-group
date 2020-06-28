@@ -389,21 +389,22 @@ class TropomiData:
         # Calculate total VCD column error by adding in quadrature
         # individual contributions:
         self.ttotvcd_geo_err = np.sqrt(np.add(np.square(self.tstratno2err),
-                                         np.square(self.tscdno2err)))
+                                              np.square(self.tscdno2err)))
         # Estimate the tropospheric NO2 error as the total error
         # weighted by the relative contribution of the troposphere
         # to the total column. This can be done as components that
         # contribute to the error are the same:
         self.ttropvcd_geo_err = np.multiply(self.ttotvcd_geo_err,
-                                    (np.divide(self.tgeotropvcd, self.tgeototvcd)))
+                                            (np.divide(self.tgeotropvcd, self.tgeototvcd)))
 
+        # Apply bias correction if indicated in the input arguments:
         if (self.apply_bias):
             # Preserve original stratosphere for error adjustment:
             self.tstratno2_og = self.tstratno2
             # Apply correction to stratosphere based on comparison
             # to Pandora Mauna Loa total columns:
             self.tstratno2 = np.where(self.tstratno2 != self.fillval,
-                                      ((self.tstratno2 - (7.3e14 / self.no2sfac)) / 0.82), np.nan)
+                                      ((self.tstratno2 - (6.6e14 / self.no2sfac)) / 0.86), np.nan)
             # Apply bias correction to troposphere based on comparison
             # to Pandora Izana tropospheric columns:
             self.tgeotropvcd = np.where(self.tgeotropvcd != self.fillval, self.tgeotropvcd / 2, np.nan)
@@ -417,6 +418,9 @@ class TropomiData:
             # individual contributions:
             self.ttotvcd_geo_err = np.sqrt(np.add(np.square(self.tstratno2err),
                                              np.square(self.tscdno2err)))
+            # Step 4: sum up bias corrected stratospheric and tropospheric 
+            # NO2 VCDs:
+            self.tgeototvcd = np.add(self.tgeotropvcd, self.tstratno2)
 
     def apply_cloud_filter(self, no2col, cloud_product):
 
@@ -550,9 +554,9 @@ class CloudData:
 
 
 class PandoraData:
-    def __init__(self, panfile):
+    def __init__(self, panfile,col_type):
         # Read Pandora data from external function:
-        p = readpandora(panfile)
+        p = readpandora(panfile,col_type)
         # Extract latitude and longitude:
         loc = p[0]
         self.panlat = loc['lat']
@@ -700,7 +704,7 @@ if __name__ == "__main__":
     else:
         outfile = os.path.join(args.outdir, 'tropomi-pandora-comparison-' + args.pandora_site + '-' + args.cloud_product + '-' + args.no2_col + '-' + args.str_diff_deg + 'deg-' + args.str_diff_min + 'min-v2.nc')
 
-    pandora_data = PandoraData(panfile)
+    pandora_data = PandoraData(panfile,args.no2_col)
     data_aggregator = DataCollector(start_date, end_date)
 
     # In the below code, dt_month and processing_day are Python date objects

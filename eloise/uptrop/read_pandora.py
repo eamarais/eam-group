@@ -66,7 +66,7 @@ def get_lat_lon(filename):
     return {"lat": lat, "lon": lon}
 
 
-def readpandora(filename):
+def readpandora(filename,no2col):
 
     """
     Reads a Pandora file to a pandas dataframe
@@ -80,9 +80,19 @@ def readpandora(filename):
     # SZA:
     szaind = get_column_from_description(column_dict,  'Solar zenith angle for center of')
     # NO2 column:
-    no2ind = get_column_from_description(column_dict,  'Nitrogen dioxide ')
+    # (a) Total:
+    if no2col == 'Tot':
+        no2ind = get_column_from_description(column_dict,  'Nitrogen dioxide total vertical ')
+    # (b) Troposphere:
+    if no2col == 'Trop':
+        no2ind = get_column_from_description(column_dict,  'Nitrogen dioxide tropospheric v')
     # NO2 column error:
-    errind = get_column_from_description(column_dict,  'Uncertainty of nitrogen ')
+    # (a) Total:
+    if no2col == 'Tot':
+        errind = get_column_from_description(column_dict,  'Uncertainty of nitrogen dioxide total ver')
+    # (b) Troposphere:
+    if no2col == 'Trop':
+        errind = get_column_from_description(column_dict,  'Uncertainty of nitrogen dioxide troposph')
     # Data quality flag:
     qaflagind = get_column_from_description(column_dict,  'L2 data quality flag for nitrog')
 
