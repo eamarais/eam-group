@@ -626,6 +626,7 @@ def get_ocra_file_list(ocra_dir, date_range):
     out = []
     for date in date_range:
         out += (get_ocra_files_on_day(ocra_dir, date))
+    return sorted(out)
 
 
 def get_tropomi_files_on_day(tomidir, date):
@@ -674,6 +675,8 @@ if __name__ == "__main__":
     parser.add_argument("--cloud_product", default = "fresco", help="can be fresco or dl-ocra")
     parser.add_argument("--cloud_threshold", default = "07", help="can be 07, 08, 09, 10")
     parser.add_argument("--ocra_fill", help="Fill value for Ocra data")
+    parser.add_argument("--pmin", default=180, type=int)
+    parser.add_argument("--pmax", default=450, type=int)
     args = parser.parse_args()
 
     if args.season == "jja":
@@ -695,6 +698,7 @@ if __name__ == "__main__":
     elif args.season == "test":
         start_date = dt.datetime(year=2020, month=3, day=1)
         end_date = dt.datetime(year=2020, month=3, day=3)
+        yrrange = 'TEST'
     else:
         print("Invalid season; can be jja, son, djf, mam")
         sys.exit(1)
@@ -725,14 +729,10 @@ if __name__ == "__main__":
 
     grid_aggregator = GridAggregator(dellat, dellon)
 
-    # Define pressure ranges:
-    PMIN=180
-    PMAX=450
-
     for trop_file, cloud_file in zip(trop_files, cloud_files):
         # Looks like this is currently set to process a string of files as
         # opposed to a single file:
-        trop_data = TropomiData(trop_file,PMAX,PMIN)
+        trop_data = TropomiData(trop_file, args.pmax, args.pmin)
         cloud_data = CloudData(cloud_file, data_type=args.cloud_product, fillval=args.ocra_fill)
 
         trop_data.calc_geo_column()
