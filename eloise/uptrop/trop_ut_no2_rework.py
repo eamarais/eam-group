@@ -420,7 +420,7 @@ class TropomiData:
         # Calculate the tropospheric slant columns:
         ttropscd = np.subtract(self.tscdno2, tscdstrat)
         # Calculate the tropospheric vertical column using the geometric AMF:
-        tgeotropvcd = np.divide(ttropscd, self.tamf_geo)
+        tgeotropvcd = np.divide(ttropscd, tamf_geo)
 
         # Setting members
         self.tamf_geo = tamf_geo
