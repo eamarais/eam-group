@@ -46,6 +46,7 @@ class GridAggregator:
         self.gerr = np.zeros((self.xdim, self.ydim))  # Weighted error
 
         self.file_count = 0
+        self.current_max_points = 0
 
         self.loss_count = {
             "too_few_points": 0,
@@ -102,7 +103,7 @@ class GridAggregator:
         self.postfilt.append(100. * (trop_data.tcnt / trop_data.inicnt))
         self.file_count += 1
 
-    def apply_cloud_slice(self, maxpnts, n_slices=40):
+    def apply_cloud_slice(self, n_slices=40):
         # Estimate daily mean VMRs from the clustered data:
         for i in range(self.xdim):
             for j in range(self.ydim):
@@ -138,9 +139,9 @@ class GridAggregator:
 
                 # Get number of points:
                 npnts = len(tcld)
-                if npnts > maxpnts:
-                    maxpnts = npnts
-                    print(maxpnts, flush=True)
+                if npnts > self.current_max_points:
+                    self.current_max_points = npnts
+                    print(self.current_max_points, flush=True)
 
                 # Use cloud_slice_ut_no2 function to get NO2 mixing
                 # ratio from cloud-slicing:
