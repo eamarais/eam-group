@@ -96,7 +96,6 @@ def cldslice(pcolno2,cldtophgt):
         utmrno2err=np.nan
         return (utmrno2, utmrno2err, error_state, mean_cld_pres)
 
-
     # Get regression statistics:
     # Partial NO2 column (molec/m2) vs cloud top height (hPa):
     # 300 iterations of regression chosen to compromise between
@@ -134,7 +133,6 @@ def cldslice(pcolno2,cldtophgt):
     utmrno2=np.multiply(utmrno2,1e+12)
     # Convert UT NO2 error from mol/mol to ppt
     utmrno2err=np.multiply(utmrno2err,1e+12)
-    return (utmrno2, utmrno2err, error_state, mean_cld_pres)
 
     # Finally, remove outliers in the cloud-sliced NO2
     # 200 pptv threshold is chosen, as far from likely range.
@@ -144,6 +142,8 @@ def cldslice(pcolno2,cldtophgt):
         error_state=6
         utmrno2=np.nan
         utmrno2err=np.nan
+        return (utmrno2, utmrno2err, error_state, mean_cld_pres)
+    else:
         return (utmrno2, utmrno2err, error_state, mean_cld_pres)
 
     

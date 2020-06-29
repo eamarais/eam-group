@@ -147,7 +147,7 @@ class GridAggregator:
                 # Use cloud_slice_ut_no2 function to get NO2 mixing
                 # ratio from cloud-slicing:
                 # TODO: Confirm with E that we skip here if npnts is between 10 and 20
-                if ((npnts >= 20) & (npnts < 100)):
+                if ((npnts >= 10) & (npnts < 100)):
                     self.add_slice(i,j,tcld,tcolno2)
 
                 elif (npnts >= 100):
@@ -164,21 +164,22 @@ class GridAggregator:
         """Applies and adds a cloud slice from the given data"""
         # TODO: Check with E that the chunk of unreachable code at the end of cldslice is supposed to be there
         utmrno2, utmrno2err, stage_reached, mean_cld_pres = cldslice(t_col_no2, t_cld)
-
         # Calculate weights:
-        gaus_wgt = np.exp((-(mean_cld_pres - 315) ** 2) / (2 * 135 ** 2))
+        #gaus_wgt = np.exp((-(mean_cld_pres - 315) ** 2) / (2 * 135 ** 2))
         # Skip if approach didn't work (i.e. cloud-sliced UT NO2 is NaN):
         # Drop out after the reason for data loss is added to loss_count.
         if np.isnan(utmrno2) or np.isnan(utmrno2err):
             # Cloud-slicing led to nan, but due to rma regression rather
             # than data filtering (these are rare):
             if (stage_reached == 0):
-                print("Cloud-sliced NO2 NAN for pixel i:{} j:{}".format(i, j))
+                print("Cloud-sliced NO2 NAN for pixel i:{} j:{}".format(i, j), flush=True)
                 return
             self.loss_count[CLOUD_SLICE_ERROR_ENUM[stage_reached]] += 1
             # print("Cloud-slice exception {} in pixel i:{} j:{}".format(
             #    CLOUD_SLICE_ERROR_ENUM[stage_reached], i, j))
         else:
+            # Calculate weights:
+            gaus_wgt = np.exp((-(mean_cld_pres - 315) ** 2) / (2 * 135 ** 2))
             self.gno2vmr[i, j] += np.multiply(utmrno2, gaus_wgt)
             self.gwgt[i, j] += gaus_wgt
             self.gerr[i, j] += np.multiply(utmrno2err, gaus_wgt)
@@ -286,6 +287,7 @@ class TropomiData:
     def __init__(self, file_path, pmax, pmin):
 
         self.file_name = path.basename(file_path)
+        print('Processing: ',self.file_name, flush=True)
         self.date = get_date(self.file_name)
         self.pmax = pmax
         self.pmin = pmin
@@ -583,7 +585,7 @@ class CloudData:
         # Get fill value:
         fillval=(np.max(np.ma.getdata(tcldfrac)))
         if ( fillval<1e35 or fillval==np.nan ):
-            print('this method of defining the fill value for dlr-ocra does not work. FIX!!!')
+            print('this method of defining the fill value for dlr-ocra does not work. FIX!!!', flush=True)
         # Cloud top height (m):
         gcldhgt = fd.groups['PRODUCT'].variables['cloud_top_height'][:]
         tcldhgt = np.ma.getdata(gcldhgt[0, :, :])
@@ -737,11 +739,9 @@ if __name__ == "__main__":
     for trop_file, cloud_file in zip(trop_files, cloud_files):
         trop_data = TropomiData(trop_file, args.pmax, args.pmin)
         cloud_data = CloudData(cloud_file, data_type=args.cloud_product)
-
         trop_data.calc_geo_column()
         trop_data.apply_bias_correction()
         trop_data.cloud_filter_and_preprocess(cloud_data, cloud_threshold)
-
         grid_aggregator.add_trop_data_to_gridsquare(trop_data)
         grid_aggregator.apply_cloud_slice()
     grid_aggregator.calc_seasonal_means()
