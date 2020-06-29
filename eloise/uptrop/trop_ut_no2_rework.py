@@ -692,6 +692,9 @@ if __name__ == "__main__":
         start_date = dt.datetime(year=2020, month=3, day=1)
         end_date = dt.datetime(year=2020, month=6, day=29)
         yrrange = '2020'
+    elif args.season == "test":
+        start_date = dt.datetime(year=2020, month=3, day=1)
+        end_date = dt.datetime(year=2020, month=3, day=3)
     else:
         print("Invalid season; can be jja, son, djf, mam")
         sys.exit(1)
