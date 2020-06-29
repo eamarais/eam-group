@@ -6,6 +6,7 @@ import numpy as np
 from os import path
 from netCDF4 import Dataset
 import datetime as dt
+import re
 
 from mpl_toolkits.basemap import Basemap
 import matplotlib.pyplot as plt
@@ -312,11 +313,16 @@ class TropomiData:
         self.amf_geo = None
         self.geototvcd = None
 
-        if file_path:
-            self.read_trop_file(file_path)
+        # Do initialisation
+        self.read_trop_file(file_path)
 
     def get_date(self):
-        return dt.datetime.strptime(self.file_name)
+        # A regular expression that gets Sentinel datestamps out of filenames
+        # See https://regex101.com/r/QNG11l/1
+        date_regex = r"\d{8}T\d{6}"
+        date_string = re.findall(date_regex, self.file_name)[0]
+        # A line for converting Sentinel string reps to datetime
+        return dt.datetime.strptime(date_string, r"%Y%m%dT%H%M%S")
 
     def read_trop_file(self, file_path):
         fh = Dataset(file_path, mode='r')
@@ -608,19 +614,19 @@ class CloudData:
         # Close DLR CLOUD file:
         fd.close()
 
-# TODO: Move these into a seperate file for reuse maybe
+#   TODO: Move these into a seperate file for reuse maybe
 def get_tropomi_file_list(trop_dir, date_range):
     out = []
     for date in date_range:
-        out.append(get_tropomi_files_on_day(trop_dir, date))
+        out += get_tropomi_files_on_day(trop_dir, date)
     return sorted(out)
 
 
 def get_ocra_file_list(ocra_dir, date_range):
     out = []
     for date in date_range:
-        out.append(get_ocra_files_on_day(ocra_dir, date))
-
+        out += get_ocra_files_on_day(ocra_dir, date)
+    return sorted(out)
 
 def get_tropomi_files_on_day(tomidir, date):
     # Converts the python date object to a set string representation of time
