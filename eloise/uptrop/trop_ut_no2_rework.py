@@ -238,13 +238,13 @@ class GridAggregator:
 
     def plot_data(self):
         # Plot the data:
-        m = Basemap(resolution='l', projection='merc', \
-                    lat_0=0, lon_0=0, llcrnrlon=-180, \
+        m = Basemap(resolution='l', projection='merc',
+                    lat_0=0, lon_0=0, llcrnrlon=-180,
                     llcrnrlat=-75, urcrnrlon=180, urcrnrlat=80)
         X, Y = np.meshgrid(self.out_lon, self.out_lat, indexing='ij')
         xi, yi = m(X, Y)
         plt.subplot(1, 3, 1)
-        cs = m.pcolor(xi, yi, np.squeeze(gno2vmr), vmin=0, vmax=100, cmap='jet')
+        cs = m.pcolor(xi, yi, np.squeeze(self.mean_gno2vmr), vmin=0, vmax=100, cmap='jet')
         m.drawparallels(np.arange(-80., 81., 45.), labels=[1, 0, 0, 0], fontsize=8)
         m.drawmeridians(np.arange(-180., 181., 45.), labels=[0, 0, 0, 1], fontsize=8)
         m.drawcoastlines()
@@ -253,7 +253,7 @@ class GridAggregator:
         plt.title('NO2 VMRs')
 
         plt.subplot(1, 3, 2)
-        cs = m.pcolor(xi, yi, np.squeeze(gerr), vmin=0, vmax=20, cmap='jet')
+        cs = m.pcolor(xi, yi, np.squeeze(self.mean_gerr), vmin=0, vmax=20, cmap='jet')
         m.drawparallels(np.arange(-80., 81., 45.), labels=[1, 0, 0, 0], fontsize=8)
         m.drawmeridians(np.arange(-180., 181., 45.), labels=[0, 0, 0, 1], fontsize=8)
         m.drawcoastlines()
@@ -262,7 +262,7 @@ class GridAggregator:
         plt.title('NO2 error')
 
         plt.subplot(1, 3, 3)
-        cs = m.pcolor(xi, yi, np.squeeze(gcnt), vmin=0., vmax=30, cmap='jet')
+        cs = m.pcolor(xi, yi, np.squeeze(self.gcnt), vmin=0., vmax=30, cmap='jet')
         m.drawparallels(np.arange(-80., 81., 45.), labels=[1, 0, 0, 0], fontsize=8)
         m.drawmeridians(np.arange(-180., 181., 45.), labels=[0, 0, 0, 1], fontsize=8)
         m.drawcoastlines()
