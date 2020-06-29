@@ -79,7 +79,7 @@ class GridAggregator:
             # Skip over pixels where total column is less than stratospheric
             # column. This addresses positive bias in the cloud-sliced results
             # at low concentrations of UT NO2:
-            if trop_data.geototvcd < strat_no2_val:
+            if geo_tot_value < strat_no2_val:
                 continue
 
             # Find nearest gridsquare in output grid:
@@ -91,13 +91,12 @@ class GridAggregator:
             tstrat = np.multiply(strat_no2_val, trop_data.no2sfac)
 
             # Get relevant data in each output grid square:
-            # Something is going on here according to Pycharm; check in debugger.
-            self.gno2[p, q].append(tvcdno2)
-            self.gstrat[p, q].append(tstrat)
-            self.gcldp[p, q].append(cloud_pressure)
+            self.gno2[p][q].append(tvcdno2)
+            self.gstrat[p][q].append(tstrat)
+            self.gcldp[p][q].append(cloud_pressure)
 
             # Increment indices:
-            self.cntloop[p, q] += 1
+            self.cntloop[p][q] += 1
 
         # Save % valid points retained to print out average at end of routine:
         self.postfilt.append(100. * (trop_data.tcnt / trop_data.inicnt))
@@ -444,7 +443,7 @@ class TropomiData:
         # Determine by scaling it by the relative change in stratospheric vertical
         # colum NO2 after applying a bias correction:
         tstratno2err = np.where(self.stratno2err != self.fillval,
-                                np.multiply(self.stratno2err, np.divide(self.tstratno2, self.stratno2_og)),
+                                np.multiply(self.stratno2err, np.divide(tstratno2, self.stratno2_og)),
                                 np.nan)
 
         # Calculate error by adding in quadrature individual
@@ -706,6 +705,9 @@ if __name__ == "__main__":
         print("Invalid grid; values can be 1x1, 2x25, 4x5")
         sys.exit(1)
 
+    # Parsing cloud threshold
+    cloud_threshold = float(args.cloud_threshold)/10
+
     date_range = rr.rrule(rr.DAILY, dtstart=start_date, until=end_date)
 
     trop_files = get_tropomi_file_list(args.trop_dir, date_range)
@@ -731,7 +733,7 @@ if __name__ == "__main__":
 
         trop_data.calc_geo_column()
         trop_data.apply_bias_correction()
-        trop_data.cloud_filter_and_preprocess(cloud_data, args.cloud_threshold)
+        trop_data.cloud_filter_and_preprocess(cloud_data, cloud_threshold)
 
         grid_aggregator.add_trop_data_to_gridsquare(trop_data)
         grid_aggregator.apply_cloud_slice(args.max_points)
