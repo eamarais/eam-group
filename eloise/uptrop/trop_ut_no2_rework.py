@@ -1,15 +1,21 @@
 import glob
 import argparse
 import sys
-
-import numpy as np
+import os
 from os import path
-from netCDF4 import Dataset
 import datetime as dt
 
+import numpy as np
+from netCDF4 import Dataset
 from mpl_toolkits.basemap import Basemap
 import matplotlib.pyplot as plt
 from dateutil import rrule as rr
+
+# Import hack
+sys.path.append(
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        '..'))
 
 from uptrop.convert_height_to_press import alt2pres
 from uptrop.cloud_slice_ut_no2 import cldslice, CLOUD_SLICE_ERROR_ENUM
@@ -612,14 +618,14 @@ class CloudData:
 def get_tropomi_file_list(trop_dir, date_range):
     out = []
     for date in date_range:
-        out.append(get_tropomi_files_on_day(trop_dir, date))
+        out += (get_tropomi_files_on_day(trop_dir, date))
     return sorted(out)
 
 
 def get_ocra_file_list(ocra_dir, date_range):
     out = []
     for date in date_range:
-        out.append(get_ocra_files_on_day(ocra_dir, date))
+        out += (get_ocra_files_on_day(ocra_dir, date))
 
 
 def get_tropomi_files_on_day(tomidir, date):
