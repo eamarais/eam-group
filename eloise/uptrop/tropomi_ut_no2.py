@@ -44,6 +44,7 @@ class GridAggregator:
         self.gno2vmr = np.zeros((self.xdim, self.ydim))  # NO2 VMR in pptv
         self.gcnt = np.zeros((self.xdim, self.ydim))  # No. of data points (orbits)
         self.gerr = np.zeros((self.xdim, self.ydim))  # Weighted error
+        self.gwgt = np.zeros((self.xdim, self.ydim))  # Weights
 
         self.file_count = 0
         self.current_max_points = 0
@@ -179,19 +180,22 @@ class GridAggregator:
             #    CLOUD_SLICE_ERROR_ENUM[stage_reached], i, j))
         else:
             self.gno2vmr[i, j] += np.multiply(utmrno2, gaus_wgt)
-            self.gerr[i, j] += gaus_wgt
+            self.gwgt[i, j] += gaus_wgt
+            self.gerr[i, j] += np.multiply(utmrno2err, gaus_wgt)
             self.gcnt[i, j] += 1
             self.cloud_slice_count += 1
 
     def calc_seasonal_means(self):
-        self.mean_gno2vmr = np.divide(self.gno2vmr, self.gerr, where=self.gcnt != 0)
-        self.mean_gerr = np.divide(self.gerr, self.gcnt, where=self.gcnt != 0)
+        self.mean_gno2vmr = np.divide(self.gno2vmr, self.gwgt, where=self.gcnt != 0)
+        self.mean_gerr = np.divide(self.gerr, self.gwgt, where=self.gcnt != 0)
+        self.mean_gwgt = np.divide(self.gwgt, self.gcnt, where=self.gcnt != 0)
         self.mean_gno2vmr[self.gcnt == 0] = np.nan
         self.mean_gerr[self.gcnt == 0] = np.nan
+        self.mean_gwgt[self.gcnt == 0] = np.nan
         self.gcnt[self.gcnt == 0] = np.nan   # Watch out for this rewriting of gcnt in the future
 
     def print_report(self):
-        print('Max no. of data points in a gridsquare: ', self.gcnt.max(), flush=True)
+        print('Max no. of data points in a gridsquare: ', np.nanmax(self.gcnt), flush=True)
         # Track reasons for data loss:
         print('(1) Too few points: ', self.loss_count["too_few_points"], flush=True)
         print('(2) Low cloud height range: ', self.loss_count["low_cloud_height_range"], flush=True)
@@ -247,7 +251,7 @@ class GridAggregator:
         X, Y = np.meshgrid(self.out_lon, self.out_lat, indexing='ij')
         xi, yi = m(X, Y)
         plt.subplot(1, 3, 1)
-        cs = m.pcolor(xi, yi, np.squeeze(self.mean_gno2vmr), vmin=0, vmax=100, cmap='jet')
+        cs = m.pcolor(xi, yi, np.squeeze(self.mean_gno2vmr), vmin=0, vmax=80, cmap='jet')
         m.drawparallels(np.arange(-80., 81., 45.), labels=[1, 0, 0, 0], fontsize=8)
         m.drawmeridians(np.arange(-180., 181., 45.), labels=[0, 0, 0, 1], fontsize=8)
         m.drawcoastlines()
@@ -256,7 +260,7 @@ class GridAggregator:
         plt.title('NO2 VMRs')
 
         plt.subplot(1, 3, 2)
-        cs = m.pcolor(xi, yi, np.squeeze(self.mean_gerr), vmin=0, vmax=20, cmap='jet')
+        cs = m.pcolor(xi, yi, np.squeeze(self.mean_gerr), vmin=0, vmax=30, cmap='jet')
         m.drawparallels(np.arange(-80., 81., 45.), labels=[1, 0, 0, 0], fontsize=8)
         m.drawmeridians(np.arange(-180., 181., 45.), labels=[0, 0, 0, 1], fontsize=8)
         m.drawcoastlines()
@@ -429,13 +433,11 @@ class TropomiData:
     def apply_bias_correction(self):
         # Bias correct stratosphere based on comparison of TROPOMI to Pandora Mauna Loa:
         tstratno2 = np.where(self.stratno2_og != self.fillval,
-                             ((self.stratno2_og - (7.3e14 / self.no2sfac)) / 0.82),
-                             np.nan)
+                 ((self.stratno2_og - (6.6e14 / self.no2sfac)) / 0.86), np.nan)
 
         # Bias correct troposphere based on comparison of TROPOMI to Pandora Izana:
         tgeotropvcd = np.where(self.tgeotropvcd != self.fillval,
-                               self.tgeotropvcd / 2.,
-                               np.nan)
+                               self.tgeotropvcd / 2., np.nan)
 
         # Get the total column as the sum of the bias-corrected components:
         tgeototvcd = np.add(tgeotropvcd, tstratno2)
@@ -517,7 +519,7 @@ class TropomiData:
 
 class CloudData:
 
-    def __init__(self, file_path, data_type, fillval = None):
+    def __init__(self, file_path, data_type):
         # Set from filename
         self.file_name = path.basename(file_path)
         self.date = get_date(self.file_name)  # Assuming for now that ocra and S5P have the same timestamping
@@ -529,8 +531,8 @@ class CloudData:
 
         if data_type == 'fresco':
             self.read_fresco_file(file_path)
-        elif data_type == 'dl_ocra':
-            self.read_ocra_file(file_path, fillval)
+        elif data_type == 'dlr-ocra':
+            self.read_ocra_file(file_path)
 
     def read_fresco_file(self, file_path):
         fh = Dataset(file_path)
@@ -572,12 +574,16 @@ class CloudData:
         self.tcldpres = np.where(self.tsnow != 0, np.nan, self.tcldpres)
         fh.close()
 
-    def read_ocra_file(self, file_path, fillval):
+    def read_ocra_file(self, file_path):
 
         fd = Dataset(file_path)
         # Cloud fraction:
         tcldfrac = fd.groups['PRODUCT'].variables['cloud_fraction'][:]
         cldfrac = tcldfrac.data[0, :, :]
+        # Get fill value:
+        fillval=(np.max(np.ma.getdata(tcldfrac)))
+        if ( fillval<1e35 or fillval==np.nan ):
+            print('this method of defining the fill value for dlr-ocra does not work. FIX!!!')
         # Cloud top height (m):
         gcldhgt = fd.groups['PRODUCT'].variables['cloud_top_height'][:]
         tcldhgt = np.ma.getdata(gcldhgt[0, :, :])
@@ -650,7 +656,7 @@ def get_ocra_files_on_day(tomidir,date):
     datestamp = date.strftime(r"%Y%m%dT")
     cld_glob_string = path.join(tomidir, "CLOUD_OFFL", year, month,
                                    'S5P_OFFL_L2__CLOUD__' + datestamp + '*')
-    cldfile = glob.glob(cld_glob_string)[0]
+    cldfile = glob.glob(cld_glob_string) 
     # Order the files:
     cldfile = sorted(cldfile)
     return cldfile
@@ -672,9 +678,8 @@ if __name__ == "__main__":
     parser.add_argument("out_dir")
     parser.add_argument("--season", default='jja', help="Can be jja, son, djf, mam")
     parser.add_argument("--grid_res", default='1x1', help="Can be 1x1, 2x25, 4x5")
-    parser.add_argument("--cloud_product", default = "fresco", help="can be fresco or dl-ocra")
+    parser.add_argument("--cloud_product", default = "fresco", help="can be fresco or dlr-ocra")
     parser.add_argument("--cloud_threshold", default = "07", help="can be 07, 08, 09, 10")
-    parser.add_argument("--ocra_fill", help="Fill value for Ocra data")
     parser.add_argument("--pmin", default=180, type=int)
     parser.add_argument("--pmax", default=450, type=int)
     args = parser.parse_args()
@@ -721,19 +726,17 @@ if __name__ == "__main__":
     trop_files = get_tropomi_file_list(args.trop_dir, date_range)
     if args.cloud_product == "fresco":
         cloud_files = trop_files
-    elif args.cloud_product == "dl-ocra":
+    elif args.cloud_product == "dlr-ocra":
         cloud_files = get_ocra_file_list(args.trop_dir, date_range)
     else:
-        print("Invalid cloud product; can be fresco or dl-ocra")
+        print("Invalid cloud product; can be fresco or dlr-ocra")
         sys.exit(1)
 
     grid_aggregator = GridAggregator(dellat, dellon)
 
     for trop_file, cloud_file in zip(trop_files, cloud_files):
-        # Looks like this is currently set to process a string of files as
-        # opposed to a single file:
         trop_data = TropomiData(trop_file, args.pmax, args.pmin)
-        cloud_data = CloudData(cloud_file, data_type=args.cloud_product, fillval=args.ocra_fill)
+        cloud_data = CloudData(cloud_file, data_type=args.cloud_product)
 
         trop_data.calc_geo_column()
         trop_data.apply_bias_correction()
@@ -747,9 +750,9 @@ if __name__ == "__main__":
                          + '-' + args.cloud_threshold
                          + '-' + args.grid_res
                          + '-' + args.season
-                         + '-' + yrrange+'-v7.nc')
+                         + '-' + yrrange+'-v2.nc')
     grid_aggregator.print_report()
-    grid_aggregator.save_to_netcdf(args.out_dir)
+    grid_aggregator.save_to_netcdf(out_file)
     grid_aggregator.plot_data()
 
 
