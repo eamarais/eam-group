@@ -28,6 +28,8 @@ import random
 
 def rma(x,y,n,ntrials):
 
+    apply_y_scale_factor=False
+
     # Get correlation:
     r=stats.pearsonr(x,y)
 
@@ -63,11 +65,23 @@ def rma(x,y,n,ntrials):
         xbar=np.mean(x_rdm)
         ybar=np.mean(y_rdm)
 
+        Sy_og=np.sqrt((np.sum((y_rdm-ybar)**2) / float(n)))
+
+        # Apply scaling to very large values to avoid getting inf:
+        if ( ybar > 1e19 ):
+            apply_y_scale_factor=True
+            y_rdm = y_rdm / 1e10
+            ybar=np.mean(y_rdm)
+
         # Get the population standard deviation:
         Sx=np.sqrt((np.sum((x_rdm-xbar)**2) / float(n)))
         Sy=np.sqrt((np.sum((y_rdm-ybar)**2) / float(n)))
 
         if (Sy==0): continue
+
+        if ( apply_y_scale_factor ):
+            Sy = Sy * 1e10
+            apply_y_scale_factor=False
 
         # Get slope and intercept:
         grad= fac * (Sy/Sx)
