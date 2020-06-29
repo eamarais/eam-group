@@ -282,7 +282,7 @@ class TropomiData:
     def __init__(self, file_path, pmax, pmin):
 
         self.file_name = path.basename(file_path)
-        self.date = get_date()
+        self.date = get_date(self.file_name)
         self.pmax = pmax
         self.pmin = pmin
 
