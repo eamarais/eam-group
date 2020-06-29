@@ -741,7 +741,7 @@ if __name__ == "__main__":
 
         grid_aggregator.add_trop_data_to_gridsquare(trop_data)
         grid_aggregator.apply_cloud_slice()
-
+    grid_aggregator.calc_seasonal_means()
 
     out_file = path.join(args.out_dir, 'tropomi-ut-no2-'+args.cloud_product
                          + '-' + args.cloud_threshold
