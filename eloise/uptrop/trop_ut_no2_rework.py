@@ -108,13 +108,13 @@ class GridAggregator:
         for i in range(self.xdim):
             for j in range(self.ydim):
 
-                tcolno2 = self.gno2[i, j]
-                strat = self.gstrat[i, j]
-                tcld = self.gcldp[i, j]
+                tcolno2 = self.gno2[i][j]
+                strat = self.gstrat[i][j]
+                tcld = self.gcldp[i][j]
 
                 # Only loop over grids with relevant data (identified as
-                # vectors where the first entry is zero):
-                if tcolno2[0] == 0:
+                # non-empty lists):
+                if not tcolno2:
                     continue
 
                 # Skip if fewer than 10 points:
@@ -737,7 +737,7 @@ if __name__ == "__main__":
         trop_data.cloud_filter_and_preprocess(cloud_data, cloud_threshold)
 
         grid_aggregator.add_trop_data_to_gridsquare(trop_data)
-        grid_aggregator.apply_cloud_slice(args.max_points)
+        grid_aggregator.apply_cloud_slice()
 
 
     out_file = path.join(args.out_dir, 'tropomi-ut-no2-'+args.cloud_product
