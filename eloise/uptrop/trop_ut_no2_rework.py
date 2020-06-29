@@ -22,11 +22,14 @@ sys.path.append(
 from uptrop.convert_height_to_press import alt2pres
 from uptrop.cloud_slice_ut_no2 import cldslice, CLOUD_SLICE_ERROR_ENUM
 
+
 class CloudFileDateMismatch(Exception):
     pass
 
+
 class CloudFileShapeMismatch(Exception):
     pass
+
 
 class GridAggregator:
     def __init__(self, dellat, dellon):
@@ -279,7 +282,7 @@ class TropomiData:
     def __init__(self, file_path, pmax, pmin):
 
         self.file_name = path.basename(file_path)
-        self.date = self.get_date()
+        self.date = get_date()
         self.pmax = pmax
         self.pmin = pmin
 
@@ -322,14 +325,6 @@ class TropomiData:
 
         # Do initialisation
         self.read_trop_file(file_path)
-
-    def get_date(self):
-        # A regular expression that gets Sentinel datestamps out of filenames
-        # See https://regex101.com/r/QNG11l/1
-        date_regex = r"\d{8}T\d{6}"
-        date_string = re.findall(date_regex, self.file_name)[0]
-        # A line for converting Sentinel string reps to datetime
-        return dt.datetime.strptime(date_string, r"%Y%m%dT%H%M%S")
 
     def read_trop_file(self, file_path):
         fh = Dataset(file_path, mode='r')
@@ -522,10 +517,10 @@ class TropomiData:
 
 class CloudData:
 
-    def __init__(self, file_path, data_type, fillval):
+    def __init__(self, file_path, data_type, fillval = None):
         # Set from filename
         self.file_name = path.basename(file_path)
-        self.date = self.get_date()
+        self.date = get_date(self.file_name)  # Assuming for now that ocra and S5P have the same timestamping
 
         # Set from file contents
         self.cldfrac = None
@@ -536,9 +531,6 @@ class CloudData:
             self.read_fresco_file(file_path)
         elif data_type == 'dl_ocra':
             self.read_ocra_file(file_path, fillval)
-
-    def get_date(self):
-        return dt.datetime.strptime(self.file_path)  # Fill out when running debug
 
     def read_fresco_file(self, file_path):
         fh = Dataset(file_path)
@@ -621,6 +613,7 @@ class CloudData:
         # Close DLR CLOUD file:
         fd.close()
 
+
 #   TODO: Move these into a seperate file for reuse maybe
 def get_tropomi_file_list(trop_dir, date_range):
     out = []
@@ -662,6 +655,15 @@ def get_ocra_files_on_day(tomidir,date):
     return cldfile
 
 
+def get_date(file_name):
+    # A regular expression that gets Sentinel datestamps out of filenames
+    # See https://regex101.com/r/QNG11l/1
+    date_regex = r"\d{8}T\d{6}"
+    date_string = re.findall(date_regex, file_name)[0]
+    # A line for converting Sentinel string reps to datetime
+    return dt.datetime.strptime(date_string, r"%Y%m%dT%H%M%S")
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
@@ -671,6 +673,7 @@ if __name__ == "__main__":
     parser.add_argument("--grid_res", default='1x1', help="Can be 1x1, 2x25, 4x5")
     parser.add_argument("--cloud_product", default = "fresco", help="can be fresco or dl-ocra")
     parser.add_argument("--cloud_threshold", default = "07", help="can be 07, 08, 09, 10")
+    parser.add_argument("--ocra_fill", help="Fill value for Ocra data")
     args = parser.parse_args()
 
     if args.season == "jja":
@@ -724,7 +727,7 @@ if __name__ == "__main__":
         # Looks like this is currently set to process a string of files as
         # opposed to a single file:
         trop_data = TropomiData(trop_file,PMAX,PMIN)
-        cloud_data = CloudData(cloud_file)
+        cloud_data = CloudData(cloud_file, data_type=args.cloud_product, fillval=args.ocra_fill)
 
         trop_data.calc_geo_column()
         trop_data.apply_bias_correction()
