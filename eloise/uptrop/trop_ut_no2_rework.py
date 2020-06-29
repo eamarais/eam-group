@@ -191,7 +191,7 @@ class GridAggregator:
         self.gcnt[self.gcnt == 0] = np.nan   # Watch out for this rewriting of gcnt in the future
 
     def print_report(self):
-        print('Max no. of data points in a gridsquare: ', np.amax(self.gcnt), flush=True)
+        print('Max no. of data points in a gridsquare: ', self.gcnt.max(), flush=True)
         # Track reasons for data loss:
         print('(1) Too few points: ', self.loss_count["too_few_points"], flush=True)
         print('(2) Low cloud height range: ', self.loss_count["low_cloud_height_range"], flush=True)
