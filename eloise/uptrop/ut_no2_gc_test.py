@@ -70,10 +70,14 @@ class DomainIssueException(Exception):
 
 class ProcessedData:
     # ----Initialisation methods----
-    def __init__(self, region, str_res, do_temperature_correction=False, do_error_weighting=False):
+    def __init__(self, region, str_res, strat_thld, do_temperature_correction=False, do_error_weighting=False, do_cld_frac_filter=False):
 
         self.temperature_correction = do_temperature_correction
         self.error_weight = do_error_weighting
+        self.cld_frac_filter = do_cld_frac_filter
+        
+        # Filtering threshold for stratosphere:
+        self.strat_filt = strat_thld
 
         self.define_grid(region, str_res)
         grid_shape = self.X.shape
@@ -82,13 +86,13 @@ class ProcessedData:
         self.g_no2_vcd = np.zeros(grid_shape)
         self.g_no2_vmr = np.zeros(grid_shape)
         self.g_cld_fr = np.zeros(grid_shape)
-        self.g_cld = np.zeros(grid_shape)
+        self.g_cld_p = np.zeros(grid_shape)
         self.g_slope_err = np.zeros(grid_shape)
-        self.g_gaus_err = np.zeros(grid_shape)
+        self.g_gaus_wgt = np.zeros(grid_shape)
         self.true_o3 = np.zeros(grid_shape)  # ozone mixing ratio coincident with cloud-sliced ut self
         self.true_no2 = np.zeros(grid_shape)  # "true" cloudy UT NO2
         self.g_askut_no2 = np.zeros(grid_shape)  # "true" all-sky UT NO2
-        self.true_wgt = np.zeros(grid_shape)  # "true" all-sky UT NO2 weights
+        self.g_ask_gaus_wgt = np.zeros(grid_shape)  # "true" all-sky UT NO2 weights
         self.g_as_cnt = np.zeros(grid_shape)  # Count all-sky
         self.g_cnt = np.zeros(grid_shape)
 
@@ -175,7 +179,7 @@ class ProcessedData:
         self.g_o3 = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
         self.all_cld_fr = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
         self.strat_no2 = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
-        self.g_cld_p = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
+        self.all_cld_p = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
         self.g_true_no2 = [[[] for n in range(self.ydim)] for m in range(self.xdim)]
 
         this_geoschem_day = GeosChemDay(file_path,
@@ -185,13 +189,13 @@ class ProcessedData:
         for y in range(len(this_geoschem_day.t_lat)):
             for x in range(len(this_geoschem_day.t_lon)):
                 this_geoschem_day.prepare_no2_pixel(x, y)
-                self.regrid_and_process(x, y, this_geoschem_day)
+                self.regrid_and_process(x, y, this_geoschem_day, self.cld_frac_filter)
         for i in range(self.xdim):
             for j in range(self.ydim):
                 if any(value != 0 for value in self.g_no2[i][j]):
                     self.process_grid_square(i, j)
 
-    def regrid_and_process(self, x, y, no2):
+    def regrid_and_process(self, x, y, no2, filter_cld_frac):
 
         # If no valid data, skip:
         if ( len(no2.askind) == 0 ):
@@ -201,7 +205,7 @@ class ProcessedData:
         lon = int(np.argmin(abs(self.out_lon - no2.t_lon[x])))
         lat = int(np.argmin(abs(self.out_lat - no2.t_lat[y])))
 
-        self.true_wgt[lon, lat] += np.sum(no2.twgt)
+        self.g_ask_gaus_wgt[lon, lat] += np.sum(no2.twgt)
 
         self.g_askut_no2[lon, lat] += np.sum(no2.t_gc_no2[no2.askind, y, x] * no2.twgt * 1e3)
         self.g_as_cnt[lon, lat] += 1.0
@@ -215,13 +219,14 @@ class ProcessedData:
         # Find where cloud fraction in UT exceeds 0.7 after calculating
         # true all-sky NO2:
         # (Keep for testing effect of thick clouds on cloud-sliced UT NO2):
-        #if np.sum(no2.t_cld_fr[no2.level_min:no2.level_max + 1, y, x]) < 0.7: 
-        #    return
+        if ( self.cld_frac_filter ):
+            if np.sum(no2.t_cld_fr[no2.level_min:no2.level_max + 1, y, x]) < 0.7: 
+                return
 
         self.g_no2[lon][lat].append(no2.no2_2d)  
         self.g_grad[lon][lat].append(no2.grad)          
         self.strat_no2[lon][lat].append(no2.strat_col)
-        self.g_cld_p[lon][lat].append(no2.t_cld_hgt[y, x])
+        self.all_cld_p[lon][lat].append(no2.t_cld_hgt[y, x])
         self.g_o3[lon][lat].append(
             np.mean(no2.t_gc_o3[no2.level_min:no2.level_max + 1, y, x]))
         self.g_true_no2[lon][lat].append(
@@ -236,7 +241,7 @@ class ProcessedData:
         t_col_no2 = np.asarray(self.g_no2[i][j],dtype=np.float)
         t_strat_no2 = np.asarray(self.strat_no2[i][j],dtype=np.float)
         t_fr_c = np.asarray(self.all_cld_fr[i][j],dtype=np.float)
-        t_cld = np.asarray(self.g_cld_p[i][j],dtype=np.float)
+        t_cld = np.asarray(self.all_cld_p[i][j],dtype=np.float)
         t_mr_no2 = np.asarray(self.g_true_no2[i][j],dtype=np.float)
         t_o3 = np.asarray(self.g_o3[i][j],dtype=np.float)
         t_grad_no2 = np.asarray(self.g_grad[i][j],dtype=np.float)
@@ -248,7 +253,7 @@ class ProcessedData:
             return
 
         # Remove non-uniform stratosphere:
-        if (np.std(t_strat_no2) / np.mean(t_strat_no2)) > 0.02:
+        if (np.std(t_strat_no2) / np.mean(t_strat_no2)) > self.strat_filt:
             self.loss_count["non_uni_strat"] += 1
             return  # continue
 
@@ -267,7 +272,7 @@ class ProcessedData:
         # Use cloud_slice_ut_no2 function to get cloud-sliced UT NO2.
         # Treat data differently depending on whether there are 10-99 points:
         if n_pnts >= 10 and n_pnts <100:
-            self.add_slice(i,j,t_cld,t_col_no2, t_mr_no2, t_fr_c, t_grad_no2)
+            self.add_slice(i,j,t_cld,t_col_no2, t_mr_no2, t_fr_c, t_grad_no2, t_o3)
         # Or at least 100 points:
         elif n_pnts >= 100:
             num_slices = 40
@@ -279,14 +284,15 @@ class ProcessedData:
                 subset_t_mr_no2 = t_mr_no2[w::stride]
                 subset_t_fr_c = t_fr_c[w::stride]
                 subset_t_grad_no2 = t_grad_no2[w::stride]
-                self.add_slice(i, j, subset_t_cld, subset_t_col_no2, subset_t_mr_no2, subset_t_fr_c, subset_t_grad_no2)
+                subset_t_o3 = t_o3[w::stride]
+                self.add_slice(i, j, subset_t_cld, subset_t_col_no2, subset_t_mr_no2, subset_t_fr_c, subset_t_grad_no2, subset_t_o3)
 
-    def add_slice(self, i, j, t_cld, t_col_no2, t_mr_no2, t_fr_c, t_grad_no2):
+    def add_slice(self, i, j, t_cld, t_col_no2, t_mr_no2, t_fr_c, t_grad_no2, t_o3):
         """Applies and adds a cloud slice from the given data"""
         utmrno2, utmrno2err, stage_reached, mean_cld_pres = cldslice(t_col_no2, t_cld)
         
         # Calculate weights:
-        err_wgt = 1.0 / (utmrno2err ** 2)
+        #err_wgt = 1.0 / (utmrno2err ** 2)
         gaus_wgt = np.exp((-(mean_cld_pres - 315) ** 2) / (2 * 135 ** 2))
         # Skip if approach didn't work (i.e. cloud-sliced UT NO2 is NaN):
         # Drop out after the reason for data loss is added to loss_count.
@@ -309,9 +315,10 @@ class ProcessedData:
             # Weighted mean for each pass of cldslice:
             weight_mean = np.mean(t_mr_no2 * 1e3) * gaus_wgt 
             self.true_no2[i, j] += weight_mean
+            self.true_o3[i, j] += (np.mean(t_o3) * gaus_wgt)
             self.g_no2_vmr[i, j] += utmrno2 * gaus_wgt
-            self.g_slope_err[i, j] += err_wgt
-            self.g_gaus_err[i, j] += gaus_wgt
+            self.g_slope_err[i, j] += utmrno2err * gaus_wgt
+            self.g_gaus_wgt[i, j] += gaus_wgt
             self.g_cnt[i, j] += 1
             self.g_cld_fr[i, j] += np.mean(t_fr_c)
             self.cloud_slice_count += 1
@@ -322,15 +329,16 @@ class ProcessedData:
         """
 
         # Mean physical parameters:
-        self.g_no2_vmr = np.divide(self.g_no2_vmr, self.g_gaus_err, where=self.g_cnt != 0)
+        self.g_no2_vmr = np.divide(self.g_no2_vmr, self.g_gaus_wgt, where=self.g_cnt != 0)
         self.g_cld_fr = np.divide(self.g_cld_fr, self.g_cnt, where=self.g_cnt != 0)
-        self.true_no2 = np.divide(self.true_no2, self.g_gaus_err, where=self.g_cnt != 0)
-        self.g_cld = np.divide(self.g_cld, self.g_cnt, where=self.g_cnt != 0)
-        self.true_o3 = np.divide(self.true_o3, self.true_wgt, where=self.g_cnt != 0)
-        self.g_askut_no2 = np.divide(self.g_askut_no2, self.true_wgt, where=self.g_as_cnt != 0)
+        self.true_no2 = np.divide(self.true_no2, self.g_gaus_wgt, where=self.g_cnt != 0)
+        self.g_cld_p = np.divide(self.g_cld_p, self.g_cnt, where=self.g_cnt != 0)
+        self.true_o3 = np.divide(self.true_o3, self.g_gaus_wgt, where=self.g_cnt != 0)
+        self.g_askut_no2 = np.divide(self.g_askut_no2, self.g_ask_gaus_wgt, where=self.g_as_cnt != 0)
+        # Mean cloud-sliced UT NO2 error:
+        self.g_slope_err = np.divide(self.g_slope_err, self.g_gaus_wgt, where=self.g_cnt != 0)
         # Mean weights:
-        self.g_slope_err = np.divide(self.g_slope_err, self.g_cnt, where=self.g_cnt != 0)
-        self.g_gaus_err = np.divide(self.g_gaus_err, self.g_cnt, where=self.g_cnt != 0)
+        self.g_gaus_wgt = np.divide(self.g_gaus_wgt, self.g_cnt, where=self.g_cnt != 0)
         # No data (nan):
         self.true_no2[self.g_cnt == 0] = np.nan
         self.true_o3[self.g_cnt == 0] = np.nan
@@ -339,6 +347,7 @@ class ProcessedData:
         self.g_askut_no2[self.g_as_cnt == 0] = np.nan
         self.g_no2_vmr[self.g_cnt == 0] = np.nan
         self.g_cld_fr[self.g_cnt == 0] = np.nan
+        self.g_cld_p[self.g_cnt == 0] = np.nan
 
     # ----Reporting and saving methods----
     def print_data_report(self):
@@ -500,7 +509,7 @@ class ProcessedData:
         utcld = ncout.createVariable('utcld', np.float32, ('lon', 'lat'))
         utcld.units = 'hPa'
         utcld.long_name = 'Mean cloud pressure between 450 and 180 hPa'
-        utcld[:] = self.g_cld
+        utcld[:] = self.g_cld_p
         # (5) Mean NO2 mixing ratio at 450-180 hPa for scenes with clouds:
         cldutno2 = ncout.createVariable('cldutno2', np.float32, ('lon', 'lat'))
         cldutno2.units = 'pptv'
@@ -692,9 +701,11 @@ if __name__ == "__main__":
     parser.add_argument("--out_path", default='/home/j/jfr10/eos_library/uptrop_comparison/test.nc2')
     parser.add_argument('--resolution', default="4x5", help="Can be 8x10, 4x5, 2x25 or 1x1")
     parser.add_argument('--region', default="EU", help="Can be EU, NA, or CH")
+    parser.add_argument('--strat_filter_threshold', default="0.02")
     parser.add_argument("-p", "--plot", type=bool)
     parser.add_argument("--do_temp_correct", type=bool)
     parser.add_argument("--do_error_weight", type=bool)
+    parser.add_argument("--apply_cld_frac_filter", type=bool)
     args = parser.parse_args()
 
     if len(YEARS_TO_PROCESS) == 1:
@@ -707,12 +718,14 @@ if __name__ == "__main__":
     STR_RES = args.resolution
     REGION = args.region
     out_path = args.out_path
+    strat_filter_threshold = float(args.strat_filter_threshold)
     files = get_file_list(gc_dir, REGION, YEARS_TO_PROCESS)
     print('Number of files:', len(files), flush=True)
 
-    rolling_total = ProcessedData(REGION, STR_RES,
+    rolling_total = ProcessedData(REGION, STR_RES, strat_filter_threshold,
                                   do_temperature_correction=args.do_temp_correct,
-                                  do_error_weighting=args.do_error_weight)
+                                  do_error_weighting=args.do_error_weight,
+                                  do_cld_frac_filter=args.apply_cld_frac_filter)
 
     # Loop over files:
     for file_path in files:
