@@ -435,7 +435,7 @@ class TropomiData:
     def apply_bias_correction(self):
         # Bias correct stratosphere based on comparison of TROPOMI to Pandora Mauna Loa:
         tstratno2 = np.where(self.stratno2_og != self.fillval,
-                 ((self.stratno2_og - (6.6e14 / self.no2sfac)) / 0.86), np.nan)
+                             ((self.stratno2_og - (6.5e14 / self.no2sfac)) / 0.87), np.nan)
 
         # Bias correct troposphere based on comparison of TROPOMI to Pandora Izana:
         tgeotropvcd = np.where(self.tgeotropvcd != self.fillval,
