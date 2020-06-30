@@ -65,8 +65,6 @@ def rma(x,y,n,ntrials):
         xbar=np.mean(x_rdm)
         ybar=np.mean(y_rdm)
 
-        Sy_og=np.sqrt((np.sum((y_rdm-ybar)**2) / float(n)))
-
         # Apply scaling to very large values to avoid getting inf:
         if ( ybar > 1e19 ):
             apply_y_scale_factor=True
