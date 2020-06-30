@@ -343,7 +343,7 @@ class ProcessedData:
         self.true_no2[self.g_cnt == 0] = np.nan
         self.true_o3[self.g_cnt == 0] = np.nan
         self.g_slope_err[self.g_cnt == 0] = np.nan
-        self.g_gaus_err[self.g_cnt == 0] = np.nan
+        self.g_gaus_wgt[self.g_cnt == 0] = np.nan
         self.g_askut_no2[self.g_as_cnt == 0] = np.nan
         self.g_no2_vmr[self.g_cnt == 0] = np.nan
         self.g_cld_fr[self.g_cnt == 0] = np.nan
@@ -499,7 +499,7 @@ class ProcessedData:
         utgauserr = ncout.createVariable('utgauserr', np.float32, ('lon', 'lat'))
         utgauserr.units = 'pptv'
         utgauserr.long_name = 'Standard error of the NO2 mixing ratios in the UT (180-450 hPa) obtained using cloud-slicing'
-        utgauserr[:] = self.g_gaus_err
+        utgauserr[:] = self.g_gaus_wgt
         # (3) Number of observations in each gridsquare:
         nobs = ncout.createVariable('nobs', np.float32, ('lon', 'lat'))
         nobs.units = 'unitless'
