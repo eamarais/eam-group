@@ -92,6 +92,11 @@ NO2_CapeTown_calm_regrid = [regrid_TROPOMI(data) for data in NO2_CapeTown_calm]
 
 os.chdir('/rds/projects/s/shiz-shi-aphh/TROPOMI_DATA/TROPOMI_NO2_regrid')
 
+# Gongda: these entries can all be compressed into a single line for-loop, as the only unique entries are in the number in square brackets and the file date. It would be something like this:
+# yymmdd=['201909','201910','201911' ...]
+# for i in range(10):
+#    NO2_CapeTown_good_regrid[i].to_csv("NO2_CapeTown_regrid_(all winds Flag 0.75)_'+yymmdd[i]+'.csv",index=False,sep=',')
+
 NO2_CapeTown_good_regrid[0].to_csv("NO2_CapeTown_regrid_(all winds Flag 0.75)_201909.csv",index=False,sep=',')
 NO2_CapeTown_good_regrid[1].to_csv("NO2_CapeTown_regrid_(all winds Flag 0.75)_201910.csv",index=False,sep=',')
 NO2_CapeTown_good_regrid[2].to_csv("NO2_CapeTown_regrid_(all winds Flag 0.75)_201911.csv",index=False,sep=',')
