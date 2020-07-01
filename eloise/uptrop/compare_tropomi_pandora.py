@@ -404,7 +404,7 @@ class TropomiData:
             # Apply correction to stratosphere based on comparison
             # to Pandora Mauna Loa total columns:
             self.tstratno2 = np.where(self.tstratno2 != self.fillval,
-                                      ((self.tstratno2 - (6.5e14 / self.no2sfac)) / 0.87), np.nan)
+                                      ((self.tstratno2 - (6.6e14 / self.no2sfac)) / 0.86), np.nan)
             # Apply bias correction to troposphere based on comparison
             # to Pandora Izana tropospheric columns:
             self.tgeotropvcd = np.where(self.tgeotropvcd != self.fillval, self.tgeotropvcd / 2, np.nan)
