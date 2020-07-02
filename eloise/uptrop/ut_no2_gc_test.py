@@ -112,6 +112,9 @@ class ProcessedData:
         self.maxcnt = 0
         self.grad_retain = 0
         self.grad_remove = 0
+        # Print out min and max cloud-sliced UT NO2 error size:
+        self.minerr = 1   # Set to maximum possible error (100%)
+        self.maxerr = 0
 
         # Define string to represent the layer range:
         self.prange = str(P_MIN) + '-' + str(P_MAX)
@@ -309,6 +312,14 @@ class ProcessedData:
             #print("Cloud-slice exception {} in pixel i:{} j:{}".format(
             #    CLOUD_SLICE_ERROR_ENUM[stage_reached], i, j))
         else:
+            # Print error range:
+            nerr = utmrno2err / utmrno2
+            if nerr > self.maxerr:
+                self.maxerr = nerr
+                print('Max rel. cloud-sliced NO2 error: ', self.maxerr, flush=True)
+            if nerr < self.minerr:
+                self.minerr = nerr
+                print('Min rel. cloud-sliced NO2 error: ', self.minerr, flush=True)
             # Track non-uniform NO2 retained:
             grad_ind=np.where(t_grad_no2 >= 0.33)[0]
             self.grad_retain += len(grad_ind)
@@ -367,6 +378,7 @@ class ProcessedData:
         print('(9) Total possible points: ', (sum(self.loss_count.values()) + self.cloud_slice_count), flush=True)
         print('Non-uniform NO2 retained = ', self.grad_retain)
         print('Non-uniform NO2 removed = ', self.grad_remove)
+        print('Error range of cloud-sliced UT NO2: ', np.nanmin(self.slope_err), np.nanmax(self.slope_err))
 
     def plot_data(self):
         # Plot the data:
