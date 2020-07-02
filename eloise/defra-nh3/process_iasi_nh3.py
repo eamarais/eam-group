@@ -30,16 +30,18 @@ class IasiData:
         self.time = fh.variables['time'][:]
         self.lat = fh.variables['latitude'][:]
         self.lon = fh.variables['longitude'][:]
+        # Column amount:
         self.col = fh.variables['column'][:]
+        # Column uncertainty (provided in %)
         tcol_unc = fh.variables['error'][:]
         self.cld = fh.variables['CLcov'][:]
         self.sza = fh.variables['angle'][:]
         nvals = len(self.lon)
 
-        # Convert error from % to absolute:
+        # Convert uncertainty from % to absolute:
         self.col_unc = tcol_unc * 1e-2 * self.col
         
-        # Initialize lon and lat edges (should go elsewhere):
+        # Initialize lon and lat edges:
         self.lon_edges = np.zeros((nvals,4))
         self.lat_edges = np.zeros((nvals,4))
         self.cnt = 0
