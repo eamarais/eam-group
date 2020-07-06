@@ -141,19 +141,26 @@ class CloudVariableStore:
         self.gdlr_od[p, q] += tropomi_data.tdoptd[trop_i, trop_j]
         self.gdlr_cnt[p, q] += 1.0
 
-    def cloud_fraction_filtering(self, tropomi_data):
+    def bin_cloud_fraction(self, tropomi_data):
         """
-        # Gather data on frequency of cloud fraction > 0.7:
+        # Gather data on frequency of cloud fraction >= 0.7:
         # This is done before filtering for scenes with knmi cloud frac
-        # > 0.7 to also include all relevant DLR scenes:
+        # >= 0.7 to also include all relevant DLR scenes:
         """
         # loop over cloud and latitude band bins:
         for w in range(len(self.cldbin)):
             for n in range(len(self.latbin)):
 
+                # Define minimum value in range of interest to avoid cloud fractions < 0.7:
+                if w == 0:
+                    min_val = self.cldbin[w]
+                else:
+                    min_val = self.cldbin[w] - 0.025
+                
+
                 # (1) KNMI:
                 # Get indices for relevant data:
-                fbin = np.where((tropomi_data.tffrc >= (self.cldbin[w] - 0.025)) &
+                fbin = np.where((tropomi_data.tffrc >= min_val) &
                                 (tropomi_data.tffrc < (self.cldbin[w] + 0.025)) &
                                 (tropomi_data.tflats >= (self.latbin[n] - 7.5)) &
                                 (tropomi_data.tflats < (self.latbin[n] + 7.5)) &
@@ -165,7 +172,7 @@ class CloudVariableStore:
 
                 # (2) DLR-OCRA:
                 # Get indices for relevant data:
-                dbin = np.where((tropomi_data.tdfrc >= (self.cldbin[w] - 0.025)) &
+                dbin = np.where((tropomi_data.tdfrc >= min_val) &
                                 (tropomi_data.tdfrc < (self.cldbin[w] + 0.025)) &
                                 (tropomi_data.tdlats >= (self.latbin[n] - 7.5)) &
                                 (tropomi_data.tdlats < (self.latbin[n] + 7.5)) &
@@ -554,7 +561,7 @@ def process_file(tdfile, tffile, running_total_container):
         running_total_container.update_nobs(file_data_container)
         #print("Fresco nobs: {}\nDLR nobs: {}".format(
         #    file_data_container.nobs_fresco, file_data_container.nobs_dlr))
-        running_total_container.cloud_fraction_filtering(file_data_container)
+        running_total_container.bin_cloud_fraction(file_data_container)
         # REGRID THE DATA:
         for i in range(file_data_container.shape[0]):
             for j in range(file_data_container.shape[1]):

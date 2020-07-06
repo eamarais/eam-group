@@ -112,6 +112,12 @@ def cldslice(pcolno2,cldtophgt):
     # Account for negative values:
     # Set points with sum of slope and error less than zero to nan.
     # This is to account for noise in the data that hover near zero.
+    # This could be reduced to a single line. Eventually update to:
+    #if result[0]<0 and np.add(result[0],result[2])<0):
+    #    error_state=5
+    #    utmrno2=np.nan
+    #    utmrno2err=np.nan
+    #    return (utmrno2, utmrno2err, error_state, mean_cld_pres)
     if result[0]<0 and (not np.isnan(utmrno2)):
         if (np.add(result[0],result[2])<0):
             error_state=5

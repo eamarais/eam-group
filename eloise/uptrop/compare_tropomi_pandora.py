@@ -108,7 +108,8 @@ class DataCollector:
                                   & (self.difflat <= DIFF_DEG)
                                   & (trop_data.no2val != np.nan)
                                   & (trop_data.omi_dd == date.day)
-                                  & (trop_data.stratcol < trop_data.totcol))
+                                  & (trop_data.no2val > 4e13))
+                                  #& (trop_data.stratcol < trop_data.totcol))
       
         # Skip if no data:
         if (len(tomiind) == 0):
@@ -700,9 +701,9 @@ if __name__ == "__main__":
     # Get Pandora filename (one file per site):
     panfile= get_pandora_file(args.pandir, args.pandora_site, SITE_NUM, C_SITE, args.no2_col, FV)
     if ( args.apply_bias_correction ):
-        outfile = os.path.join(args.outdir, 'tropomi-pandora-comparison-' + args.pandora_site + '-' + args.cloud_product + '-' + args.no2_col + '-' + args.str_diff_deg + 'deg-' + args.str_diff_min + 'min-bias-corr-v2.nc')
+        outfile = os.path.join(args.outdir, 'tropomi-pandora-comparison-' + args.pandora_site + '-' + args.cloud_product + '-' + args.no2_col + '-' + args.str_diff_deg + 'deg-' + args.str_diff_min + 'min-bias-corr-v3.nc')
     else:
-        outfile = os.path.join(args.outdir, 'tropomi-pandora-comparison-' + args.pandora_site + '-' + args.cloud_product + '-' + args.no2_col + '-' + args.str_diff_deg + 'deg-' + args.str_diff_min + 'min-v2.nc')
+        outfile = os.path.join(args.outdir, 'tropomi-pandora-comparison-' + args.pandora_site + '-' + args.cloud_product + '-' + args.no2_col + '-' + args.str_diff_deg + 'deg-' + args.str_diff_min + 'min-v3.nc')
 
     pandora_data = PandoraData(panfile,args.no2_col)
     data_aggregator = DataCollector(start_date, end_date)

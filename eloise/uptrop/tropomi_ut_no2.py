@@ -209,6 +209,7 @@ class GridAggregator:
         print('(7) Non-uniform stratosphere: ', self.loss_count["non_uni_strat"], flush=True)
         print('(8) Successful retrievals: ', self.cloud_slice_count, flush=True)
         print('(9) Total possible points: ', (sum(self.loss_count.values()) + self.cloud_slice_count), flush=True)
+        print('Mean % points retained: ', np.mean(self.postfilt),flush=True)
 
     def save_to_netcdf(self, out_file):
         ncout = Dataset(out_file, mode='w',format="NETCDF4")
@@ -686,7 +687,7 @@ if __name__ == "__main__":
     parser.add_argument("--season", default='jja', help="Can be jja, son, djf, mam")
     parser.add_argument("--grid_res", default='1x1', help="Can be 1x1, 2x25, 4x5")
     parser.add_argument("--cloud_product", default = "fresco", help="can be fresco or dlr-ocra")
-    parser.add_argument("--cloud_threshold", default = "07", help="can be 07, 08, 09, 10")
+    parser.add_argument("--cloud_threshold", default = "07", help="recommended value is 07. Can also test 08, 09, 10")
     parser.add_argument("--pmin", default=180, type=int)
     parser.add_argument("--pmax", default=450, type=int)
     args = parser.parse_args()
@@ -731,6 +732,7 @@ if __name__ == "__main__":
     date_range = rr.rrule(rr.DAILY, dtstart=start_date, until=end_date)
 
     trop_files = get_tropomi_file_list(args.trop_dir, date_range)
+    print('Found total of {} files: '.format(len(trop_files)))
     if args.cloud_product == "fresco":
         cloud_files = trop_files
     elif args.cloud_product == "dlr-ocra":
