@@ -75,6 +75,10 @@ class DataCollector:
         self.s5p_wgt = np.zeros(nvals)
         self.pan_cnt = np.zeros(nvals)
         self.s5p_cnt = np.zeros(nvals)
+        self.start_utc = np.zeros(nvals)
+        self.end_utc = np.zeros(nvals)
+        self.start_utc[:] = np.nan
+        self.end_utc[:] = np.nan
         self.n_days = nvals
 
     def add_trop_data_to_day(self, date, trop_data):
@@ -144,13 +148,28 @@ class DataCollector:
         if len(panind) == 0:
             print("No pandora data for day {}".format(date))
             raise NoPandoraException
+
+        # Get day of year:
+        day_of_year = get_days_since_data_start(date, self.start_date)
+
+        # Get min and max time used to cosample Pandora and TROPOMI:
+        min_utc = min(pandora_data.pan_hhmm[panind]) 
+        max_utc = max(pandora_data.pan_hhmm[panind]) 
+        if np.isnan(self.start_utc[day_of_year]):
+            self.start_utc[day_of_year] = min_utc 
+            self.end_utc[day_of_year] = max_utc
+        if ( ~np.isnan(self.start_utc[day_of_year]) and \
+             min_utc < self.start_utc[day_of_year] ):
+            self.start_utc[day_of_year] = min_utc 
+        if ( ~np.isnan(self.end_utc[day_of_year]) and \
+             max_utc > self.end_utc[day_of_year] ):
+            self.end_utc[day_of_year] = max_utc
         
         # Create arrays of relevant data and convert from DU to molec/cm2:
         tno2 = np.multiply(pandora_data.panno2[panind], du2moleccm2)
         terr = np.multiply(pandora_data.panno2err[panind], du2moleccm2)
         tqa = pandora_data.panqaflag[panind]
         # Add Pandora total NO2 to final array:
-        day_of_year = get_days_since_data_start(date, self.start_date)
         for w in range(len(panind)):
             self.pan_no2[day_of_year] += np.divide(tno2[w], np.square(terr[w]))
             self.pan_wgt[day_of_year] += np.divide(1.0, np.square(terr[w]))
@@ -231,11 +250,22 @@ class DataCollector:
         # Set array sizes:
         TDim = self.n_days
         ncout.createDimension('time', TDim)
-        # create time axis
-        time = ncout.createVariable('time', np.float32, ('time',))
-        time.units = 'days since 2019-06-01'
-        time.long_name = 'time in days since 2019-06-01'
-        time[:] = np.arange(0, self.n_days, 1)
+        # create days axis
+        days = ncout.createVariable('days', np.float32, ('time',))
+        days.units = 'days since 2019-06-01'
+        days.long_name = 'days in days since 2019-06-01'
+        days[:] = np.arange(0, self.n_days, 1)
+
+        start_utc = ncout.createVariable('start_utc', np.float32, ('time',))
+        start_utc.units = 'unitless'
+        start_utc.long_name = 'Start UTC hour of coincident TROPOMI and Pandorra sampling window'
+        start_utc[:] = self.start_utc
+
+        end_utc = ncout.createVariable('end_utc', np.float32, ('time',))
+        end_utc.units = 'unitless'
+        end_utc.long_name = 'End UTC hour of coincident TROPOMI and Pandora sampling window'
+        end_utc[:] = self.end_utc
+
         panno2 = ncout.createVariable('panno2', np.float32, ('time',))
         panno2.units = 'molecules/cm2'
         panno2.long_name = 'Pandora error-weighted daily mean total column NO2 coincident with TROPOMI overpass'
