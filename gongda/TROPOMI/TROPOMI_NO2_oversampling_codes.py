@@ -108,7 +108,7 @@ for i in range(len(NO2_201909)):
 #####################################################################################################################
 # problems to solve:
 # 1> Lines 100-106 are very slow, even much slower than my previous approach (combine all variables into a single pandas dataframe, and then subset it)
-# 2> Even when then lines 100-106 are done, I do not know how to subset the data
+# 2> Even if lines 100-106 are done, I still do not know how to subset the data
 #    The codes may be like: subset_data = [data for data in NO2_201909 if data.NO2 != np.nan], but "data.NO2" is a data matrix, so the codes won't work
 # 3> Till now, I have extracted all the information needed, but I do not know how to save to text file in format to be read in for RegridPixel fortran routine
 #    I think the corresponding codes started from line 116 in your IASI script, but I do not understand how to output     
