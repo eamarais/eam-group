@@ -43,7 +43,7 @@ NO2_unit_convert = sample_NO2.multiplication_factor_to_convert_to_molecules_perc
 
 
 # I updated my codes in two different ways.
-# Here I only included four variables here to shorten the codes.
+# Here I only included four variables to shorten the codes.
 #####################################################################################################################
 # Method 1 
 # This method can succesfully extract the raw values, filter fill values and apply the quality flag. But it is still not in the way as you suggested. 
