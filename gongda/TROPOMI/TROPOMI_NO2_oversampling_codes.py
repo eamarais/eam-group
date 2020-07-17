@@ -65,6 +65,15 @@ print(sample_weekday)
 #####################################################################################################################
 # create an "object" to extract and hold all relevant variables from raw TROPOMI NO2 L2 swath files
 
+# I'd suggest the following:
+# Use def __init__ to define the arrays of interest (i.e., those arrays you will use in the code).
+# Then include something like def read_tropomi as a separate function to read in the data (so moving what you have currently in __init__ to read_tropomi
+# The next function can be process_tropomi where you apply quality flags, scale the data (unit conversion), and any other relevant processing.
+# Then the next fuction can be write_to_txt_file to write the data to the text file to be read in for the oversampling routine.
+
+# You'll cycle through all these functions in __main__. See https://github.com/eamarais/eam-group/blob/main/eloise/uptrop/tropomi_ut_no2.py for an example of this. The __main__ bit is near the
+# end of the file.
+
 class TROPOMI_NO2:
     def __init__(self,TROPOMI_file):
         
