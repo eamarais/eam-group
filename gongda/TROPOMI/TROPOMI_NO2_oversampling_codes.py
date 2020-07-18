@@ -15,6 +15,8 @@ from netCDF4 import Dataset
 # select TROPOMI files over Africa and Europe from the global dataset based on the time window 
 # use 2019-09 as the sample study period
 
+
+# Turn this into a function too. Call it something like "def read_tropomi_files" to get all relevant file names:
 os.chdir("/rds/projects/s/shiz-shi-aphh/TROPOMI_DATA/TROPOMI_NO2_0_RAW")
 TROPOMI_files = sorted(glob.glob('S5P_OFFL_L2__NO2____201909*T0[8-9]*_*_*_*_*_*.nc') + 
                        glob.glob('S5P_OFFL_L2__NO2____201909*T1[0-4]*_*_*_*_*_*.nc')) 
@@ -184,3 +186,21 @@ def write_to_txt_file(self, fId, cnt):
                 fId.write("\n")            
 #####################################################################################################################   
 # End
+
+# Now that you've written the individual functions, you can write the main routine that can cycle through these in the right order.
+# To use the code from main, enter at the terminal: python TROPOMI_NO2_oversampling_codes.py.
+if __name__ == "__main__":
+  
+    # Call the function to get the TROPOMI file names.
+    tropomi_files = get_tropomi_files()
+    # Loop over the files using your favourite approach and within this loop call the functions:
+    for f in len(range(tropomi_files)):
+        # read the TROPOMI data:
+        tropomi_data = TROPOMI_NO2(tropomi_files[f])
+        # Convert data to a 1D array:
+        tropomi_data.convert_to_1D_array()
+        # Apply correction factors:
+        tropomi_data.process_TROPOMI()
+    # Once you're done looping through relevant files and collecting relevant data, write the data to th text file (you'll need to define a filename):
+    tropomi_data.write_to_txt_file()
+        
