@@ -115,7 +115,7 @@ VOC_test1.plot(ax=t,cmap=WhGrYlRd)
 surface_NO2_mass_concentration  = surface_NO2*surface_airnumberdensity*46/(6.022*1e11)
 ##################################################################################
 ##################################################################################
-# In addtion: conversions between pandas dataframe (csv/xlsx) and xarray data arrays(netcdf) sometimes can be useful
+# In addtion: conversions between pandas dataframes (csv/xlsx) and xarray data arrays (netcdf) sometimes can be useful
 # Although it is not suggested for this task
 
 import pandas as pd
@@ -165,7 +165,7 @@ for data in [surface_BENZ,surface_TOLU,surface_C2H6,surface_ACET,surface_CH2O,su
         
 # for now, use this to perform the same function for all items and save the results into a single pandas dataframe
 surface_VOCs = [surface_BENZ,surface_TOLU,surface_C2H6,surface_ACET,surface_CH2O,surface_C3H8,surface_EOH,surface_AIRNUMDEN]
-surface_VOCs = list(map(xarray_to_pandas, surface_VOCs))
+surface_VOCs = list(map(xarray_to_pandas,surface_VOCs)) # or "surface_VOCs = [xarray_to_pandas(x) for x in surface_VOCs]"
 surface_VOCs = pd.concat(surface_VOCs,axis=1)
 surface_VOCs = surface_VOCs.loc[:,~surface_VOCs.columns.duplicated()]  # remove duplicated columns
 surface_VOCs.head()
