@@ -42,6 +42,13 @@ class TROPOMI_NO2:
         
         # open the file and get variables
         self.TROPOMI_data = Dataset(TROPOMI_file, "r", format="NETCDF4")   
+        # Add the following lines:
+        # Define the name of the file to save to, could be outfile='test.txt' in the first instance
+        # Then create a file id like this:
+        # self.fId = open(outfile, "w+") 
+        # See an example of this in lines 205-206 of this code: https://github.com/eamarais/eam-group/blob/main/eloise/defra-nh3/process_iasi_nh3.py
+        # Initialize line counts:
+        # self.line_count = 0
             
     def extract_raw_TROPOMI(self):    
         '''Extract relevant variables from raw TROPOMI NO2 files '''       
@@ -99,6 +106,15 @@ class TROPOMI_NO2:
             if (self.NO2[w] != np.nan):
                 # Define string of data to print to file:
                 # Eloise example: tstr=("{:15.6f}"*13).format(self.lat[w],(* self.lat_bounds[w,:]),self.lon[w],(* self.lon_bounds[w,:]),self.sza[w],self.cld[w],amf)+("{:15.6E}"*2).format(self.NO2[w],self.pre[w])
+                # Instead of using append, create a string and then write that string to the file, like this:
+                # tstr="{:8}".format(self.line_count)+("{:15.6f}"*13).format(self.lat[w],(* self.lat_cor1[w],self.lat_cor2[w],self.lat_cor3[w],self.lat_cor4[w]),self.lon[w],(* self.lat_cor1[w],self.lat_cor2[w],self.lat_cor3[w],self.lat_cor4[w]),self.sza[w],self.cld[w],amf)+("{:15.6E}"*2).format(self.NO2[w],self.pre[w])
+                # Then write that string (line) to the file like this:
+                # self.fId.write(tstr) # This writes tstr to the file. 
+                # self.fId.write("\n") # This progresses to the next line. Without this each tstr won't be separated. They while file will appear as a single line.
+                # Increment the line number like this:
+                # self.line_count += 1
+                # For your else statement rather use "continue" or create an exception. You can see some examples of exceptions here: https://github.com/eamarais/erc-uptrop/blob/main/uptrop/tropomi_ut_no2.py
+                # These can be used to either stop the code if theres's an aggregious error or safely progress to the next step. Continue will do too.
                 self.tstr.append(("{:15.6f}"*13).format(self.lat[w],(* self.lat_cor1[w],self.lat_cor2[w],self.lat_cor3[w],self.lat_cor4[w]),self.lon[w],(* self.lat_cor1[w],self.lat_cor2[w],self.lat_cor3[w],self.lat_cor4[w]),self.sza[w],self.cld[w],amf)+("{:15.6E}"*2).format(self.NO2[w],self.pre[w]))
             else:
                 self.tstr.append("NA")
@@ -121,6 +137,8 @@ def read_TROPOMI(test):
     test.process_raw_TROPOMI()
     test.convert_2D_to_1D()
     test.write_to_txt_file()
+    # Once data is written to the file, close it:
+    # fId.close
     return test
 
 # use the main routine that can cycle through the function above in the right order
