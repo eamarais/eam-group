@@ -102,6 +102,7 @@ test.extract_raw_TROPOMI()
 test.process_raw_TROPOMI()
 test.convert_2D_to_1D()
 test.create_output_file()
+test.write_to_output_file()
 
 # now wrap your functions so you can loop over all files together
 def prepare_TROPOMI_for_oversampling(raw_TROPOMI_file):
@@ -111,10 +112,8 @@ def prepare_TROPOMI_for_oversampling(raw_TROPOMI_file):
     test.process_raw_TROPOMI()
     test.convert_2D_to_1D()
     test.create_output_file()
-    test.write_to_txt_file()
+    test.write_to_output_file()
     
        
 # later I will edit the  codes to get TROPOMI files and if the function above is OK, I will start processeing multiple files.
-test.write_to_txt_file()
 #####################################################################################################################
-        
