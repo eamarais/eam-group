@@ -46,10 +46,8 @@ test_results
 test_data = [pd.DataFrame([data]) for data in test_results]
 test_df = pd.concat(test_data,ignore_index=True)
 test_df
-
 ###############################################################################
 # now use the function above to download massive data
-
 # download NO2,SO2,CO,O3,PM2.5,PM10 from 5 sites in Los Angeles in 2019
 """
 summary of the codes needed to requeset data:
@@ -94,7 +92,7 @@ for i in range(len(parameters)):
     LA_LAX.append("https://aqs.epa.gov/data/api/sampleData/bySite?email=gxl642@student.bham.ac.uk&key=carmelmallard48&param="+str(parameters[i])+"&bdate=20190101&edate=20191231&state=06&county=037&site="+str(sites[3]))
     LA_Glendora.append("https://aqs.epa.gov/data/api/sampleData/bySite?email=gxl642@student.bham.ac.uk&key=carmelmallard48&param="+str(parameters[i])+"&bdate=20190101&edate=20191231&state=06&county=037&site=0016")
     
-    # get all species at each site in 2019
+# get all species at each site in 2019
 # no idea why list compreshension does not work here: LA_Compton_results = [get_data(link) for link in LA_Compton]
 
 LA_Compton_results = []
@@ -110,7 +108,7 @@ for i in range(len(parameters)):
     LA_LAX_results.append(get_data(LA_LAX[i]))
     LA_Glendora_results.append(get_data(LA_Glendora[i]))
     
-    # data of each species at each site are returned as a list of dictionaries
+# data of each species at each site are returned as a list of dictionaries
 # build a function to combine the results to pandas dataframes
 
 def save_raw_EPA_results_to_df(raw_EPA_data_results):
@@ -121,7 +119,7 @@ def save_raw_EPA_results_to_df(raw_EPA_data_results):
     test_df = pd.concat(test_data,ignore_index=True)
     return test_df
     
-    # convert results to pandas for all species and sites
+# convert results to pandas for all species and sites
 LA_Compton_df = []
 
 for i in range(len(parameters)):
