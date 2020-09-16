@@ -1,8 +1,0 @@
-# My current questions or skills to learn
-
-1> how to code in main top level scripting
-2> how to use parallel processing to speed up any processing step? like reading multiple netcdf files using NetCDF or xarray?
-3> use dask to handle large data frames?
-4> learn seaborn, plotly, bokeh for data visualisation
-5> learn pakcages for statistical analysis
-6> test airbase package (https://pypi.org/project/airbase/) again, if it works well, share it with the group 
