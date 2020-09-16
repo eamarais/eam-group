@@ -96,7 +96,7 @@ for i in range(len(NY_data)):
 # so there is no data for NO2 in New York City in 2019    
 ###############################################################################
 # Now download NO2,SO2,CO,O3,PM2.5,PM10 from in Los Angeles
-# first summarize the codes needed for iput variables (parameter,bdate,edate,state code,county code,site code)
+# first summarize the codes needed for input variables (parameter,bdate,edate,state code,county code,site code)
 
 # store information using regular expressions
 
@@ -111,6 +111,9 @@ parameters = '''
              PM2.5 non FRM/FEM Mass: 88502
              PM10: 81102
              '''
+# here create the list of species in the same order (used later when naming the output files)
+species = ['NO2','SO2','CO','O3','PM2.5 FRM FEM Mass','PM2.5 non FRM FEM Mass','PM10'] 
+
 date = '''
        begin date: 20190101
        end date: 20191231
@@ -138,7 +141,7 @@ date = re.findall(r'(?<=:\s)\d+',date)
 state_code = re.findall(r'(?<=:\s)\d+',state_code)
 county_code = re.findall(r'(?<=:\s)\d+',county_code)
 site_code = re.findall(r'(?<=:\s)\d+',site_code)
-
+###############################################################################
 # create download links to all species at each site
 LA_Compton = []
 LA_Lancaster = []
@@ -152,19 +155,19 @@ for i in range(len(parameters)):
     LA_North_Main.append("https://aqs.epa.gov/data/api/sampleData/bySite?email=gxl642@student.bham.ac.uk&key=carmelmallard48&param="+str(parameters[i])+"&bdate="+str(date[0])+"&edate="+str(date[1])+"&state="+str(state_code[0])+"&county="+str(county_code[0])+"&site="+str(site_code[2]))
     LA_LAX.append("https://aqs.epa.gov/data/api/sampleData/bySite?email=gxl642@student.bham.ac.uk&key=carmelmallard48&param="+str(parameters[i])+"&bdate="+str(date[0])+"&edate="+str(date[1])+"&state="+str(state_code[0])+"&county="+str(county_code[0])+"&site="+str(site_code[3]))
     LA_Glendora.append("https://aqs.epa.gov/data/api/sampleData/bySite?email=gxl642@student.bham.ac.uk&key=carmelmallard48&param="+str(parameters[i])+"&bdate="+str(date[0])+"&edate="+str(date[1])+"&state="+str(state_code[0])+"&county="+str(county_code[0])+"&site="+str(site_code[4]))
-    
-# create the list of species in the same order (for later use when naming the output files)
-species = ['NO2','SO2','CO','O3','PM2.5 FRM FEM Mass','PM2.5 non FRM FEM Mass','PM10'] 
-
+ 
 # get all species at each site in 2019
 LA_Compton_results = [get_data(link) for link in LA_Compton]
 LA_Lancaster_results = [get_data(link) for link in LA_Lancaster]
 LA_North_Main_results = [get_data(link) for link in LA_North_Main]
 LA_LAX_results = [get_data(link) for link in LA_LAX]
 LA_Glendora_results = [get_data(link) for link in LA_Glendora]
-
+###############################################################################
 # if there is data, measurements during the samplng period are returned as a list of dictionaries
 # now build a function to convert the list of dictionary to a pandas dataframes
+
+# if there is no data, an error message is kept
+# the length will be "1"
 
 def save_raw_EPA_results_to_df(raw_EPA_data_results):
     """For each request, the API returns measurements of one species at one site during one sampling period.
@@ -173,9 +176,6 @@ def save_raw_EPA_results_to_df(raw_EPA_data_results):
     test_data = [pd.DataFrame([data]) for data in raw_EPA_data_results]
     test_df = pd.concat(test_data,ignore_index=True)
     return test_df
-
-# if there is no data, an error message is kept
-# the length will be "1"
 
 # now convert results to pandas if there is data
 # 1> Comton site
@@ -222,29 +222,28 @@ for i in range(len(parameters)):
         LA_Glendora_df.append(save_raw_EPA_results_to_df(LA_Glendora_results[i]))
     else:
         LA_Glendora_df.append("There is no observation for "+str(species[i]))
-
 ###############################################################################
 # output the results as csv files
 
 for i in range(len(parameters)):
     if (len(LA_Compton_results[i]) > 0):
-        LA_Compton_df[i].to_csv("LA_Compton_2019_"+str(species[i]+".csv"))
+        LA_Compton_df[i].to_csv("LA_Compton_2019_"+str(species[i])+".csv")
         
 for i in range(len(parameters)):
     if (len(LA_Lancaster_results[i]) > 0):
-        LA_Lancaster_df[i].to_csv("LA_Lancaster_2019_"+str(species[i]+".csv"))
+        LA_Lancaster_df[i].to_csv("LA_Lancaster_2019_"+str(species[i])+".csv")
  
 for i in range(len(parameters)):
     if (len(LA_North_Main_results[i]) > 0):
-        LA_North_Main_df[i].to_csv("LA_North_Main_2019_"+str(species[i]+".csv"))
+        LA_North_Main_df[i].to_csv("LA_North_Main_2019_"+str(species[i])+".csv")
 
 for i in range(len(parameters)):
     if (len(LA_LAX_results[i]) > 0):
-        LA_LAX_df[i].to_csv("LA_LAX_2019_"+str(species[i]+".csv"))
+        LA_LAX_df[i].to_csv("LA_LAX_2019_"+str(species[i])+".csv")
         
 for i in range(len(parameters)):
     if (len(LA_Glendora_results[i]) > 0):
-        LA_Glendora_df[i].to_csv("LA_Glendora_2019_"+str(species[i]+".csv"))
+        LA_Glendora_df[i].to_csv("LA_Glendora_2019_"+str(species[i])+".csv")
         
 # For the next version, I aim to use arugments to make the codes more flexible and sharable. 
 # Input variables like "parameter","state code" can be imported as arguments.
