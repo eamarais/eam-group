@@ -1,6 +1,9 @@
 #####################################################################################################################
 #####################################################################################################################
 # Read TROPOMI NO2 L2 product and prepare for oversampling algorithms
+# This script allows the user to select sampling periods, domain and quality flag without editing the codes (unless you need a custom domain).
+# Add a line like this when submitting Python job:
+# "python TROPOMI_NO2_prepare_oversampling.py --qa_flag 0.5 --start_date 20190801 --end_date 20190802 --domain CH"
 
 # 1> select raw TROPOMI NO2 L2 files
 # 2> extract data fileds of interest
