@@ -3,7 +3,7 @@
 #################### Begin SLURM header ##########################
 # Settings for the SLURM scheduler
 #SBATCH -t 3:00:00 
-#SBATCH --job-name TROPOMI_NO2_oversampling_1_preparation_job_14
+#SBATCH --job-name TROPOMI_NO2_oversampling_1_preparation_job_1
 #SBATCH --qos bblargemem
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=300G
@@ -16,8 +16,7 @@ module load SciPy-bundle/2019.10-foss-2019b-Python-3.7.4
 module load netcdf4-python/1.5.3-foss-2019b-Python-3.7.4
 
 ######################################################################################################################
-# choose the job that you want to run
-# remember to assgin unique job names
+# remove the "#" to choose the job, assign a unique job name and submit it, then repeat the process
 
 #python TROPOMI_NO2_oversampling_1_preparation.py --domain AF --qa_flag 0.75 --start_date 20190801 --end_date 20190831
 #python TROPOMI_NO2_oversampling_1_preparation.py --domain AF --qa_flag 0.75 --start_date 20190901 --end_date 20190930
