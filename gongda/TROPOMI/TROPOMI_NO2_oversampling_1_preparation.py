@@ -1,14 +1,16 @@
 #####################################################################################################################
 #####################################################################################################################
-# Read TROPOMI NO2 L2 product and prepare for oversampling algorithms
-# This script allows the user to select sampling periods, domain and quality flag without editing the codes (unless you need a custom domain).
-# Add a line like this when submitting Python job:
-# "python TROPOMI_NO2_prepare_oversampling.py --qa_flag 0.5 --start_date 20190801 --end_date 20190802 --domain CH"
+# Read raw TROPOMI NO2 L2 products and prepare for Fortran oversampling algorithms
+# This script allows the user to select the domain, quality flag threshold and a custom sampling period without editing the codes, unless you need a custom domain (see lines 185-222).
+# Modify the working directory (line 229) and the output directory (line 132), then run the script with arguments like:
+# "python TROPOMI_NO2_oversampling_1_preparation.py --domain AF --qa_flag 0.75 --start_date 20190801 --end_date 20190802"
 
-# 1> select raw TROPOMI NO2 L2 files
-# 2> extract data fileds of interest
-# 3> perfrom processings (e.g. applying quality flag)
-# 4> output strings for direct use in Fortran oversampling algorithms
+# This script will:
+# 1> select all raw TROPOMI NO2 L2 files over the chosen domain during the sampling period
+# 2> extract variables of interest from each file
+# 3> apply quality flag, convert unit and keep the data over the chosen domain only
+# 4> save relevant variables from each raw TROPOMI NO2 L2 product to strings, then write all strings into a single file
+# 5> the outpufile will be ready for direct use in oversampling algorithms and named as sth like "TROPOMI_oversampling_input_AF_NO2_0.75_20190801_20190802" 
 
 import os
 import glob
@@ -24,21 +26,21 @@ NO2_fill_value = 9.96921e+36
 NO2_unit_conversion = 6.02214e+19
 
 # initialize some parameters for later use, their values will change according to your arguments
-start_date = int()  # first sampling date
-end_date = int()    # last sampling date
-timewindow1 = str() # initialize the string for timewindow
-timewindow2 = str() # initialize the string for timewindow
+start_date = str()  # first sampling date
+end_date = str()    # last sampling date
+timewindow1 = str() # the string for timewindow1
+timewindow2 = str() # the string for timewindow2
 
-qa_threshold = int(0)  # quality flag threshold 
-lat_min = int(0)    # lat_min for the requested domain
-lat_max = int(0)    # lat_max for the requested domain
-lon_min = int(0)    # lon_min for the requested domain
-lon_max = int(0)    # lon_max for the requested domain
+qa_flag = float() # quality flag threshold 
+lat_min = float() # lat_min for the requested domain
+lat_max = float() # lat_max for the requested domain
+lon_min = float() # lon_min for the requested domain
+lon_max = float() # lon_max for the requested domain
 #####################################################################################################################
 # create a function to select files between two dates
 
 def select_TROPOMI_files_between(start_date,end_date):
-    '''Select files within the start date ('yyyymmdd') and end date ('yyyymmdd')'''
+    '''Select TROPOMI files within the start date ('yyyymmdd') and end date ('yyyymmdd')'''
     # list all the dates between the start and the end
     from datetime import date, timedelta
     start_date = date(int(start_date[0:4]),int(start_date[4:6]),int(start_date[6:8]))
@@ -48,8 +50,8 @@ def select_TROPOMI_files_between(start_date,end_date):
     for i in range(delta.days + 1):
         sampling_dates.append((start_date + timedelta(days=i)).strftime('%Y%m%d'))
     
-    # check the sampling dates
-    print("#############################################","All sampling dates:",*sampling_dates,sep="\n")
+    # print out all the sampling dates
+    print("#"*50,"All sampling dates:",*sampling_dates,sep="\n")
     
     # get files on each day
     TROPOMI_files_each_day = []
@@ -57,14 +59,12 @@ def select_TROPOMI_files_between(start_date,end_date):
         TROPOMI_files_each_day.append(sorted(glob.glob('S5P_OFFL_L2__NO2____'+sampling_dates[i]+'*T'+timewindow1+'*_*_*_*_*_*.nc') + \
                                              glob.glob('S5P_OFFL_L2__NO2____'+sampling_dates[i]+'*T'+timewindow2+'*_*_*_*_*_*.nc')))
     
-    # combine the files on each day into a single list
+    # list the selected files
     import itertools
-    
-    # check the selected files
     print("Number of files:",len((list(itertools.chain.from_iterable(TROPOMI_files_each_day)))))
     print("Files processed:",*list(itertools.chain.from_iterable(TROPOMI_files_each_day)),sep = "\n") 
     
-    # now return the selected files
+    # return the selected files
     return list(itertools.chain.from_iterable(TROPOMI_files_each_day))
 #####################################################################################################################
 # create a "class" of "object" to extract, process and store data fields from the selected TROPOMI files
@@ -101,7 +101,7 @@ class TROPOMI_NO2:
     def process_raw_TROPOMI(self):
         '''For data from each file, do some processing: remove the fill values, apply quality flags, convert units etc.'''
         for i in range(len(self.TROPOMI_data)):
-            self.NO2[i] = np.where(self.flag[i] >= 0.5,self.NO2[i],np.nan) # np.where(condition,x,y): if condition == True, yield x, otherwise y
+            self.NO2[i] = np.where(self.flag[i] >= qa_flag,self.NO2[i],np.nan) # np.where(condition,x,y): if condition == True, yield x, otherwise y
             self.NO2[i] = self.NO2[i]*NO2_unit_conversion  # convert unit to "molecules_percm2"
             self.pre[i] = self.pre[i]*NO2_unit_conversion   
             self.NO2[i] = self.NO2[i]/1e15 # convert to "1e15 molecules_percm2"
@@ -127,7 +127,7 @@ class TROPOMI_NO2:
     def create_output_file(self):      
         """create a single outputfile to store the results from all selected files""" 
         # use a unique suffix to dinguish the output file from each task
-        self.suffix = args.domain+'_NO2_'+'_'+args.start_date+'_'+args.end_date           
+        self.suffix = args.domain+'_NO2_'+args.qa_flag+'_'+args.start_date+'_'+args.end_date           
         # set output direcotry and name the output file
         self.outfile = '/rds/projects/s/shiz-shi-aphh/TROPOMI_NO2_2_Oversampling/Input/TROPOMI_oversampling_input_'+self.suffix
         self.fId = open(self.outfile, "w+") 
@@ -168,10 +168,10 @@ def prepare_TROPOMI_for_oversampling(raw_TROPOMI_file_list):
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("--qa_flag", default='0.75', help="Can be 0.75,0.5")
+    parser.add_argument("--domain", default='AF', help="Can be AF,EU,CH,IND,NA or a custom domain")
+    parser.add_argument("--qa_flag", default='0.75', help="Can be any float between 0 and 1, while 0.75 and 0.5 are normally used")
     parser.add_argument("--start_date", default='20190801', help="Can be any date string in 'yyyymmdd' format")
     parser.add_argument("--end_date", default='20190801', help="Can be any date string in 'yyyymmdd' format")
-    parser.add_argument("--domain", default='AF', help="Can be AF,EU,CH,IND,NA or a custom domain")
     args = parser.parse_args()
     
     # pass arguments for the sampling period
@@ -179,9 +179,10 @@ if __name__ == "__main__":
     end_date = args.end_date
     
     # pass arguments for quality flag
-    qa_threshold = args.qa_flag
+    # the argument that you input will be interpreted as a string, use "float()" to specify that the quality flag is a float number
+    qa_flag = float(args.qa_flag) 
 
-    # pass arguments for domain (data time window + domain lat/lon boundaries)
+    # pass arguments for domain (each domain corresponds to its data time windows and lat/lon boundaries)
     if args.domain == "AF":         # African domain
         lat_min = -40
         lat_max =  48
@@ -220,36 +221,28 @@ if __name__ == "__main__":
     else:
         print("Invalid domain: avaiable domains are AF,EU,CH,IND,NA. Or you can add your custom domain in the script.")
      
-   
-    # after passing all arguments, the job is already specified (period,quality flag and domain) 
     
-    # now move to directory where the raw files are
-    os.chdir("/rds/projects/s/shiz-shi-aphh/TROPOMI_NO2_0_RAW")
-    
-    # after passing all arguments, the job is already specified (period,quality flag and domain) 
-    
-    # now move to directory where the raw files are
-    os.chdir("/rds/projects/s/shiz-shi-aphh/TROPOMI_NO2_0_RAW")
+    # after passing all arguments, the job is already specified (period,quality flag and domain)     
     
     # now start the job
+    # move to directory where the raw files are
+    os.chdir("/rds/projects/s/shiz-shi-aphh/TROPOMI_NO2_0_RAW")
+    
     # import files during the sampling period
     TROPOMI_files_list = select_TROPOMI_files_between(start_date,end_date)
     
     # process each and save outputs from all files to a single txt file
     prepare_TROPOMI_for_oversampling(TROPOMI_files_list)
     
-    # close the txt file that was created for this list
-    
     # check if the job is what you expected
     # the print statements will appear upon job completion
-    print("#############################################")
-    print("Here we check the arguments used in this job:")
-    print("Sampling period:",start_date,"-",end_date)
-    print("Quality flag threshold:",qa_threshold)
+    print("#"*50,"Parameters used in this job:",sep="\n")
     print("Selected domain:",args.domain)
     print("Domain boundaries (lat_min,lat_max,lon_min,lon_max):",lat_min,lat_max,lon_min,lon_max)
     print("TROPOMI files time window:",timewindow1,"+",timewindow2)
+    print("Quality flag threshold:",qa_flag)
+    print("Sampling period:",start_date,"-",end_date)
+    print("The job is done.","#"*50,sep="\n")
 
-    # End of job
-    print("The job is done.")
-    print("#############################################")
+# End
+#####################################################################################################################
