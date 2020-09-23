@@ -4,9 +4,9 @@
 # Overampled TROPOMI data can be: NO2/HCHO/SO2/CO/O3 VCD, the corresponding VCD uncertainties and number of oversampled pixels at any resolution
 
 # You can jump to the functions:
-# Line 33-39 function 1> read_oversampled_TROPOMI(): read oversampled TROPOMI data from the txt file and convert to pandas dataframe
-# Line 62-70 function 2> expand_grid(): given the range of lat and lon, return the full cominations of all lats and lons
-# Line 198-264 function 3> plot_TROPOMI(): input a few parameters (e.g. domain,species, and time), return the corresponding plots
+# Line 30-36 function 1> read_oversampled_TROPOMI(): read oversampled TROPOMI data from the txt file and convert to pandas dataframe
+# Line 59-67 function 2> expand_grid(): given the range of lat and lon, return the full cominations of all lats and lons
+# Line 195-261 function 3> plot_TROPOMI(): input a few parameters (e.g. domain,species, and time), return the corresponding plots
 # Apart from these functions, some other steps are still needed along the process
 
 # Here I use oversampled TROPOMI NO2 over Africa at the 0.25x0.25 resolution to establish the functions. 
@@ -23,9 +23,6 @@ import matplotlib.pyplot as plt
 from gamap_colormap import WhGrYlRd
 import cartopy.crs as ccrs
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
-
-# this is useful only if you are using Jupyter Notebook, as it allows Jupyter to show and store the figure within the notebook
-%matplotlib inline 
 ###############################################################################################
 # move to the directory for oversampled output txt files
 os.chdir("/rds/projects/s/shiz-shi-aphh/TROPOMI_NO2_2_Oversampling/Output")
@@ -313,3 +310,11 @@ for i in range(len(months)):
  
 # End
 ###############################################################################################
+# This plotting routine needs to be smarter:
+# 1> When plotting over 20-50 cities or seaports over 12 months, the pollution levels vary, so the vmax and vmin for the color bar will always change! 
+#    Is there a way to quickly decide the vmax and vmin for the color bar for each set of plots (one set = one speices over one domain during one period)?
+# 2> Instead of plotting each location seperately, can I use sth like a list to loop over all locations?
+# 3> Is there a package that allows you to have more controls of the figure? Is matplotlib enough? I am thinking about adding/editing all features grammatically (like 'ggplot2' in R).
+#    I feel that advanced users prefer things like "imshow"?
+# 4> Try subsetting the 0.01x0.01 data over the target domain first, then plot. I guess it will be faster than zooming in everytime.
+# 5> Need to use subplots to reduce the number of output plots
