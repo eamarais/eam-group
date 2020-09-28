@@ -4,10 +4,10 @@
 # I am using a "shapefile" which consists of at least four actual files (.shp, .shx, .dbf, .prj). This is an obsolete, but still commonly used format. 
 # The new ".rds" format shapefiles seem to be designed only for use in R. I do not know how to read them in Python. 
 
-# Download shapfiles: https://gadm.org/download_country_v3.html
+# Download shapefiles: https://gadm.org/download_country_v3.html
 # Shapefile formats: https://gadm.org/formats.html
 
-# Here I introduce two ways of adding the shapefile
+# Here I introduce two ways of adding the shapefiles
 
 # some global settings
 import os
