@@ -59,7 +59,7 @@ surface_airnumberdensity = [data['Met_AIRNUMDEN'].isel(time=0,lev=0) for data in
 for i in range(len(surface_airnumberdensity)):
     surface_airnumberdensity[i].attrs['long_name'] = 'Dry air number density'
     surface_airnumberdensity[i].attrs['units'] = 'cm-3'
-    
+##################################################################################    
 # combine all relevant variables
 China_daily_VOCs = []
 
@@ -101,7 +101,6 @@ import cartopy.crs as ccrs
 from cartopy.io.shapereader import Reader
 from cartopy.feature import ShapelyFeature
 
-# a test plot
 os.chdir('/rds/projects/2018/maraisea-glu-01/Study/Research_Data/BTH/domain/CHN_ADM')
 China_shape = r'CHN_ADM1.shp'
 china_map = ShapelyFeature(Reader(China_shape).geometries(),ccrs.PlateCarree(), edgecolor='black',facecolor='none')
