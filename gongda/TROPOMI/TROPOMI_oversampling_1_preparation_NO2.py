@@ -168,7 +168,7 @@ def prepare_TROPOMI_for_oversampling(raw_TROPOMI_file_list):
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("--domain", default='AF', help="Can be AF,EU,CH,IND,NA or a custom domain")
+    parser.add_argument("--domain", default='AF', help="Can be AF,EU,SHIPPING, CH or a custom domain")
     parser.add_argument("--qa_flag", default='0.75', help="Can be any float between 0 and 1, while 0.75 and 0.5 are normally used")
     parser.add_argument("--start_date", default='20190801', help="Can be any date string in 'yyyymmdd' format")
     parser.add_argument("--end_date", default='20190801', help="Can be any date string in 'yyyymmdd' format")
@@ -182,51 +182,52 @@ if __name__ == "__main__":
     # the argument that you input will be interpreted as a string, use "float()" to specify that the quality flag is a float number
     qa_flag = float(args.qa_flag) 
 
-    # pass arguments for domain (each domain corresponds to its data time windows and lat/lon boundaries)
-    if args.domain == "AF":         # African domain
+    # Pass arguments for the study domain
+    # Your chosen domain will decide the starting hours of the swath files to be selected
+    # Leave sufficient margins, just to ensure that you include all the swaths that have data over your study area
+    # You can use NASA GES DISC data subsetting tools to help you decide a domain: https://disc.gsfc.nasa.gov/datasets/S5P_L2__NO2____1/summary
+    # Select a domain on the map, insert your sampling period, the NASA tool will return a list of L2 swath files which overpass your domain within your sampling period
+    # Then you can check the starting hours of the files and edit the "start_hour" arguments below
+    # For mid or high latitude regions (lat > 45?), this may cause issues as the swaths are stretched
+    # The NASA subsetting tool will return unwanted files
+    # In this case, you can use NASA Panoply to quickly plot the spicious files, just to see where the swaths actually are
+    if args.domain == "AF":      # Africa
         lat_min = -40
-        lat_max =  48
+        lat_max =  40
         lon_min = -20
-        lon_max =  50
-        timewindow1 = '0[8-9]'
-        timewindow2 = '1[0-4]'
-    elif args.domain == "EU":        # EU nested GEOS-Chem domain
-        lat_min =  32.75 - 0.25/2
-        lat_max =  61.25 + 0.25/2
-        lon_min = -15.0  - 0.3125/2
-        lon_max =  40.0  + 0.3125/2
-        timewindow1 = '0[8-9]'
-        timewindow2 = '1[0-4]'
-    elif args.domain == "CH":        # CH nested GEOS-Chem domain
-        lat_min = 15.0 - 0.25/2
-        lat_max = 55.0 + 0.25/2
-        lon_min = 70.0 - 0.3152/2
-        lon_max = 140.0 + 0.3125/2
-        timewindow1 = '0[3-7]'
-        timewindow2 = 'None'
-    elif args.domain == "IND":       # Indian domain
-        lat_min = 7
-        lat_max = 35
-        lon_min = 67
-        lon_max = 90
-        timewindow1 = '0[6-8]'
-        timewindow2 = 'None'
-    elif args.domain == "NA":        # NA nested GEOS-Chem domain
-        lat_min =  9.75 - 0.25/2
-        lat_max =  60.0 + 0.25/2
-        lon_min = -130.0 - 0.3125/2
-        lon_max = -60.0 + 0.3125/2
-        timewindow1 = '1[5-9]'
-        timewindow2 = '2[0-2]'
+        lon_max =  60
+        start_hour1 = '0[6-9]'
+        start_hour2 = '1[0-5]'
+    elif args.domain == "EU":    # Europe
+        lat_min =  30
+        lat_max =  62
+        lon_min = -16
+        lon_max =  41
+        start_hour1 = '0[6-9]'
+        start_hour2 = '1[0-4]'   
+    elif args.domain == "SHIP":  # Shipping zone
+        lat_min =  10
+        lat_max =  62
+        lon_min = -20
+        lon_max =  60
+        start_hour1 = '0[6-9]'
+        start_hour2 = '1[0-5]'   
+    elif args.domain == "CH":    # East China
+        lat_min = 20
+        lat_max = 42
+        lon_min = 110
+        lon_max = 125
+        start_hour1 = '0[2-5]'
+        start_hour2 = 'None'    
     else:
-        print("Invalid domain: avaiable domains are AF,EU,CH,IND,NA. Or you can add your custom domain in the script.")
+        print("Invalid domain: choose from 'AF','EU', 'SHIP' and 'CH'. Or add your custom domain.")
      
     
     # after passing all arguments, the job is already specified (period,quality flag and domain)     
     
     # now start the job
     # move to directory where the raw files are
-    os.chdir("/rds/projects/s/shiz-shi-aphh/TROPOMI_NO2_0_RAW")
+    os.chdir("/rds/projects/s/shiz-shi-aphh/TROPOMI_RAW_FILES/NO2")
     
     # import files during the sampling period
     TROPOMI_files_list = select_TROPOMI_files_between(start_date,end_date)
@@ -239,7 +240,7 @@ if __name__ == "__main__":
     print("#"*50,"Parameters used in this job:",sep="\n")
     print("Selected domain:",args.domain)
     print("Domain boundaries (lat_min,lat_max,lon_min,lon_max):",lat_min,lat_max,lon_min,lon_max)
-    print("TROPOMI files time window:",timewindow1,"+",timewindow2)
+    print("TROPOMI files time window:",start_hour1,"+",start_hour2)
     print("Quality flag threshold:",qa_flag)
     print("Sampling period:",start_date,"-",end_date)
     print("The job is done.","#"*50,sep="\n")
