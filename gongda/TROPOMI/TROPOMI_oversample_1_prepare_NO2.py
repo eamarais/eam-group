@@ -28,8 +28,8 @@ NO2_unit_conversion = 6.02214e+19
 # initialize some parameters for later use, their values will change according to your arguments
 start_date = str()  # first sampling date
 end_date = str()    # last sampling date
-timewindow1 = str() # the string for timewindow1
-timewindow2 = str() # the string for timewindow2
+start_hour1 = str() # the string for the starting hour of the swath file
+start_hour2 = str() # the string for the starting hour of the swath file
 
 qa_flag = float() # quality flag threshold 
 lat_min = float() # lat_min for the requested domain
@@ -53,11 +53,11 @@ def select_TROPOMI_files_between(start_date,end_date):
     # print out all the sampling dates
     print("#"*50,"All sampling dates:",*sampling_dates,sep="\n")
     
-    # get files on each day
+    # get files on each day, use  "*" to ingore changes in product versions (RPRO or OFFL)
     TROPOMI_files_each_day = []
     for i in range(len(sampling_dates)):
-        TROPOMI_files_each_day.append(sorted(glob.glob('S5P_OFFL_L2__NO2____'+sampling_dates[i]+'*T'+timewindow1+'*_*_*_*_*_*.nc') + \
-                                             glob.glob('S5P_OFFL_L2__NO2____'+sampling_dates[i]+'*T'+timewindow2+'*_*_*_*_*_*.nc')))
+        TROPOMI_files_each_day.append(sorted(glob.glob('S5P_*_L2__NO2____'+sampling_dates[i]+'*T'+start_hour1+'*_*_*_*_*_*.nc') + \
+                                             glob.glob('S5P_*_L2__NO2____'+sampling_dates[i]+'*T'+start_hour2+'*_*_*_*_*_*.nc')))
     
     # list the selected files
     import itertools
@@ -78,7 +78,7 @@ class TROPOMI_NO2:
         self.TROPOMI_data = [Dataset(file, "r", format="NETCDF4") for file in  TROPOMI_files_list]
             
     def extract_raw_TROPOMI(self):    
-        '''Extract relevant variables from raw TROPOMI NO2 files '''       
+        '''Extract relevant variables from a list of raw TROPOMI NO2 files, and close all the files afterwards'''       
         self.NO2 = [np.array(data.groups['PRODUCT'].variables['nitrogendioxide_tropospheric_column'][0][:][:]) for data in self.TROPOMI_data]
         self.lat = [np.array(data.groups['PRODUCT'].variables['latitude'][0][:][:]) for data in self.TROPOMI_data]
         self.lat_bounds = [np.array(data.groups['PRODUCT']['SUPPORT_DATA']['GEOLOCATIONS'].variables['latitude_bounds'][0][:][:][:]) for data in self.TROPOMI_data]
@@ -96,6 +96,7 @@ class TROPOMI_NO2:
         self.pre  = [data.groups['PRODUCT'].variables['nitrogendioxide_tropospheric_column_precision'][0][:][:] for data in self.TROPOMI_data]
         self.sza  = [data.groups['PRODUCT']['SUPPORT_DATA']['GEOLOCATIONS']['solar_zenith_angle'][0][:][:] for data in self.TROPOMI_data]
         self.cld  = [data.groups['PRODUCT']['SUPPORT_DATA']['DETAILED_RESULTS']['cloud_fraction_crb_nitrogendioxide_window'][0][:][:] for data in self.TROPOMI_data]
+        [file.close() for file in self.TROPOMI_data]
             
         # now process the data fields which have been stored by the "TROPOMI_NO2" object          
     def process_raw_TROPOMI(self):
@@ -129,7 +130,7 @@ class TROPOMI_NO2:
         # use a unique suffix to dinguish the output file from each task
         self.suffix = args.domain+'_NO2_'+args.qa_flag+'_'+args.start_date+'_'+args.end_date           
         # set output direcotry and name the output file
-        self.outfile = '/rds/projects/s/shiz-shi-aphh/TROPOMI_NO2_2_Oversampling/Input/TROPOMI_oversampling_input_'+self.suffix
+        self.outfile = '/rds/projects/2018/maraisea-glu-01/Study/Research_Data/TROPOMI/TROPOMI_oversampling_data/Oversampling_Input_Data/TROPOMI_oversampling_input_'+self.suffix
         self.fId = open(self.outfile, "w+") 
         # initialize line counts in the file
         self.line_count = 0
