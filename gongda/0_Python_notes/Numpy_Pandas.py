@@ -119,5 +119,7 @@ test.to_netcdf('China_NO2.nc')
 # check if the output is what you expected
 China_NO2_nc = xr.open_dataset('China_NO2.nc')
 
+# some fun tips of Pandas: https://towardsdatascience.com/30-examples-to-master-pandas-f8a2da751fa4
+
 # End
 #####################################################################
