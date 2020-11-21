@@ -1,11 +1,17 @@
 ###############################################################################################
-# Add shapefiles to a GEOS-Chem concentration map or a TROPOMI NO2 map
+# Add shapefiles to data maps using "geopandas"
 
-# I am using a "shapefile" which consists of at least four actual files (.shp, .shx, .dbf, .prj). This is an obsolete, but still commonly used format. 
-# The new ".rds" format shapefiles seem to be designed only for use in R. I do not know how to read them in Python. 
-
-# Download shapefiles: https://gadm.org/download_country_v3.html
+# Download shapefiles from GADM page: https://gadm.org/download_country_v3.html
 # Shapefile formats: https://gadm.org/formats.html
+
+# Remarks:
+# 1> "Cartopy" is my prefered plotting tool
+# 2> "Geopandas" allows you to select boundaries for a single city/domain or a group of cities/domains of your choice
+# 3> But it can be very hard, even impossible to install geopandas if you are following the instructions on its homepage: https://geopandas.org/
+#    I managed to install it on windows with help from: https://www.youtube.com/watch?v=LNPETGKAe0c
+###############################################################################################
+# Here I am using a "shapefile" which consists of at least four actual files (.shp, .shx, .dbf, .prj). This is an obsolete, but still commonly used format. 
+# The new ".rds" format shapefiles seem to be designed only for use in R.
 
 # Here I introduce two ways of adding the shapefiles
 
@@ -16,7 +22,7 @@ import cartopy.crs as ccrs
 
 # move to the directory for the files
 os.chdir("C:\Study\Shapefile\gadm36_GBR_shp")
-#############################################################
+###############################################################################################
 # Method 1 (Cartopy only)
 from cartopy.io.shapereader import Reader
 from cartopy.feature import ShapelyFeature
@@ -31,7 +37,7 @@ test= plt.axes(projection=ccrs.PlateCarree())
 test.add_feature(UK_map) 
 # zoom in to London
 test.set_extent([-2,2,51,52], crs=ccrs.PlateCarree()) 
-#############################################################
+###############################################################################################
 # Method 2 (Cartopy + Geopandas)
 import geopandas as gpd
 
@@ -61,9 +67,4 @@ test= plt.axes(projection=ccrs.PlateCarree())
 test.add_geometries(study_cities_shapes.geometry, crs=ccrs.PlateCarree(),edgecolor='black',facecolor='none')
 # zoom in to your study domain
 test.set_extent([-5,2,51,57], crs=ccrs.PlateCarree())
-#############################################################
-# Remarks:
-# 1> Cartopy is a basic approach to add the shapefile
-# 2> Geopandas allows you to select boundaries for a single city/domain or a group of cities/domains of your choice
-# 3> But it can be very hard, even impossible to install geopandas if you are following the instructions on its homepage: https://geopandas.org/
-#    I managed to install it on windows with help from: https://www.youtube.com/watch?v=LNPETGKAe0c
+###############################################################################################
