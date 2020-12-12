@@ -8,7 +8,7 @@
 # fast for handling massive files
 # flexible and powerful (edit your own codes for your specific tasks)
 
-# You can use functions from this script: from handle_pdf import "xxx" 
+# You can use functions from this script: from handle_pdfs_for_research import "xxx" 
 # but make sure the "PyPDF2" package is installed in advance 
 # Or you can use the script interactively and develop what you need
 ##############################################################################################
